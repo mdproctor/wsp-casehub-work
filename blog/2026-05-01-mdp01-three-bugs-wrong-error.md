@@ -7,6 +7,7 @@ entry_type: note
 subtype: diary
 projects: [quarkus-work]
 tags: [testing, hibernate, occ, mutiny, wiremock, concurrency]
+excerpt: "The BackPressureFailure filling the CI log is noise — the actual failure is an OptimisticLockException buried further down, caused by the M-of-N coordinator racing against itself during concurrent claim operations."
 ---
 
 The tests were failing intermittently. `NotificationDeliveryTest` first — `Thread.sleep(500)` racing with `CompletableFuture.runAsync()` delivery, plus notification rules accumulating in H2 across test runs because nothing was cleaning up. WireMock dynamically allocates ports; if the OS reuses a port from a previous test, old rules in the database suddenly have a live endpoint to hit. Fixed with Awaitility and an `@AfterEach @Transactional` cleanup that deletes rules, audit entries, and work items in FK order.

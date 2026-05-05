@@ -7,6 +7,7 @@ entry_type: note
 subtype: diary
 projects: [quarkus-work]
 tags: [testing, ci, multi-instance, defaults, design]
+excerpt: "Three unrelated CI failures arrive at once — a Friday business-hours assertion, a SNAPSHOT API drift, and a multi-instance default whose effects only appear under concurrent load — all sharing the shape 'works locally, fails in CI.'"
 ---
 
 CI was failing on three separate tests. None of them were related — except

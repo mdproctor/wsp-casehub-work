@@ -7,6 +7,7 @@ entry_type: note
 subtype: diary
 projects: [casehub-work]
 tags: [webhooks, github, jira, normative-layer, priority, testing, panache]
+excerpt: "NormativeResolution maps GitHub and Jira close events to speech-act semantics, CRITICAL gets renamed URGENT after finding it borrows ITSM severity vocabulary into a task scheduling context where it doesn't belong."
 ---
 
 The `close` event from GitHub doesn't just mean "done." It might mean the work was completed, or abandoned as not worth doing, or attempted and failed. Those three outcomes — fulfilled, refused, failed — map to COMPLETED, CANCELLED, REJECTED in WorkItems.

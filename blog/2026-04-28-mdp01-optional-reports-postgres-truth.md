@@ -7,6 +7,7 @@ entry_type: note
 subtype: diary
 projects: [quarkus-work]
 tags: [sla-reporting, postgresql, testcontainers, quarkus-augmentation, hql]
+excerpt: "The PostgreSQL Testcontainer test finds a HQL date-truncation query that passes on H2 but fails on PostgreSQL — catching a dialect incompatibility that would have reached production undetected."
 ---
 
 Reporting for `quarkus-work` is done. Four endpoints: SLA breach list, actor performance, throughput over time, queue health. The interesting part isn't the endpoints — it's what it took to get a PostgreSQL dialect test passing, and what that test found when it finally ran.

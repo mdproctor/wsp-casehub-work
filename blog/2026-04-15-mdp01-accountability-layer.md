@@ -7,6 +7,7 @@ entry_type: note
 subtype: diary
 projects: [quarkus-work]
 tags: [ledger, eigentrust, quarkus-flow, tdd]
+excerpt: "The ledger becomes a CDI observer on WorkItemLifecycleEvent — invisible when absent, zero overhead, zero tables — with hash chain and decision context on by default for GDPR Article 22 compliance."
 ---
 
 The conversation that shaped everything in this session came before I wrote a line of code.

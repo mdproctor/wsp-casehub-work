@@ -7,6 +7,7 @@ entry_type: note
 subtype: diary
 projects: [quarkus-work]
 tags: [architecture, ai-native, casehub, semantic-routing, langchain4j]
+excerpt: "Splitting quarkus-work-api into pure contract and quarkus-work-core with CDI implementations reveals that WorkBroker and WorkItems are specialisations of a shared Work substrate that CaseHub also needs."
 ---
 
 The insight that started this session: `quarkus-work-api` was already a shared contract layer. The follow-on question — what else belongs below the WorkItems inbox, and what's actually inbox-specific? — turned into a day's work.

@@ -7,6 +7,7 @@ entry_type: note
 subtype: diary
 projects: [quarkus-work]
 tags: [architecture, ai-native, routing, casehub, filter-registry]
+excerpt: "A confidence-gated routing rule that could be wired in twenty lines becomes quarkus-work-filter-registry instead — because inline logic is a trap that becomes load-bearing and unremovable."
 ---
 
 Three epics shipped before the interesting thing happened.

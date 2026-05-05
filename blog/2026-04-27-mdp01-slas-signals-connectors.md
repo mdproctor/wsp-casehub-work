@@ -7,6 +7,7 @@ entry_type: note
 subtype: diary
 projects: [quarkus-work, casehub-connectors]
 tags: [business-hours, notifications, spi, cdi, connectors]
+excerpt: "Business-hours SLA and outbound notifications ship, and a notification routing detail that starts as a one-line decision grows into casehub-connectors — a separate repository born from the question of where channel adapters should live."
 ---
 
 Three epics this session: business-hours SLA, outbound notifications, and something
