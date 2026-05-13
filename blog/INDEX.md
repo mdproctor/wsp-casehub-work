@@ -2,6 +2,7 @@
 
 | File | Date | Title |
 |------|------|-------|
+| [2026-05-13-mdp01-human-task-binding-design.md](2026-05-13-mdp01-human-task-binding-design.md) | 2026-05-13 | The half that was missing — outbound human task binding design, WorkerProvisioner rejected, HumanTaskTarget, outputMapping on PlanItem, callerRef in casehub-work |
 | [2026-04-14-mdp01-tarkus-scaffold-to-native.md](2026-04-14-mdp01-tarkus-scaffold-to-native.md) | 2026-04-14 | Building Quarkus WorkItems: From Scaffold to Native in One Session |
 | [2026-04-15-mdp01-accountability-layer.md](2026-04-15-mdp01-accountability-layer.md) | 2026-04-15 | The accountability layer — complexity must not leak |
 | [2026-04-15-mdp02-examples-that-prove-it.md](2026-04-15-mdp02-examples-that-prove-it.md) | 2026-04-15 | Examples that prove it — four runnable scenarios covering every ledger capability |
