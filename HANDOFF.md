@@ -20,21 +20,23 @@
 - CaseHub WorkItem already covers most OHT capabilities; three gaps worth closing
 - New issues filed: #169 (named outcomes), #170 (output schema), #171 (excluded owners), #172 (emit+listen SWF bridge)
 
-### Handover skill fix
-- `handover` skill updated (both installed + cc-praxis source) to add "resume handover" workflow with workspace-awareness: checks CLAUDE.md for workspace path before reading HANDOFF.md
+### casehubio/work#97 — confirmed fully blocked
+- Webhook path (option 1) is covered by `casehub-work-notifications` — no work needed
+- Qhorus event mesh (chosen approach) blocked on qhorus#131, qhorus#132, and `casehub-work-qhorus` module not existing
+- Comment added to #97
 
 ## Immediate Next Step
 
-Start epic #92 child issue **#97** — WorkItem event mesh. The webhooks path is open now (notifications module already does outbound webhooks); check what #97 specifically requires beyond that before assuming it's done.
+**#166** — multi-instance + callerRef design session. Needs brainstorming before any implementation.
 
 ## Open / Next
 
 | Priority | What |
 |---|---|
-| 1 | casehubio/work#97 — event mesh (webhooks path open, Qhorus path blocked) |
-| 2 | casehubio/work#166 — multi-instance + callerRef (needs design session) |
-| 3 | casehubio/work#169–171 — OHT gaps (named outcomes, output schema, excluded owners) |
-| 4 | casehub-clinical — Epic 4 adverse event escalation |
+| 1 | casehubio/work#166 — multi-instance + callerRef (needs design session) |
+| 2 | casehubio/work#169–171 — OHT gaps (named outcomes, output schema, excluded owners) |
+| 3 | casehub-clinical — Epic 4 adverse event escalation |
+| blocked | casehubio/work#97 — event mesh (blocked on qhorus#131, #132) |
 
 ## Key References
 
