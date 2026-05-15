@@ -2,6 +2,7 @@
 
 | File | Date | Title |
 |------|------|-------|
+| [2026-05-15-mdp01-swf-doesnt-have-a-human.md](2026-05-15-mdp01-swf-doesnt-have-a-human.md) | 2026-05-15 | HumanTask binding verified (861 tests); SWF 1.0 has no human task type; OHT comparison; three gaps worth closing; @BeforeEach @Transactional proxy exception |
 | [2026-05-13-mdp01-human-task-binding-design.md](2026-05-13-mdp01-human-task-binding-design.md) | 2026-05-13 | The half that was missing — outbound human task binding design, WorkerProvisioner rejected, HumanTaskTarget, outputMapping on PlanItem, callerRef in casehub-work |
 | [2026-04-14-mdp01-tarkus-scaffold-to-native.md](2026-04-14-mdp01-tarkus-scaffold-to-native.md) | 2026-04-14 | Building Quarkus WorkItems: From Scaffold to Native in One Session |
 | [2026-04-15-mdp01-accountability-layer.md](2026-04-15-mdp01-accountability-layer.md) | 2026-04-15 | The accountability layer — complexity must not leak |
