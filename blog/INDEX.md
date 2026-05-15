@@ -2,6 +2,7 @@
 
 | File | Date | Title |
 |------|------|-------|
+| [2026-05-15-mdp02-parent-gets-the-callerref.md](2026-05-15-mdp02-parent-gets-the-callerref.md) | 2026-05-15 | callerRef propagation for multi-instance groups: event wiring was already there, children stay null, Awaitility untilAsserted vs during for exact counts |
 | [2026-05-15-mdp01-swf-doesnt-have-a-human.md](2026-05-15-mdp01-swf-doesnt-have-a-human.md) | 2026-05-15 | HumanTask binding verified (861 tests); SWF 1.0 has no human task type; OHT comparison; three gaps worth closing; @BeforeEach @Transactional proxy exception |
 | [2026-05-13-mdp01-human-task-binding-design.md](2026-05-13-mdp01-human-task-binding-design.md) | 2026-05-13 | The half that was missing — outbound human task binding design, WorkerProvisioner rejected, HumanTaskTarget, outputMapping on PlanItem, callerRef in casehub-work |
 | [2026-04-14-mdp01-tarkus-scaffold-to-native.md](2026-04-14-mdp01-tarkus-scaffold-to-native.md) | 2026-04-14 | Building Quarkus WorkItems: From Scaffold to Native in One Session |
