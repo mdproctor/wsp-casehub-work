@@ -77,18 +77,23 @@ PlanItem. `WorkItemLifecycleAdapter` already ignores individual child events.
 
 ## Tests
 
-Two new tests in `MultiInstanceCoordinatorTest`:
+One new test in `MultiInstanceCoordinatorTest`:
 
-1. **`createGroup_withCallerRef_setsOnParentOnly`** — call `createGroup()` with
-   a non-null callerRef; assert parent has it; assert all children have null.
+1. **`createGroup_withCallerRef_setsOnParentOnly`** — call `createGroup()` directly
+   with a non-null callerRef; assert parent has it; assert all 3 children have null.
 
-2. **`groupLifecycleEvent_carriesCallerRef_whenThresholdMet`** — create a group
-   with callerRef, complete M children, assert
+One new test in `WorkItemGroupLifecycleEventTest` (placed here rather than
+`MultiInstanceCoordinatorTest` because `EventCapture`, the Awaitility
+stability-window pattern, and `@ObservesAsync` infrastructure already live there):
+
+2. **`completedGroupEvent_carriesCallerRef`** — drive a 2-of-2 group to
+   completion via `instantiate()`, assert the resulting `COMPLETED`
    `WorkItemGroupLifecycleEvent.callerRef()` matches the original value.
+   Uses a `during(300ms)` stability window to guard against spurious duplicate events.
 
-One new test in `WorkItemTemplateInstantiateTest`:
+One renamed+inverted test in `WorkItemTemplateInstantiateTest`:
 
-3. **`instantiate_multiInstance_withCallerRef_setsOnParent`** — verify callerRef
+3. **`instantiate_multiInstanceTemplate_setsCallerRefOnParent`** — verify callerRef
    is no longer silently dropped when instantiating a multi-instance template.
 
 ---
