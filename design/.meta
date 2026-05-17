@@ -1,0 +1,8 @@
+epic: epic-output-schema
+project-sha: b2b9632825068eea2d10a09abb5e7667e51f93ce
+date: 2026-05-17
+issue: 170
+design-section-hashes:
+  fc45f725 ## Build Roadmap
+  14ba32f2 ## Flyway Migration History
+  813e5a28 ## Testing Strategy
