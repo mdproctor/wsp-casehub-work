@@ -7,6 +7,7 @@ entry_type: note
 subtype: diary
 projects: [casehub-work, casehub-engine]
 tags: [engine, adapter, human-task, serverless-workflow, standards]
+excerpt: "861 tests green, HumanTask binding shipped — then asking whether any of it maps to a standard, and finding that Serverless Workflow 0.9 has no human task primitive at all."
 ---
 
 The previous entry covered the HumanTask binding design — the sealed

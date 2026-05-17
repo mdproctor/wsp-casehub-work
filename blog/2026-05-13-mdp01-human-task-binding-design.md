@@ -7,6 +7,7 @@ entry_type: note
 subtype: diary
 projects: [casehub-work, casehub-engine]
 tags: [cdi, engine, adapter, human-task, design, binding]
+excerpt: "The outbound path from engine binding to WorkItem creation was missing — tracing why WorkerProvisioner couldn't work, and designing HumanTaskScheduleHandler as the correct event-driven hook."
 ---
 
 The issue said the casehub-work adapter wasn't implemented. Claude opened the `work-adapter` module and immediately found `WorkItemLifecycleAdapter.java`, `CallerRef.java`, and eight passing tests. The inbound path — WorkItem completes, adapter parses `callerRef`, marks the PlanItem, fires `CONTEXT_CHANGED` — was done. The issue description was wrong, or at least incomplete.
