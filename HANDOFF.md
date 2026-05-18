@@ -1,37 +1,53 @@
 # casehub-work — Session Handover
-**Date:** 2026-05-15
+**Date:** 2026-05-18
 
 ## What Was Done This Session
 
-### casehubio/work#166 — callerRef propagation for multi-instance groups ✅ merged
-- `MultiInstanceSpawnService.createGroup()` gains 4th `String callerRef` param; set on parent WorkItem only
-- `WorkItemTemplateService.instantiate()` removes warn-and-ignore block; passes callerRef through
-- Children remain null — `WorkItemGroupLifecycleEvent` already reads `parent.callerRef` (no change needed there)
-- 3 new tests: `createGroup_withCallerRef_setsOnParentOnly`, `completedGroupEvent_carriesCallerRef` (with `during()` stability window), `instantiate_multiInstanceTemplate_setsCallerRefOnParent`
-- 641 runtime tests, 0 failures. PR #173 merged, #166 closed.
+### OHT gaps #170 + #171 — both closed and merged to main
 
-### Stale ledger audit prompt (non-event)
-- Prompt described 3 bugs in `casehub-work-ledger` — all fixed April 29. Verified and moved on.
+**#170 — Schema-validated output (epic-output-schema):**
+- `WorkItemTemplate.inputDataSchema` + `outputDataSchema` (JSON Schema TEXT), snapshotted to `WorkItem`
+- `WorkItemFormSchema` entity + CRUD API deleted — template is now the sole type definition
+- `FormSchemaValidationService` moved from resource to service layer
+- V23/V24/V25 Flyway migrations
 
-## Immediate Next Step
+**#171 — Excluded users (epic-excluded-users):**
+- `ExclusionPolicy` SPI in `casehub-work-api` (`@DefaultBean`: `CommaSeparatedExclusionPolicy`)
+- `excludedUsers` TEXT on template + WorkItem; enforced at 5 assignment paths
+- `SelectionContext` carries `excludedUsers` for external strategy SPI coherence
+- V26/V27 Flyway migrations
 
-**engine#255** — template mode in `HumanTaskScheduleHandler` + `WorkItemGroupLifecycleAdapter` (engine-side partner to #166). User said engine team will handle this.
+### Cherry-pick damage incident — found and fixed
+A separate Claude session merged both epics using `git cherry-pick -X ours`, silently dropping the REST surface and mapper for `excludedUsers` while keeping the service-layer enforcement. 41 files fixed. All 673 runtime tests passing. 30-point verification confirmed correct.
 
-Next casehub-work item: **#169–171** — OHT gaps (named outcomes, output schema, excluded owners). Needs design session first.
+### Epic skill updated
+- Step B8: branches never deleted automatically; EPIC-CLOSED.md written with 14-day deletion date; always return to main after close (with prompt)
+- Workflow C: branch hygiene scan — checks Flyway V conflicts, code merge status, artifact promotion, closure marker, deletion eligibility
+
+### Protocols and skills updated
+- `flyway-version-range-allocation.md`: branch-level V-number reservation rule (`flyway-next-v` in `.meta`)
+- `java-dev` skill: extended IntelliJ-first rule to cover bulk structural edits — never Python/bash for Java source manipulation
+
+## Current State
+- Both repos on `main`
+- Both epic branches kept (deletion scheduled 2026-06-01): `epic-output-schema`, `epic-excluded-users`
+- 673 runtime tests, 0 failures
+
+## Immediate Next
+
+**casehub-clinical — Epic 4 adverse event escalation** — next substantive feature work.
+
+Or: address engine SelectionContext call sites (#187) — 2 files in casehub-engine need `excludedUsers` as 8th arg.
 
 ## Open / Next
 
 | Priority | What |
 |---|---|
-| 1 | casehubio/work#169–171 — OHT gaps (named outcomes, output schema, excluded owners) |
-| 2 | casehub-clinical — Epic 4 adverse event escalation |
+| next | casehub-clinical Epic 4 adverse event escalation |
+| engine | casehub-engine #187 — SelectionContext call sites need 8th arg (excludedUsers) |
 | blocked | casehubio/work#97 — event mesh (blocked on qhorus#131, #132) |
-| engine | casehubio/engine#255 — template mode + WorkItemGroupLifecycleAdapter (engine team) |
+| debt | #181 WorkItemWithAuditResponse missing permittedOutcomes; #182 WorkItemCreateRequest builder; #183 JsonNode TextNode validation |
 
 ## Key References
-
-- Blog: `blog/2026-05-15-mdp02-parent-gets-the-callerref.md`
-- Spec: `specs/2026-05-15-callerref-multi-instance-design.md`
-- Garden: `GE-20260515-ed10ee` — Awaitility `untilAsserted` vs `during` for exact event counts
-- Stale squash plans (can delete): `docs/squash-plan-2026-05-07.md`, `docs/squash-plan-v3-2026-05-08.md`
-- Clinical context: `~/claude/casehub/clinical/wksp/HANDOFF.md`
+- Blog: `blog/2026-05-18-mdp01-template-as-type-system.md`
+- Garden: GE-20260518-cf67e4 (cherry-pick -X ours), GE-20260518-d1e4b2 (Python Java parsing), GE-20260518-96bd10 (IntelliJ MCP stale cache)
