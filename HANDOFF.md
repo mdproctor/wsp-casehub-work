@@ -1,47 +1,44 @@
 # casehub-work — Session Handover
-**Date:** 2026-05-21
+**Date:** 2026-05-21 (second session)
 
 ## What Was Done This Session
 
-**#182 — WorkItemCreateRequest builder refactor (merged to main):**
-- 24-param positional record → `final class` with enforced builder; no positional constructor exists
-- `CreateWorkItemRequest` (HTTP DTO record) gained inner Builder
-- 60+ call sites across 7 modules migrated via subagent-driven development
-- Drift-protection test guards future field/setter mismatches
+**All S/M backlog issues closed:**
+- #195 — `WorkItemCreateRequest.toString()` log-safety comment
+- #193 — `instantiate()` exclusion gap confirmed by test
+- #194 — `LabelPersistence` → Tier 1 (casehub-work-api); `WorkItemLabelRequest` creation type
+- #179 — `PUT /workitem-templates/{id}` update endpoint
+- #178 — `?outcome=` filter on `GET /workitems`
+- #176 — `reject()` accepts named outcome, validates against permittedOutcomes
+- #117 — `RoundRobinStrategy` (cursor SPI, V29 migration, REQUIRES_NEW self-inject fix)
+- #161 closed (already done), #168 closed (duplicate of #182)
 
-**Small fixes merged:**
-- #197 — `SelectionContext` 8th arg (`excludedUsers`) in 3 casehub-work-core tests
-- #196 — `WorkItemQueueEventTest` using JSON body for claim endpoint; fix is `?claimant=alice` query param (body is silently ignored by JAX-RS `@QueryParam`)
+**Upstream delivery:**
+- 33 commits squashed to 14, pushed to `casehubio/work` main
+- `epic-excluded-users` formally closed via work-end
 
-**DESIGN.md exhaustive audit:**
-- Fixed stale test counts across all modules; added V28 Flyway entry; split examples/queues-examples in test table; added #182 roadmap entry
-- Surfaced 2 pre-existing test failures: #196 (now fixed) and #197 (now fixed)
-
-**Branch hygiene:**
-- `epic-excluded-users` formally closed via work-end; EPIC-CLOSED.md on branch, deletion due 2026-06-03
-- `epic-exclusion-audit` and `epic-output-schema` still open — no EPIC-CLOSED.md, work-end not yet run
-
-**Prompt snippet refined:**
-- Clarified cost vs complexity distinction in design philosophy item #5; updated parent docs/prompt-snippets.md
+**Deferred issues filed:**
+- #196, #197 (fixed this session), #199 (PATCH alternative), #200 (inbox outcome filter), #201 (test isolation), #202 (cursor TTL), #203 (RoundRobinAssignmentStrategy inconsistency)
 
 ## Current State
 
-- Both repos on `main`, 693 runtime tests, 82 queues tests (all passing)
-- `epic-exclusion-audit` branch: retained until 2026-06-02 (already merged)
-- `epic-output-schema` branch: needs work-end
+- Both repos on `main`, both origin and upstream (`casehubio/work`) up to date
+- 711 runtime tests, 32 core tests — all green
+- V29 Flyway migration live
+- `epic-exclusion-audit` and `epic-output-schema` branches still need work-end
 
 ## Immediate Next Step
 
-Run `work-end` on `epic-exclusion-audit` and `epic-output-schema` — both merged to main but never formally closed.
+Run `work-end` on `epic-exclusion-audit` and `epic-output-schema` — both merged to main but no `EPIC-CLOSED.md`.
 
 ## What's Left
 
-- `epic-exclusion-audit` — work-end not run, no EPIC-CLOSED.md · XS · Low
-- `epic-output-schema` — work-end not run, no EPIC-CLOSED.md · XS · Low
-- #193 — `instantiate()` exclusion gap (assigneeId override vs template excludedUsers) · XS · Low
-- #194 — `WorkItemLabelResponse` type on `WorkItemCreateRequest.labels` (response type in service command) · S · Med
-- #195 — `WorkItemCreateRequest.toString()` scope and `formKey` omission comments · XS · Low
-- casehub-engine #187 — SelectionContext 8th arg in engine (tracked here, fix is in engine repo) · S · Low
+- `epic-exclusion-audit` — work-end not run · XS · Low
+- `epic-output-schema` — work-end not run · XS · Low
+- #203 — `RoundRobinAssignmentStrategy` doesn't handle `"round-robin"` config · S · Low
+- #202 — cursor row cleanup / TTL for stale `routing_cursor` rows · S · Low
+- #200 — `?outcome=` filter on `GET /workitems/inbox` (trivial now cursor in place) · XS · Low
+- casehub-engine #187 — SelectionContext 8th arg call sites in engine · S · Low (engine repo)
 
 ## What's Next
 
@@ -49,11 +46,11 @@ Run `work-end` on `epic-exclusion-audit` and `epic-output-schema` — both merge
 |---|-------------|-------|------------|-------|
 | — | work-end on epic-exclusion-audit + epic-output-schema | XS | Low | Do first |
 | — | casehub-clinical Epic 4 — adverse event escalation | L | Med | — |
-| #193 | instantiate() exclusion gap | XS | Low | — |
-| #182 debt | #194 label type, #195 toString comments | S | Low | Low priority |
+| #203 | RoundRobinAssignmentStrategy round-robin config | S | Low | — |
+| #200 | ?outcome= on inbox endpoint | XS | Low | — |
 
 ## Key References
 
-- Blog: `blog/2026-05-21-mdp01-record-cant-say-no.md`
-- Garden: GE-20260521-6f257b (JAX-RS body ignored), GE-20260521-340888 (git cherry-pick not-merged), GE-20260521-cb1eea (git three-dot diff misleading)
-- Protocol: PP-20260521-9d4988 (journal migration number sync)
+- Blog: `blog/2026-05-21-mdp02-retry-that-wasnt.md`
+- Garden: GE-20260521-0e0122 (REQUIRES_NEW dead retry), GE-20260521-998034 (multi-catch subclass)
+- Protocol: PP-20260521-903472 (built-in strategy registration, three-place atomicity)
