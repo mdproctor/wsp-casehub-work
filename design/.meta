@@ -1,0 +1,7 @@
+branch: issue-212-sla-breach-policy
+project-sha: 70cb406f9931c4bc3eb8cc3a698f371316a0092a
+date: 2026-05-22
+issue: 212
+flyway-next-v: none
+design-repo: workspace
+design-section-hashes: 8c1a8ff0:## Build Roadmap|63d921f7:## Flyway Migration History|7b7415c9:## Testing Strategy|
