@@ -1,56 +1,44 @@
 # casehub-work — Session Handover
-**Date:** 2026-05-21 (second session)
+**Date:** 2026-05-22
 
 ## What Was Done This Session
 
-**All S/M backlog issues closed:**
-- #195 — `WorkItemCreateRequest.toString()` log-safety comment
-- #193 — `instantiate()` exclusion gap confirmed by test
-- #194 — `LabelPersistence` → Tier 1 (casehub-work-api); `WorkItemLabelRequest` creation type
-- #179 — `PUT /workitem-templates/{id}` update endpoint
-- #178 — `?outcome=` filter on `GET /workitems`
-- #176 — `reject()` accepts named outcome, validates against permittedOutcomes
-- #117 — `RoundRobinStrategy` (cursor SPI, V29 migration, REQUIRES_NEW self-inject fix)
-- #161 closed (already done), #168 closed (duplicate of #182)
+Cleared the backlog (#200 inbox filters, #202 cursor TTL, #203 round-robin config), ran work-end on epic-exclusion-audit and epic-output-schema, then implemented #207 (JqConditionEvaluator → JQEvaluator from casehub-platform-expression). Git workflow corrected: rebase upstream before start/end, push to origin/main, PRs to upstream separately on demand.
 
-**Upstream delivery:**
-- 33 commits squashed to 14, pushed to `casehubio/work` main
-- `epic-excluded-users` formally closed via work-end
-
-**Deferred issues filed:**
-- #196, #197 (fixed this session), #199 (PATCH alternative), #200 (inbox outcome filter), #201 (test isolation), #202 (cursor TTL), #203 (RoundRobinAssignmentStrategy inconsistency)
+Key findings: five inbox filter params were declared but silently ignored; `candidateUsers` causes immediate auto-assignment (status PENDING → ASSIGNED); `@QuarkusComponentTest` silently auto-stubs external beans unless listed in `value[]` (undocumented — found via bytecode inspection, GE-20260522-2664b9 filed).
 
 ## Current State
 
-- Both repos on `main`, both origin and upstream (`casehubio/work`) up to date
-- 711 runtime tests, 32 core tests — all green
-- V29 Flyway migration live
-- `epic-exclusion-audit` and `epic-output-schema` branches still need work-end
+- Both repos on `main`, origin/main pushed, 5 commits ahead of upstream
+- Runtime: 722 tests. Queues: 83 tests. All green.
+- V30 Flyway migration live (routing_cursor.last_accessed)
+- `RoutingCursorCleanupJob` scheduled daily at 02:00 (configurable)
 
 ## Immediate Next Step
 
-Run `work-end` on `epic-exclusion-audit` and `epic-output-schema` — both merged to main but no `EPIC-CLOSED.md`.
+Open PR from origin/main → upstream (casehubio/work) when ready — covers #200, #202, #203, #207 and the doc/workflow fixes.
 
 ## What's Left
 
-- `epic-exclusion-audit` — work-end not run · XS · Low
-- `epic-output-schema` — work-end not run · XS · Low
-- #203 — `RoundRobinAssignmentStrategy` doesn't handle `"round-robin"` config · S · Low
-- #202 — cursor row cleanup / TTL for stale `routing_cursor` rows · S · Low
-- #200 — `?outcome=` filter on `GET /workitems/inbox` (trivial now cursor in place) · XS · Low
-- casehub-engine #187 — SelectionContext 8th arg call sites in engine · S · Low (engine repo)
+- `epic-excluded-users` — open branch, recent commit (31h ago), no EPIC-CLOSED.md · XS · Low
+- parent#41 — add casehub-platform-expression to BOM (filed, waiting on parent session) · XS · Low
+- #208 — replace deprecated `quarkus-junit5` in queues pom · XS · Low
+- #209 — inbox outcome filter positive-path test · S · Low
+- #210 — inject CDI ObjectMapper into JqConditionEvaluator · XS · Low
+- #205 — candidateUser dropped when assignee also provided in inbox · S · Med
+- engine#314, engine#320 — same JQ consolidation in engine repo · S · Low
 
 ## What's Next
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| — | work-end on epic-exclusion-audit + epic-output-schema | XS | Low | Do first |
+| — | Open PR origin → casehubio/work | XS | Low | When ready |
+| — | work-end epic-excluded-users | XS | Low | Check if merged |
 | — | casehub-clinical Epic 4 — adverse event escalation | L | Med | — |
-| #203 | RoundRobinAssignmentStrategy round-robin config | S | Low | — |
-| #200 | ?outcome= on inbox endpoint | XS | Low | — |
+| #205 | candidateUser + assignee inbox gap | S | Med | — |
 
 ## Key References
 
-- Blog: `blog/2026-05-21-mdp02-retry-that-wasnt.md`
-- Garden: GE-20260521-0e0122 (REQUIRES_NEW dead retry), GE-20260521-998034 (multi-catch subclass)
-- Protocol: PP-20260521-903472 (built-in strategy registration, three-place atomicity)
+- Blog: `blog/2026-05-22-mdp01-params-that-did-nothing.md`
+- Garden: GE-20260522-2664b9 (@QuarkusComponentTest external bean wiring)
+- parent#41: BOM update for casehub-platform-expression
