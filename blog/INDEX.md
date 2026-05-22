@@ -25,3 +25,4 @@
 | [2026-05-19-mdp01-policy-owns-the-reason.md](2026-05-19-mdp01-policy-owns-the-reason.md) | 2026-05-19 | ExclusionPolicy.check() returns PolicyDecision carrying the denial reason; BlockedAttemptAuditService with REQUIRES_NEW; guard ordering bug caught in review |
 | [2026-05-21-mdp01-record-cant-say-no.md](2026-05-21-mdp01-record-cant-say-no.md) | 2026-05-21 | Builder pattern for WorkItemCreateRequest — records can't restrict construction; Immutables considered and rejected; cost vs complexity distinction; JAX-RS silent body ignore |
 | [2026-05-21-mdp02-retry-that-wasnt.md](2026-05-21-mdp02-retry-that-wasnt.md) | 2026-05-21 | Backlog cleared; REQUIRES_NEW dead retry via self-inject fix; LabelPersistence to Tier 1; cherry-pick branch archaeology; 33→14 commits pushed upstream |
+| [2026-05-22-mdp01-params-that-did-nothing.md](2026-05-22-mdp01-params-that-did-nothing.md) | 2026-05-22 | Cleanup session finds five patterns of declared-but-not-wired code |
