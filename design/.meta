@@ -1,0 +1,7 @@
+branch: issue-207-jq-platform-evaluator
+project-sha: bf19d5509762e3577a7f0d7188558509c857c5d0
+date: 2026-05-22
+issue: 207
+flyway-next-v: none
+design-repo: workspace
+design-section-hashes: 8c1a8ff0:## Build Roadmap|63d921f7:## Flyway Migration History|7b7415c9:## Testing Strategy|
