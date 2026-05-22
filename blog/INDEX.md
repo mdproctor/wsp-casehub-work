@@ -27,3 +27,4 @@
 | [2026-05-21-mdp02-retry-that-wasnt.md](2026-05-21-mdp02-retry-that-wasnt.md) | 2026-05-21 | Backlog cleared; REQUIRES_NEW dead retry via self-inject fix; LabelPersistence to Tier 1; cherry-pick branch archaeology; 33→14 commits pushed upstream |
 | [2026-05-22-mdp01-params-that-did-nothing.md](2026-05-22-mdp01-params-that-did-nothing.md) | 2026-05-22 | Cleanup session finds five patterns of declared-but-not-wired code |
 | [2026-05-22-mdp02-hook-that-passed-everything.md](2026-05-22-mdp02-hook-that-passed-everything.md) | 2026-05-22 | Pre-push hook silently broken for weeks; merge commits defeat git rebase -i drop |
+| [2026-05-22-mdp03-the-decision-the-policy-returns.md](2026-05-22-mdp03-the-decision-the-policy-returns.md) | 2026-05-22 | SlaBreachPolicy replaces void EscalationPolicy; sealed BreachDecision types; stateless two-tier escalation; transaction safety fix from DevTown round three |
