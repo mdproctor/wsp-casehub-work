@@ -1,41 +1,46 @@
 # casehub-work — Session Handover
-**Date:** 2026-05-22 (third session)
+**Date:** 2026-05-22 (fourth session)
 
 ## What Was Done This Session
 
-Squashed 43 → 23 commits on main. Pre-push hook was silently broken (`git log --oneline` SHA prefix defeats `^`-anchored grep; fixed to `--format=%s`). Merge commits also defeat `git rebase -i drop` (silent exit 0 via BUG path; fixed with `--no-rebase-merges`). Closed `epic-excluded-users` — found and promoted an unpromoted spec. All work pushed to both origin and upstream (casehubio/work).
-
-*Earlier this session: `git show HEAD~1:HANDOFF.md` — backlog items #200/#202/#203, #207, workflow fixes.*
+Shipped `SlaBreachPolicy` SPI replacing `EscalationPolicy` (#212/#213): sealed `BreachDecision` types (Fail/EscalateTo/Extend/Chained), `ExpiryLifecycleService` rewritten policy-driven, `SlaBreachEvent` CDI event carrying the leaf decision, V31 scope field, `scanRoots` 3-param split (#205), queues cleanup (#208–#210). Three DevTown review rounds. Two critical fixes post-review: `EscalateTo.to()` validates non-empty groups at factory; executor converts bare empty `EscalateTo` to logged Fail (transaction boundary guard). `BreachedTask.taskId` changed from `String` to `UUID`. Fixed persistent blog misrouting: `write-blog` skill now reads `~/.claude/blog-routing.yaml` first — entries go directly to `mdproctor.github.io/_notes/`, no workspace staging. Branch closed, both repos on main.
 
 ## Current State
 
-- Both repos on `main`, origin and upstream current
-- 23 clean commits on main since last PR merge (8ffe54f); all epic branches closed
-- Runtime: 722 tests, Queues: 83 tests — all green
+- Both repos on `main`, origin current. Upstream (casehubio/work) is 7 commits ahead of its last PR merge.
+- `casehub-platform` local clone has `Path.root()` committed (`d8d8461`) but not pushed to `casehubio/platform` — blocks #212 from shipping to upstream until platform publishes.
+- 746 runtime tests, 84 queues tests, 61 api tests — all green.
 
 ## Immediate Next Step
 
-Open PR from origin/main → upstream (casehubio/work) — covers #200, #202, #203, #207 and workflow fixes.
+Coordinate with platform team to push and publish `Path.root()` from platform commit `d8d8461`. Once published, open PR from `origin/main` → `casehubio/work`.
+
+## Cross-Module
+
+**Blocking:**
+- `casehub-engine` — needs `WorkItem.scope` field (V31) for `HumanTaskTarget.scope` propagation · S · Low · engine#330
+
+**Blocked by:**
+- `casehub-platform` — `Path.root()` must be published before #212 can ship to casehubio/work · XS · Low
 
 ## What's Left
 
-- parent#41 — casehub-platform-expression into BOM · XS · Low
-- #208 — replace quarkus-junit5 with quarkus-junit in queues pom · XS · Low
-- #209 — inbox outcome filter positive-path test · S · Low
-- #210 — inject CDI ObjectMapper into JqConditionEvaluator · XS · Low
-- #205 — candidateUser + assignee inbox divergence · S · Med
-- engine#314, engine#320 — JQ consolidation in engine · S · Low
+- engine#330 — `HumanTaskTarget.scope` field propagation to `WorkItem.scope` · S · Low
+- work#215 — remove deprecated `EscalationPolicy` impls + producer (after consuming apps migrate) · S · Low
+- work#216 — WorkBroker auto-assignment after `EscalateTo` decision · S · Med
+- parent#43 — sync `docs/repos/casehub-work.md` for SlaBreachPolicy, scope field, 3-param scanRoots · XS · Low
 
 ## What's Next
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| — | Open PR origin → casehubio/work | XS | Low | When ready |
-| — | casehub-clinical Epic 4 — adverse event escalation | L | Med | — |
-| #205 | candidateUser + assignee inbox divergence | S | Med | — |
+| — | Open PR origin → casehubio/work | XS | Low | After platform publishes Path.root() |
+| — | casehub-clinical Epic 4 — adverse event escalation | L | Med | First consumer of SlaBreachPolicy |
+| #205 | candidateUser + assignee inbox divergence | S | Med | Filed, unresolved |
 
 ## Key References
 
-- Blog: `blog/2026-05-22-mdp02-hook-that-passed-everything.md`
-- Garden: GE-20260522-7159b4 (git log --oneline hook), GE-20260522-5b1589 (rebase drop silent), GE-20260522-2664b9 (@QuarkusComponentTest)
-- parent#41: BOM update for casehub-platform-expression
+- Blog: `_notes/2026-05-22-mdp03-the-decision-the-policy-returns.md` (mdproctor.github.io)
+- Garden: GE-20260522-44bbf3 (@Transactional batch rollback), GE-20260511-3e5a75 (REVISE — deprecated + SlaBreachPolicy migration)
+- Spec: `docs/specs/issue-212-sla-breach-policy/2026-05-22-sla-breach-policy-design.md`
+- Platform commit: `d8d8461` (Path.root() — local only, not pushed)
