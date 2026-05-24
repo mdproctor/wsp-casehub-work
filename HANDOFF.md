@@ -1,46 +1,50 @@
 # casehub-work — Session Handover
-**Date:** 2026-05-23 (sixth session)
+**Date:** 2026-05-24 (seventh session)
 
 ## What Was Done This Session
 
-Pushed all work from the previous session to both origin and upstream. Then chased
-casehubio/work CI from red to green across 11 builds — fixing 7 accumulated failures
-(API drift, missing casehub-platform deps, wrong scope, 5-field cron, ledger test
-arg order). CI is now green: all 21 modules pass (Build and Publish run 26314534946).
+Chased CI from red to green: ledger#88 moved `ActorType`/`ActorTypeResolver` to
+`io.casehub.platform.api.identity` (8 imports in ledger, 2 in examples fixed);
+ledger#95 moved base migrations to `db/ledger/migration` (Flyway locations fixed
+in ledger + examples test configs). CI green, all 76 ledger tests pass locally.
+Closed the issue-212 workspace branch (journal + spec merged to workspace main,
+stale remote deleted). Updated casehub-work.md and PLATFORM.md in parent with
+new modules, platform-api deps, scope rule, and Flyway range table.
 
 ## Current State
 
-- Both repos on `main`, fully synced to casehubio upstream.
-- Issue #218 closed. CI green.
-- `casehub-platform` dep now correctly scoped: `test` for library modules, `runtime`
-  for application modules that run `quarkus:build`.
-- 6 old epic branches exist locally without EPIC-CLOSED.md — code is in upstream,
-  branches are undeleted (14-day retention policy applies).
+- Both repos on `main`, CI green.
+- Issues #219 (CI fixes) and #222 (epic-212 workspace close) closed.
+- `issue-215-escalation-removal-and-fixes` workspace remote branch missing
+  EPIC-CLOSED.md — minor paperwork, not blocking.
+- Epic branches scheduled for deletion 2026-06-05 (14-day retention).
 
 ## Immediate Next Step
 
-engine#330 — add `WorkItem.scope` field (V31 migration) for `HumanTaskTarget.scope`
-propagation in casehub-engine. Small, unblocked.
+engine#330 — add `WorkItem.scope` to `HumanTaskTarget` and propagate through
+`HumanTaskScheduleHandler`. **This is engine-repo work — open a Claude session
+in `~/claude/casehub/engine`, not here.**
 
 ## Cross-Module
 
 **We're blocking:**
 - `casehub-engine` — needs `WorkItem.scope` (V31) for `HumanTaskTarget.scope` · S · Low · engine#330
 
-**Blocked by:** nothing currently.
+**Blocked by:** nothing.
 
 ## What's Left
 
-- engine#330 — `HumanTaskTarget.scope` propagation to `WorkItem.scope` · S · Low
-- Delete stale remote `origin/issue-212-sla-breach-policy` · XS · Low
+- Add EPIC-CLOSED.md to workspace `issue-215-escalation-removal-and-fixes` branch · XS · Low
 
 ## What's Next
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| — | engine#330 — WorkItem.scope V31 | S | Low | First unblocked item |
-| — | casehub-clinical Epic 4 — adverse event escalation | L | Med | First consumer of SlaBreachPolicy |
+| — | engine#330 — WorkItem.scope V31 | S | Low | Engine session, not here |
+| — | casehub-clinical Epic 4 — adverse event escalation | L | Med | First SlaBreachPolicy consumer |
 
 ## Key References
 
-- Garden: GE-20260523-60365e (quarkus:build test-scope CDI), GE-20260523-51620a (SNAPSHOT API drift)
+- Garden: GE-20260524-1f0045 (git push from wrong branch silently pushes local branch)
+- Protocols: PP-20260524-a8f597 (casehub-platform scope), PP-20260524-10efef (Flyway ledger locations)
+- Blog: `2026-05-24-mdp01-snapshot-drift-ten-imports.md`
