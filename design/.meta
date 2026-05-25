@@ -1,0 +1,8 @@
+branch: issue-228-branch-hygiene
+project-sha: 6bda17a3d66a9ca2a60ee7714fe78a6b2efc23c3
+date: 2026-05-25
+issue: 228
+issue-repo: casehubio/work
+flyway-next-v: none
+design-repo: project
+design-section-hashes:
