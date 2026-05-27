@@ -1,36 +1,32 @@
-# Handover — 2026-05-26
+# Handover — 2026-05-27
 
 ## Last Session
 
-*(Previous session 2026-05-25: cleared S/XS trailing obligations, stamped 4 branches closed.)*
-
-**Parent session (2026-05-26) made commits to this repo directly:**
-- `fix(#224)` on main: SlaBreachEvent Javadoc corrected — `@Observes` not `@ObservesAsync` (event is synchronous `fire()`)
-- `docs(#198)` on main: WorkItemLabelMapperTest — one-line comment noting MANUAL-only scope, INFERRED tested in WorkItemServiceTest
-- `fix(#223)` on branch `issue-223-provenance-supplement`: LedgerEventCapture now attaches ProvenanceSupplement on the creation entry for case-orchestrated WorkItems. `callerRef` stored unchanged as `sourceEntityId` per PP-20260526-6d39e5. Placement before Merkle hash — critical. 27 tests green.
-
-Closed this session: work#224, work#198, work#223, work#164 (folder names already correct).
+Cleared 4 backlog issues (#201, #214, #206, #211) on one branch — test isolation
+fix, `@DefaultBean NoOpRoutingCursorStore`, positive-path outcome filter test, and
+`WorkItemService.extend()` (closes the `BreachDecision.Extend` execution gap).
+Also fixed the flaky `PostgresBroadcasterIT` (#230) by adding a warm-up probe
+that confirms the PostgreSQL LISTEN channel is active before asserting on filtered
+results. Both branches pushed to upstream.
 
 ## Immediate Next Step
 
-**PR the open branch `issue-223-provenance-supplement`** — created by parent session, 27 tests passing.
-Branch is on `issue-223-provenance-supplement` in the project repo.
+**PR `issue-223-provenance-supplement`** — branch exists locally, no PR yet.
+This was flagged in the previous handover and skipped again this session.
 
 ## Cross-Module
 
-**New issue filed by parent session:**
-- `casehubio/work#229` — rename `db/migration/` → `db/work/migration/` across all submodules (runtime, ai, notifications, queues, ledger, issue-tracker). Protocol PP-20260525-607b33. Coordinated breaking change — consumer repos (aml, clinical, devtown) must update simultaneously.
+*Unchanged — `git show HEAD~1:HANDOFF.md`*
 
 ## What's Next
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
 | work#229 | Rename db/migration/ → db/work/migration/ (Flyway scoping) | M | Low | Coordinated with aml, clinical, devtown |
-| engine#330 | WorkItem.scope V31 — HumanTaskTarget propagation | S | Low | Engine session, not here |
 | parent#66 | Apply CLAUDE.md size discipline to remaining casehubio repos | L | Low | Checklist in issue; casehub-work is the reference impl |
 
 ## Key References
 
 - Open branch: `issue-223-provenance-supplement` (project repo — needs PR)
-- Protocols: PP-20260526-6d39e5 (opaque cross-module identifiers — new), PP-20260525-607b33 (Flyway repo-scoped paths — new), PP-20260525-8c361f, PP-20260525-5b1efa
-- Garden: GE-20260525-58fcbf, GE-20260525-3fe619 (unchanged)
+- Protocols: PP-20260526-25c59b (WorkEventType enum coverage — new this session), PP-20260526-6d39e5, PP-20260525-607b33
+- Garden: GE-20260526-bfc589 (REST Assured Instant precision), GE-20260527-714661 (async LISTEN warm-up probe — new this session)
