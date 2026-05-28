@@ -1,4 +1,4 @@
-# Design Journal — issue-222-close-epic-212-workspace
+# Design Journal — issue-233-xs-s-batch-cleanup
 
 <!-- Merged from issue-212-sla-breach-policy workspace branch -->
 

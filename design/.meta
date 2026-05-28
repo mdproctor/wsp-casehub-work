@@ -1,0 +1,8 @@
+branch: issue-233-xs-s-batch-cleanup
+project-sha: b8ed4529acb06a8fbcaa82506a81835074263e7f
+date: 2026-05-29
+issue: 233
+issue-repo: casehubio/work
+flyway-next-v: none
+design-repo: workspace
+design-section-hashes:
