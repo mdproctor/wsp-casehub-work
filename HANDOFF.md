@@ -2,25 +2,34 @@
 
 ## Last Session
 
-Issue triage: 4 S/XS items identified from 23 open (#221 enum, #231 CDI fix,
-#232 test cosmetics, #192 CREATE_DENIED audit). Branch `issue-233-xs-s-batch-cleanup`
-scaffolded, no implementation — session ended waiting for IntelliJ to open casehub-work.
+Closed `issue-233-xs-s-batch-cleanup` — five XS/S issues: `SIGNAL_RECEIVED` enum (#221),
+`ClaimFirstStrategy @Alternative @Priority(0)` CDI fix (#231), migration customizer
+cosmetics (#232), capability matching contract javadoc (#220 partial), `CREATE_DENIED`
+audit with pre-generated WorkItem ID + V32 FK drop (#192). Branch rebased onto main,
+pushed to origin and upstream. All closed.
 
 ## Immediate Next Step
 
-Open `casehub-work` in IntelliJ, then `resume handover` to pick up on
-`issue-233-xs-s-batch-cleanup`. Implement #221 → #231 → #232 → #192 in order.
+**`issue-223-provenance-supplement`** — branch exists locally, no PR filed.
+Flagged in three consecutive handovers. Either raise the PR or close the branch.
 
-## Branch Hygiene (do before starting new work)
+## Cross-Module
 
-7 branches need "chore: branch closed" stamp: issue-201, issue-204, issue-207,
-issue-212, issue-228, issue-229, issue-230.
+*Unchanged — `git show HEAD~2:HANDOFF.md`*
+
+## What's Left
+
+- `issue-223-provenance-supplement` — open branch, no PR, deferred again · S · Low
+- `#220` — short-term (shared constants) and long-term (CapabilityRegistry SPI) still open; only javadoc immediate step done · M · Med
 
 ## What's Next
 
-*Unchanged — `git show HEAD~1:HANDOFF.md`* except #233 replaces the completed items.
+| # | Description | Scale | Complexity | Notes |
+|---|-------------|-------|------------|-------|
+| parent#66 | Apply CLAUDE.md size discipline to remaining casehubio repos | L | Low | casehub-work is reference impl |
 
 ## Key References
 
-- Active branch: `issue-233-xs-s-batch-cleanup`
-- Garden: GE-20260529-182916 (project-init grep misses bold-markdown CLAUDE.md)
+- Garden: GE-20260529-010101 (REQUIRES_NEW try-catch commit-time gotcha — new this session)
+- Garden REVISE: GE-20260415-884e48 (@Priority alternative solution added — new this session)
+- Blog: `2026-05-29-mdp06-audit-entry-that-couldnt-exist.md`
