@@ -1,0 +1,8 @@
+branch: issue-220-capability-registry
+project-sha: efeda0a8fcf2406f68fa8eaa64e36c826624ed13
+date: 2026-05-29
+issue: 220
+issue-repo: casehubio/work
+flyway-next-v: none
+design-repo: project
+design-section-hashes:
