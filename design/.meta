@@ -1,0 +1,8 @@
+branch: issue-235-sxs-sweep
+project-sha: 81117bf316cb66a56933ab7a425b60374ddc3963
+date: 2026-05-29
+issue: 235
+issue-repo: casehubio/work
+flyway-next-v: 33
+design-repo: project
+design-section-hashes:
