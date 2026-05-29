@@ -2,32 +2,81 @@
 
 **Issue:** casehubio/work#220
 **Branch:** issue-220-capability-registry
-**Date:** 2026-05-29
+**Date:** 2026-05-29 (revised after spec review)
 
 ## Problem
 
-Engine `CaseDefinition` capability names and worker capability tags in `WorkerCandidate.capabilities` are both `String`, matched by `WorkBroker` using exact case-sensitive equality. There is no shared vocabulary, no validation, and no documentation of the matching contract. A mismatch (e.g. engine: `"legal-review"`, worker: `"legal_review"`) causes silent routing failure — `WorkOrchestrator` throws `IllegalStateException("No worker available for capability: legal-review")` with no diagnostic pointing at the vocabulary gap.
+Engine `CaseDefinition` capability names and worker capability tags in `WorkerCandidate.capabilities` are both `String`, matched by `WorkBroker` using exact case-sensitive equality. There is no shared vocabulary, no format enforcement, and no validation. A mismatch (`"legal-review"` vs `"legal_review"`) causes silent routing failure — `WorkOrchestrator` throws `IllegalStateException("No worker available")` with no diagnostic pointing at the vocabulary gap.
 
-## Deliverables
+## Scope Decision: Capability Value Type
 
-Two deliverables in sequence:
+Rather than adding validation infrastructure on top of the raw-String foundation, this issue introduces a `Capability` value type. Format errors (underscore instead of hyphen, uppercase) are caught at construction time rather than at routing time — the entire format-mismatch bug class is eliminated at the type level. This is a **breaking change** to `WorkerCandidate` and `SelectionContext`, acceptable at 0.2-SNAPSHOT.
 
-1. **Short-term:** `WorkCapabilities` constants class in `casehub-work-api` — well-known string constants importable by engine case definitions and worker registrations.
-2. **Long-term:** `CapabilityRegistry` SPI in `casehub-work-api` with creation-time validation wired into `WorkItemService`.
+**Wire format and DB column stay as comma-separated String** — no Flyway migration, no REST API break.
 
-## SPI and Types (`casehub-work-api`)
+## New Types in `casehub-work-api`
 
-### `CapabilityRegistry`
+### `Capability` record
 
 ```java
-public interface CapabilityRegistry {
-    Set<String> capabilities();
-    default ValidationMode validationMode() { return ValidationMode.PERMISSIVE; }
-    default boolean isKnown(String tag) { return capabilities().contains(tag); }
+public record Capability(String id) {
+    public Capability {
+        Objects.requireNonNull(id);
+        if (!id.matches("[a-z][a-z0-9-]*"))
+            throw new MalformedCapabilityException(id);
+    }
+    public static Capability of(String id) { return new Capability(id); }
 }
 ```
 
-`isKnown()` is a default interface method that always delegates to `capabilities()`. Implementors override `capabilities()` only — never `isKnown()` backed by a static field, which would silently bypass subclass overrides (GE-20260511-a5f47d).
+Format contract: **lowercase kebab-case only** (`[a-z][a-z0-9-]*`). `"legal-review"` is valid; `"Legal-Review"` and `"legal_review"` are not.
+
+### `MalformedCapabilityException` (unchecked)
+
+Thrown by the `Capability` constructor. Maps to 400:
+
+```json
+{"error": "MALFORMED_CAPABILITY", "values": ["Legal-Review"],
+ "message": "Capability id must be lowercase kebab-case"}
+```
+
+### `WorkCapabilities`
+
+```java
+public final class WorkCapabilities {
+    public static final Capability LEGAL_REVIEW      = Capability.of("legal-review");
+    public static final Capability CONTRACT_ANALYSIS = Capability.of("contract-analysis");
+    // ... curated by platform team; examples import FROM here, never the reverse
+    private WorkCapabilities() {}
+}
+```
+
+Contents are curated platform vocabulary. Examples and test code import from this class.
+
+### `CapabilityRegistry` SPI
+
+```java
+public interface CapabilityRegistry {
+    /** Known capability vocabulary. Empty set means unmanaged. */
+    Set<Capability> capabilities();
+
+    /**
+     * Returns true if {@code tag} is a known capability.
+     *
+     * <p>Matching is exact and case-sensitive — {@code "legal-review"} and
+     * {@code "Legal-Review"} are distinct (the Capability constructor enforces
+     * lowercase kebab-case, so the latter is rejected before reaching this method).
+     *
+     * <p>Override when direct lookup is more efficient than loading the full
+     * capabilities set (e.g. database-backed registry with SELECT EXISTS).
+     * Never back this method with a static field — that silently bypasses
+     * subclass capability sets (GE-20260511-a5f47d).
+     */
+    default boolean isKnown(Capability tag) { return capabilities().contains(tag); }
+}
+```
+
+`validationMode` is **not** on the registry — policy is a deployment concern, not a vocabulary concern (see `ValidationMode` below).
 
 ### `ValidationMode`
 
@@ -35,41 +84,52 @@ public interface CapabilityRegistry {
 public enum ValidationMode { STRICT, WARN, PERMISSIVE }
 ```
 
-- `PERMISSIVE` (default) — no check; identical behaviour to today
-- `WARN` — logs unknown tags, proceeds
-- `STRICT` — rejects creation with `UnknownCapabilityException` (maps to 400)
+Controlled by config property:
 
-### `UnknownCapabilityException`
-
-Unchecked. Carries the list of unknown tags. Mapped to `400` by `UnknownCapabilityExceptionMapper` in `runtime`.
-
-### `WorkCapabilities`
-
-```java
-public final class WorkCapabilities {
-    public static final String LEGAL_REVIEW      = "legal-review";
-    public static final String CONTRACT_ANALYSIS = "contract-analysis";
-    // ... populated from examples module usage
-    private WorkCapabilities() {}
-}
+```properties
+casehub.work.capability-validation=PERMISSIVE   # default — no enforcement
 ```
 
-Populated from the capabilities already used in the `examples` module. Engine case definitions and worker registrations import from here rather than duplicating strings.
+### `UnknownCapabilityException` (unchecked)
+
+Thrown by `CapabilityValidator` in STRICT mode. Maps to 400:
+
+```json
+{"error": "UNKNOWN_CAPABILITY", "values": ["legal_review", "audit-sign"],
+ "message": "Unknown capabilities: [legal_review, audit-sign]"}
+```
+
+All unknown tags appear in the response (not just the first).
 
 ## Default Implementation (`casehub-work-core`)
+
+### `PermissiveCapabilityRegistry`
 
 ```java
 @DefaultBean
 @ApplicationScoped
 public class PermissiveCapabilityRegistry implements CapabilityRegistry {
-    @Override public Set<String> capabilities() { return Set.of(); }
-    @Override public ValidationMode validationMode() { return ValidationMode.PERMISSIVE; }
+    @Override public Set<Capability> capabilities() { return Set.of(); }
 }
 ```
 
-`@DefaultBean` means any application-scoped `CapabilityRegistry` in the deploying app displaces it automatically — no `@Alternative @Priority(1)` required. Existing deployments see no behaviour change.
+`@DefaultBean` — any application-scoped `CapabilityRegistry` in the deploying app displaces it. Existing deployments see no behaviour change.
 
-Follows the same module placement pattern as `NoOpWorkerRegistry`: SPI interface in `api/`, CDI default in `core/`.
+### `WorkCapabilitiesRegistry`
+
+```java
+@ApplicationScoped
+public class WorkCapabilitiesRegistry implements CapabilityRegistry {
+    private static final Set<Capability> KNOWN = Set.of(
+        WorkCapabilities.LEGAL_REVIEW,
+        WorkCapabilities.CONTRACT_ANALYSIS
+        // ...
+    );
+    @Override public Set<Capability> capabilities() { return KNOWN; }
+}
+```
+
+Not `@DefaultBean` — teams deploy it explicitly as `@Alternative @Priority(1)` when they want platform-vocabulary enforcement. Bridges the constants class and the registry SPI: teams enabling STRICT mode get a working starting point without implementing a registry from scratch.
 
 ## Validator Service (`casehub-work-core`)
 
@@ -77,21 +137,20 @@ Follows the same module placement pattern as `NoOpWorkerRegistry`: SPI interface
 @ApplicationScoped
 public class CapabilityValidator {
 
+    @ConfigProperty(name = "casehub.work.capability-validation",
+                    defaultValue = "PERMISSIVE")
+    ValidationMode validationMode;
+
     @Inject CapabilityRegistry registry;
 
-    public void validate(String commaSeparatedCapabilities) {
-        if (registry.validationMode() == ValidationMode.PERMISSIVE
-                || commaSeparatedCapabilities == null
-                || commaSeparatedCapabilities.isBlank()) {
-            return;
-        }
-        List<String> unknown = Arrays.stream(commaSeparatedCapabilities.split(","))
-                .map(String::trim).filter(s -> !s.isEmpty())
-                .filter(tag -> !registry.isKnown(tag))
+    /** No-op if mode is PERMISSIVE or the set is empty. */
+    public void validate(Set<Capability> capabilities) {
+        if (validationMode == ValidationMode.PERMISSIVE || capabilities.isEmpty()) return;
+        List<Capability> unknown = capabilities.stream()
+                .filter(c -> !registry.isKnown(c))
                 .toList();
         if (unknown.isEmpty()) return;
-
-        if (registry.validationMode() == ValidationMode.STRICT) {
+        if (validationMode == ValidationMode.STRICT) {
             throw new UnknownCapabilityException(unknown);
         } else {
             Log.warnf("WorkItem references unregistered capabilities: %s", unknown);
@@ -100,39 +159,125 @@ public class CapabilityValidator {
 }
 ```
 
-PERMISSIVE short-circuits immediately — zero overhead on the default path.
+Accepts `Set<Capability>` — caller owns the parse from the comma-separated String. PERMISSIVE short-circuits immediately.
 
-## Creation-Path Wiring (`runtime`)
+## Breaking Changes to Existing SPIs
 
-`CapabilityValidator` is injected into `WorkItemService` and called at the top of `create()` before any entity construction:
+### `WorkerCandidate` (`api/`)
 
 ```java
-@Inject CapabilityValidator capabilityValidator;
+// Before
+public record WorkerCandidate(String id, Set<String> capabilities, int activeWorkItemCount)
 
-@Transactional
-public WorkItem create(final WorkItemCreateRequest request) {
-    capabilityValidator.validate(request.requiredCapabilities);
-    // ... existing code unchanged
+// After
+public record WorkerCandidate(String id, Set<Capability> capabilities, int activeWorkItemCount)
+```
+
+`WorkerRegistry` implementations return `Set<Capability>` for the capabilities field.
+
+### `SelectionContext` (`api/`)
+
+```java
+// Before
+public record SelectionContext(..., String requiredCapabilities, ...)
+
+// After
+public record SelectionContext(..., Set<Capability> requiredCapabilities, ...)
+```
+
+Callers constructing `SelectionContext` parse the comma-separated String to `Set<Capability>` at the boundary.
+
+### `WorkBroker.filterByCapabilities()` (`core/`)
+
+No longer parses a comma-separated string — operates directly on `Set<Capability>`:
+
+```java
+private List<WorkerCandidate> filterByCapabilities(SelectionContext ctx, List<WorkerCandidate> candidates) {
+    if (ctx.requiredCapabilities().isEmpty()) return candidates;
+    return candidates.stream()
+            .filter(c -> c.capabilities().containsAll(ctx.requiredCapabilities()))
+            .toList();
 }
 ```
 
-`WorkItemService.create()` is the single chokepoint — spawn (`WorkItemSpawnService`), multi-instance (`MultiInstanceSpawnService`), and template instantiation (`WorkItemTemplateService`) all build a `WorkItemCreateRequest` and pass through here.
+## Creation-Path Wiring (`runtime`)
 
-If `requiredCapabilities` is also mutable via PATCH, the same `validate()` call guards that path.
+### `WorkItemService.create()`
 
-`UnknownCapabilityExceptionMapper` in `runtime` maps `UnknownCapabilityException` to a `400` response with the unknown tag names in the body.
+`CapabilityValidator` is a primary dependency — constructor-injected:
 
-## Scoping
+```java
+public WorkItemService(..., CapabilityValidator capabilityValidator) {
+    ...
+    this.capabilityValidator = capabilityValidator;
+}
 
-Scoping (per-domain policies, per-tenant registries) is out of scope. The SPI is a CDI `@Alternative` — teams can compose their own registry that delegates to sub-registries or scopes by prefix without changes to the SPI contract.
+@Transactional
+public WorkItem create(final WorkItemCreateRequest request) {
+    capabilityValidator.validate(parseCapabilities(request.requiredCapabilities));
+    // ... existing entity construction unchanged
+}
 
-Startup validation of worker-declared capabilities is also out of scope. `WorkerCandidate.capabilities` is resolved lazily per-group by `WorkerRegistry` — there is no static worker capability declaration mechanism today. That requires a separate issue.
+private Set<Capability> parseCapabilities(String raw) {
+    if (raw == null || raw.isBlank()) return Set.of();
+    return Arrays.stream(raw.split(","))
+            .map(String::trim).filter(s -> !s.isEmpty())
+            .map(Capability::of)   // throws MalformedCapabilityException on bad format
+            .collect(Collectors.toSet());
+}
+```
+
+`parseCapabilities()` is the single parse point — format validation fires here (bad format → `MalformedCapabilityException` → 400), then vocabulary validation fires in `CapabilityValidator`.
+
+### Immutability
+
+`requiredCapabilities` is **write-once**. `WorkItemService` sets it only in `create()` and `clone()`. There is no update path — no second validation site needed.
+
+### `clone()` + STRICT mode
+
+`clone()` calls `create()` so the same validation applies. A WorkItem cloned in PERMISSIVE mode (before a registry was deployed) may have capabilities not in a later STRICT registry — cloning it will fail. This is intentional: the registry defines what the system currently accepts. Operators enabling STRICT mode must ensure all existing capability strings are registered before switching. This is a known migration responsibility, not a bug.
+
+### Exception Mappers (`runtime`)
+
+```java
+@Provider
+public class MalformedCapabilityExceptionMapper implements ExceptionMapper<MalformedCapabilityException> {
+    public Response toResponse(MalformedCapabilityException e) {
+        return Response.status(400)
+            .entity(Map.of("error", "MALFORMED_CAPABILITY",
+                           "values", e.badValues(),
+                           "message", "Capability id must be lowercase kebab-case"))
+            .build();
+    }
+}
+
+@Provider
+public class UnknownCapabilityExceptionMapper implements ExceptionMapper<UnknownCapabilityException> {
+    public Response toResponse(UnknownCapabilityException e) {
+        return Response.status(400)
+            .entity(Map.of("error", "UNKNOWN_CAPABILITY",
+                           "values", e.unknownIds(),
+                           "message", "Unknown capabilities: " + e.unknownIds()))
+            .build();
+    }
+}
+```
+
+`e.badValues()` and `e.unknownIds()` return `List<String>` (the String ids) for JSON serialisation.
+
+## Out of Scope
+
+- **Scoping / per-domain policies** — the `CapabilityRegistry` SPI is a CDI `@Alternative`; teams can compose sub-registries or scope by prefix without changes to the SPI contract.
+- **Startup validation of worker-declared capabilities** — `WorkerCandidate.capabilities` is resolved lazily by `WorkerRegistry`; no static worker capability declaration mechanism exists. Separate issue when needed.
 
 ## Testing
 
-| Test | Module | Type |
-|------|--------|------|
-| `CapabilityRegistryTest` | `api` | Unit — `isKnown()` delegates to `capabilities()`; GE-20260511-a5f47d guard |
-| `PermissiveCapabilityRegistryTest` | `core` | Unit — PERMISSIVE, empty set, validate is no-op |
-| `CapabilityValidatorTest` | `core` | Unit — all three modes; null/blank always pass; unknown tags named in exception |
-| `WorkItemServiceCapabilityIT` | `runtime` | `@QuarkusTest` — STRICT registry via `@Alternative @Priority(1)` test profile; 201 for known, 400 for unknown |
+| Test | Module | Notes |
+|------|--------|-------|
+| `CapabilityTest` | `api` | Valid kebab-case accepted; uppercase, underscore, leading digit rejected; `MalformedCapabilityException` message includes the bad value |
+| `CapabilityRegistryTest` | `api` | `isKnown()` default delegates to `capabilities()`; subclass overriding only `capabilities()` gets correct `isKnown()` (GE guard) |
+| `PermissiveCapabilityRegistryTest` | `core` | `capabilities()` → empty; `validate(anySet)` → no-op |
+| `WorkCapabilitiesRegistryTest` | `core` | Returns `WorkCapabilities` constants; `isKnown(WorkCapabilities.LEGAL_REVIEW)` → true |
+| `CapabilityValidatorTest` | `core` | PERMISSIVE → always passes; WARN + unknown → logs, no throw; STRICT + known → passes; STRICT + unknown → throws with all unknown values named; null/empty set → always passes; comma edge cases (leading/trailing spaces, double commas) handled by caller's `parseCapabilities()` |
+| `WorkItemServiceCapabilityIT` | `runtime` | `@QuarkusTest` with `@Alternative @Priority(1)` STRICT registry containing `LEGAL_REVIEW`; POST with `requiredCapabilities=legal-review` → 201; POST with `requiredCapabilities=legal_review` → 400 MALFORMED_CAPABILITY; POST with `requiredCapabilities=unknown-cap` → 400 UNKNOWN_CAPABILITY; all unknown values present in 400 body; clone of STRICT-rejected capability → 400 |
+| `WorkBrokerTest` | `core` | `filterByCapabilities` uses `Set<Capability>` directly; candidate missing one required capability excluded; empty required set → all candidates pass |
