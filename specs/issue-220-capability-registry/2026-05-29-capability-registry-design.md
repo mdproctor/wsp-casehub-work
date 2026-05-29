@@ -2,7 +2,7 @@
 
 **Issue:** casehubio/work#220
 **Branch:** issue-220-capability-registry
-**Date:** 2026-05-29 (revised after spec review)
+**Date:** 2026-05-29 (revised after two spec review rounds)
 
 ## Problem
 
@@ -22,14 +22,14 @@ Rather than adding validation infrastructure on top of the raw-String foundation
 public record Capability(String id) {
     public Capability {
         Objects.requireNonNull(id);
-        if (!id.matches("[a-z][a-z0-9-]*"))
+        if (!id.matches("[a-z][a-z0-9]*(-[a-z0-9]+)*"))
             throw new MalformedCapabilityException(id);
     }
     public static Capability of(String id) { return new Capability(id); }
 }
 ```
 
-Format contract: **lowercase kebab-case only** (`[a-z][a-z0-9-]*`). `"legal-review"` is valid; `"Legal-Review"` and `"legal_review"` are not.
+Format contract: **lowercase kebab-case only** (`[a-z][a-z0-9]*(-[a-z0-9]+)*`). `"legal-review"` is valid; `"Legal-Review"`, `"legal_review"`, `"legal-"`, and `"a--b"` are not. No trailing hyphen, no consecutive hyphens.
 
 ### `MalformedCapabilityException` (unchecked)
 
@@ -115,6 +115,8 @@ public class PermissiveCapabilityRegistry implements CapabilityRegistry {
 
 `@DefaultBean` — any application-scoped `CapabilityRegistry` in the deploying app displaces it. Existing deployments see no behaviour change.
 
+## Optional Registry Implementations (`casehub-work-core`)
+
 ### `WorkCapabilitiesRegistry`
 
 ```java
@@ -129,7 +131,7 @@ public class WorkCapabilitiesRegistry implements CapabilityRegistry {
 }
 ```
 
-Not `@DefaultBean` — teams deploy it explicitly as `@Alternative @Priority(1)` when they want platform-vocabulary enforcement. Bridges the constants class and the registry SPI: teams enabling STRICT mode get a working starting point without implementing a registry from scratch.
+**Not `@DefaultBean`** — opt-in. Teams deploy it as `@Alternative @Priority(1)` when they want platform-vocabulary enforcement. Bridges the constants class and the registry SPI: teams enabling STRICT mode get a working starting point without implementing a custom registry.
 
 ## Validator Service (`casehub-work-core`)
 
@@ -143,7 +145,11 @@ public class CapabilityValidator {
 
     @Inject CapabilityRegistry registry;
 
-    /** No-op if mode is PERMISSIVE or the set is empty. */
+    /**
+     * No-op if mode is PERMISSIVE or the set is empty.
+     * Precondition: {@code capabilities} is non-null — use {@code parseCapabilities()} or
+     * {@code parseCapabilitiesLenient()} to produce the argument.
+     */
     public void validate(Set<Capability> capabilities) {
         if (validationMode == ValidationMode.PERMISSIVE || capabilities.isEmpty()) return;
         List<Capability> unknown = capabilities.stream()
@@ -202,6 +208,18 @@ private List<WorkerCandidate> filterByCapabilities(SelectionContext ctx, List<Wo
 
 ## Creation-Path Wiring (`runtime`)
 
+### Dual parse modes (strict-on-write, lenient-on-read)
+
+The `Capability` value type is new — existing `WorkItem` DB rows may contain capability strings that violate the format contract (underscores, uppercase). Strict parsing everywhere would throw `MalformedCapabilityException` inside `@Transactional` routing operations for those rows — a production incident at deployment time.
+
+Two parse modes address this:
+
+**`parseCapabilities(String raw)`** — strict. Throws `MalformedCapabilityException` on any malformed token. Used in `WorkItemService.create()` for new input — format errors surfaced as 400 at creation time.
+
+**`parseCapabilitiesLenient(String raw)`** — lenient. Skips malformed tokens with a `WARN` log entry. Used in `WorkItemAssignmentService` when building `SelectionContext` from DB rows — routing of existing WorkItems is protected; bad tokens are excluded from the required set rather than blowing up the transaction.
+
+This is intentional: the format contract is enforced on new writes. Existing data is served leniently until operators clean it up (e.g., `UPDATE work_item SET required_capabilities = REPLACE(required_capabilities, '_', '-') WHERE required_capabilities LIKE '%\_%'`). No Flyway migration required, but operators should run cleanup before enabling STRICT mode.
+
 ### `WorkItemService.create()`
 
 `CapabilityValidator` is a primary dependency — constructor-injected:
@@ -218,16 +236,32 @@ public WorkItem create(final WorkItemCreateRequest request) {
     // ... existing entity construction unchanged
 }
 
-private Set<Capability> parseCapabilities(String raw) {
+/** Strict parse — throws MalformedCapabilityException on bad format. Used for new input. */
+static Set<Capability> parseCapabilities(String raw) {
     if (raw == null || raw.isBlank()) return Set.of();
     return Arrays.stream(raw.split(","))
             .map(String::trim).filter(s -> !s.isEmpty())
-            .map(Capability::of)   // throws MalformedCapabilityException on bad format
+            .map(Capability::of)
+            .collect(Collectors.toSet());
+}
+
+/** Lenient parse — skips malformed tokens with a WARN log. Used for existing DB rows. */
+static Set<Capability> parseCapabilitiesLenient(String raw) {
+    if (raw == null || raw.isBlank()) return Set.of();
+    return Arrays.stream(raw.split(","))
+            .map(String::trim).filter(s -> !s.isEmpty())
+            .flatMap(s -> {
+                try { return Stream.of(Capability.of(s)); }
+                catch (MalformedCapabilityException e) {
+                    Log.warnf("Skipping malformed capability in DB row: %s", s);
+                    return Stream.empty();
+                }
+            })
             .collect(Collectors.toSet());
 }
 ```
 
-`parseCapabilities()` is the single parse point — format validation fires here (bad format → `MalformedCapabilityException` → 400), then vocabulary validation fires in `CapabilityValidator`.
+Both methods are `package-private static` for testability without CDI. `WorkItemAssignmentService` calls `parseCapabilitiesLenient()` when building `SelectionContext` from a `WorkItem` entity.
 
 ### Immutability
 
@@ -274,10 +308,11 @@ public class UnknownCapabilityExceptionMapper implements ExceptionMapper<Unknown
 
 | Test | Module | Notes |
 |------|--------|-------|
-| `CapabilityTest` | `api` | Valid kebab-case accepted; uppercase, underscore, leading digit rejected; `MalformedCapabilityException` message includes the bad value |
+| `CapabilityTest` | `api` | Valid kebab-case accepted; uppercase, underscore, trailing hyphen, double hyphen, leading digit all rejected; `MalformedCapabilityException` message includes the bad value |
 | `CapabilityRegistryTest` | `api` | `isKnown()` default delegates to `capabilities()`; subclass overriding only `capabilities()` gets correct `isKnown()` (GE guard) |
 | `PermissiveCapabilityRegistryTest` | `core` | `capabilities()` → empty; `validate(anySet)` → no-op |
 | `WorkCapabilitiesRegistryTest` | `core` | Returns `WorkCapabilities` constants; `isKnown(WorkCapabilities.LEGAL_REVIEW)` → true |
 | `CapabilityValidatorTest` | `core` | PERMISSIVE → always passes; WARN + unknown → logs, no throw; STRICT + known → passes; STRICT + unknown → throws with all unknown values named; null/empty set → always passes; comma edge cases (leading/trailing spaces, double commas) handled by caller's `parseCapabilities()` |
 | `WorkItemServiceCapabilityIT` | `runtime` | `@QuarkusTest` with `@Alternative @Priority(1)` STRICT registry containing `LEGAL_REVIEW`; POST with `requiredCapabilities=legal-review` → 201; POST with `requiredCapabilities=legal_review` → 400 MALFORMED_CAPABILITY; POST with `requiredCapabilities=unknown-cap` → 400 UNKNOWN_CAPABILITY; all unknown values present in 400 body; clone of STRICT-rejected capability → 400 |
 | `WorkBrokerTest` | `core` | `filterByCapabilities` uses `Set<Capability>` directly; candidate missing one required capability excluded; empty required set → all candidates pass |
+| `ParseCapabilitiesTest` | `runtime` | `parseCapabilities`: leading/trailing spaces trimmed; double commas skipped; valid multi-token string → correct Set; single bad token throws `MalformedCapabilityException`. `parseCapabilitiesLenient`: bad token skipped + warn logged; valid tokens retained in result |
