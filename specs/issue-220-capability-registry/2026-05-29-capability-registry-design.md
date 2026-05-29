@@ -95,8 +95,8 @@ casehub.work.capability-validation=PERMISSIVE   # default — no enforcement
 Thrown by `CapabilityValidator` in STRICT mode. Maps to 400:
 
 ```json
-{"error": "UNKNOWN_CAPABILITY", "values": ["legal_review", "audit-sign"],
- "message": "Unknown capabilities: [legal_review, audit-sign]"}
+{"error": "UNKNOWN_CAPABILITY", "values": ["audit-sign", "risk-assess"],
+ "message": "Unknown capabilities: [audit-sign, risk-assess]"}
 ```
 
 All unknown tags appear in the response (not just the first).
@@ -214,54 +214,61 @@ The `Capability` value type is new — existing `WorkItem` DB rows may contain c
 
 Two parse modes address this:
 
-**`parseCapabilities(String raw)`** — strict. Throws `MalformedCapabilityException` on any malformed token. Used in `WorkItemService.create()` for new input — format errors surfaced as 400 at creation time.
+**`CapabilityParser.parse(String raw)`** — strict. Throws `MalformedCapabilityException` on any malformed token. Used in `WorkItemService.create()` for new input — format errors surfaced as 400 at creation time.
 
-**`parseCapabilitiesLenient(String raw)`** — lenient. Skips malformed tokens with a `WARN` log entry. Used in `WorkItemAssignmentService` when building `SelectionContext` from DB rows — routing of existing WorkItems is protected; bad tokens are excluded from the required set rather than blowing up the transaction.
+**`CapabilityParser.parseLenient(String raw)`** — lenient. Skips malformed tokens with a `WARN` log entry. Used in `WorkItemAssignmentService` when building `SelectionContext` from DB rows — routing of existing WorkItems is protected; bad tokens are excluded from the required set rather than blowing up the transaction.
 
 This is intentional: the format contract is enforced on new writes. Existing data is served leniently until operators clean it up (e.g., `UPDATE work_item SET required_capabilities = REPLACE(required_capabilities, '_', '-') WHERE required_capabilities LIKE '%\_%'`). No Flyway migration required, but operators should run cleanup before enabling STRICT mode.
+
+### `CapabilityParser` (`runtime/service/`)
+
+Standalone package-private utility class. Keeps both callers (`WorkItemService`, `WorkItemAssignmentService`) decoupled from each other — `WorkItemService` constructor-injects `WorkItemAssignmentService`, so placing parse methods on either service would create a circular class dependency.
+
+```java
+final class CapabilityParser {
+    private CapabilityParser() {}
+
+    /** Strict parse — throws MalformedCapabilityException on any malformed token. */
+    static Set<Capability> parse(String raw) {
+        if (raw == null || raw.isBlank()) return Set.of();
+        return Arrays.stream(raw.split(","))
+                .map(String::trim).filter(s -> !s.isEmpty())
+                .map(Capability::of)
+                .collect(Collectors.toSet());
+    }
+
+    /** Lenient parse — skips malformed tokens with a WARN log. */
+    static Set<Capability> parseLenient(String raw) {
+        if (raw == null || raw.isBlank()) return Set.of();
+        return Arrays.stream(raw.split(","))
+                .map(String::trim).filter(s -> !s.isEmpty())
+                .flatMap(s -> {
+                    try { return Stream.of(Capability.of(s)); }
+                    catch (MalformedCapabilityException e) {
+                        Log.warnf("Skipping malformed capability in DB row: %s", s);
+                        return Stream.empty();
+                    }
+                })
+                .collect(Collectors.toSet());
+    }
+}
+```
 
 ### `WorkItemService.create()`
 
 `CapabilityValidator` is a primary dependency — constructor-injected:
 
 ```java
-public WorkItemService(..., CapabilityValidator capabilityValidator) {
-    ...
-    this.capabilityValidator = capabilityValidator;
-}
+public WorkItemService(..., CapabilityValidator capabilityValidator) { ... }
 
 @Transactional
 public WorkItem create(final WorkItemCreateRequest request) {
-    capabilityValidator.validate(parseCapabilities(request.requiredCapabilities));
+    capabilityValidator.validate(CapabilityParser.parse(request.requiredCapabilities));
     // ... existing entity construction unchanged
-}
-
-/** Strict parse — throws MalformedCapabilityException on bad format. Used for new input. */
-static Set<Capability> parseCapabilities(String raw) {
-    if (raw == null || raw.isBlank()) return Set.of();
-    return Arrays.stream(raw.split(","))
-            .map(String::trim).filter(s -> !s.isEmpty())
-            .map(Capability::of)
-            .collect(Collectors.toSet());
-}
-
-/** Lenient parse — skips malformed tokens with a WARN log. Used for existing DB rows. */
-static Set<Capability> parseCapabilitiesLenient(String raw) {
-    if (raw == null || raw.isBlank()) return Set.of();
-    return Arrays.stream(raw.split(","))
-            .map(String::trim).filter(s -> !s.isEmpty())
-            .flatMap(s -> {
-                try { return Stream.of(Capability.of(s)); }
-                catch (MalformedCapabilityException e) {
-                    Log.warnf("Skipping malformed capability in DB row: %s", s);
-                    return Stream.empty();
-                }
-            })
-            .collect(Collectors.toSet());
 }
 ```
 
-Both methods are `package-private static` for testability without CDI. `WorkItemAssignmentService` calls `parseCapabilitiesLenient()` when building `SelectionContext` from a `WorkItem` entity.
+`WorkItemAssignmentService` calls `CapabilityParser.parseLenient()` when building `SelectionContext` from a `WorkItem` entity.
 
 ### Immutability
 
@@ -315,4 +322,4 @@ public class UnknownCapabilityExceptionMapper implements ExceptionMapper<Unknown
 | `CapabilityValidatorTest` | `core` | PERMISSIVE → always passes; WARN + unknown → logs, no throw; STRICT + known → passes; STRICT + unknown → throws with all unknown values named; null/empty set → always passes; comma edge cases (leading/trailing spaces, double commas) handled by caller's `parseCapabilities()` |
 | `WorkItemServiceCapabilityIT` | `runtime` | `@QuarkusTest` with `@Alternative @Priority(1)` STRICT registry containing `LEGAL_REVIEW`; POST with `requiredCapabilities=legal-review` → 201; POST with `requiredCapabilities=legal_review` → 400 MALFORMED_CAPABILITY; POST with `requiredCapabilities=unknown-cap` → 400 UNKNOWN_CAPABILITY; all unknown values present in 400 body; clone of STRICT-rejected capability → 400 |
 | `WorkBrokerTest` | `core` | `filterByCapabilities` uses `Set<Capability>` directly; candidate missing one required capability excluded; empty required set → all candidates pass |
-| `ParseCapabilitiesTest` | `runtime` | `parseCapabilities`: leading/trailing spaces trimmed; double commas skipped; valid multi-token string → correct Set; single bad token throws `MalformedCapabilityException`. `parseCapabilitiesLenient`: bad token skipped + warn logged; valid tokens retained in result |
+| `CapabilityParserTest` | `runtime` | `parse()`: leading/trailing spaces trimmed; double commas skipped; valid multi-token string → correct Set; single bad token throws `MalformedCapabilityException`. `parseLenient()`: bad token skipped + warn logged; valid tokens retained in result |
