@@ -2,16 +2,15 @@
 
 ## Last Session
 
-Closed `issue-233-xs-s-batch-cleanup` — five XS/S issues: `SIGNAL_RECEIVED` enum (#221),
-`ClaimFirstStrategy @Alternative @Priority(0)` CDI fix (#231), migration customizer
-cosmetics (#232), capability matching contract javadoc (#220 partial), `CREATE_DENIED`
-audit with pre-generated WorkItem ID + V32 FK drop (#192). Branch rebased onto main,
-pushed to origin and upstream. All closed.
+Closed `issue-220-capability-registry` — `Capability` value type with kebab-case enforcement,
+`CapabilityRegistry` SPI with config-driven validation mode (STRICT/WARN/PERMISSIVE),
+`CapabilityParser` with strict and lenient parse modes, wired into `WorkItemService` +
+`WorkItemAssignmentService`. 757 tests pass. ADRs 0003+0004 promoted. Pushed to upstream.
 
 ## Immediate Next Step
 
 **`issue-223-provenance-supplement`** — branch exists locally, no PR filed.
-Flagged in three consecutive handovers. Either raise the PR or close the branch.
+Four consecutive handovers. Decide: raise the PR or close the branch.
 
 ## Cross-Module
 
@@ -19,8 +18,7 @@ Flagged in three consecutive handovers. Either raise the PR or close the branch.
 
 ## What's Left
 
-- `issue-223-provenance-supplement` — open branch, no PR, deferred again · S · Low
-- `#220` — short-term (shared constants) and long-term (CapabilityRegistry SPI) still open; only javadoc immediate step done · M · Med
+- `issue-223-provenance-supplement` — open branch, no PR, deferred four times · S · Low
 
 ## What's Next
 
@@ -30,6 +28,8 @@ Flagged in three consecutive handovers. Either raise the PR or close the branch.
 
 ## Key References
 
-- Garden: GE-20260529-010101 (REQUIRES_NEW try-catch commit-time gotcha — new this session)
-- Garden REVISE: GE-20260415-884e48 (@Priority alternative solution added — new this session)
-- Blog: `2026-05-29-mdp06-audit-entry-that-couldnt-exist.md`
+- Garden: GE-20260529-636a36 (JAX-RS mapper bypassed by generic catch — new this session)
+- Garden: GE-20260529-6eccfe (strict-on-write / lenient-on-read parse technique — new this session)
+- Garden: GE-20260529-5a8158 (ConfigMapping prefix claims @ConfigProperty keys — new this session)
+- Blog: `2026-05-29-mdp08-string-that-looked-like-a-string.md`
+- ADRs: `docs/adr/0003-capability-vocabulary-as-validated-value-type.md`, `0004-capability-validation-mode-as-deployment-config.md`
