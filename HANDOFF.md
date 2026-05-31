@@ -1,35 +1,33 @@
-# Handover — 2026-05-29
+# Handover — 2026-05-31
+
+**Branch:** `issue-235-sxs-sweep` (project + workspace)
 
 ## Last Session
 
-Closed `issue-220-capability-registry` — `Capability` value type with kebab-case enforcement,
-`CapabilityRegistry` SPI with config-driven validation mode (STRICT/WARN/PERMISSIVE),
-`CapabilityParser` with strict and lenient parse modes, wired into `WorkItemService` +
-`WorkItemAssignmentService`. 757 tests pass. ADRs 0003+0004 promoted. Pushed to upstream.
+Two streams of work:
+
+**#185 implementation** — reviewed spec (8 concerns, all addressed in v2), then implemented: javadoc updates to `ExclusionPolicy` + `CommaSeparatedExclusionPolicy`, new `ExpiringExclusionPolicy` (Clock-injected, 5 parse branches), `CheckResult`/`ExclusionPolicyDemoResponse`/`ExclusionPolicyDemoScenario` REST demo at `POST /examples/exclusion-policy/run`, 11 unit tests + 1 `@QuarkusTest`. Also fixed a pre-existing CDI ambiguity (`MockGroupMembershipProvider` + runtime-scope `casehub-platform`) across all three example modules. All tests green. **Uncommitted — ready to commit.**
+
+**Branch hygiene** — stamped all previously-unstamped closed project branches with `chore: branch closed` (issue-201, 204, 207, 212, 220, 228, 230, 233). Promoted 3 workspace specs to `docs/specs/` on project main. Verified all non-active branch content is on main. All blog entries published except today's (active branch).
+
+**ARC42STORIES migration** — confirmed this repo is on `DESIGN.md` (not ARC42STORIES.MD). Created **#246** to migrate `DESIGN.md` + `ARCHITECTURE.md` → `ARC42STORIES.MD`. https://github.com/casehubio/work/issues/246
 
 ## Immediate Next Step
 
-**`issue-223-provenance-supplement`** — branch exists locally, no PR filed.
-Four consecutive handovers. Decide: raise the PR or close the branch.
-
-## Cross-Module
-
-*Unchanged — `git show HEAD~2:HANDOFF.md`*
+Commit the #185 work on `issue-235-sxs-sweep`. Run `/java-git-commit`. Two logical commits: (1) CDI fix (`application.properties` across three example modules), (2) #185 itself (javadoc + `examples/exclusion/` classes).
 
 ## What's Left
 
-- `issue-223-provenance-supplement` — open branch, no PR, deferred four times · S · Low
+- `#185` uncommitted (ready) · XS · Low
+- `#246` ARC42STORIES.MD migration — new issue, not yet started · L · Medium
 
 ## What's Next
 
-| # | Description | Scale | Complexity | Notes |
-|---|-------------|-------|------------|-------|
-| parent#66 | Apply CLAUDE.md size discipline to remaining casehubio repos | L | Low | casehub-work is reference impl |
+*Unchanged — `git show HEAD~1:HANDOFF.md`*
 
-## Key References
+## References
 
-- Garden: GE-20260529-636a36 (JAX-RS mapper bypassed by generic catch — new this session)
-- Garden: GE-20260529-6eccfe (strict-on-write / lenient-on-read parse technique — new this session)
-- Garden: GE-20260529-5a8158 (ConfigMapping prefix claims @ConfigProperty keys — new this session)
-- Blog: `2026-05-29-mdp08-string-that-looked-like-a-string.md`
-- ADRs: `docs/adr/0003-capability-vocabulary-as-validated-value-type.md`, `0004-capability-validation-mode-as-deployment-config.md`
+- Spec: `wksp/specs/issue-235-sxs-sweep/2026-05-30-185-exclusion-policy-examples.md`
+- Blog: `wksp/blog/2026-05-31-mdp01-the-date-in-the-field.md`
+- Garden entry: `GE-20260531-9118e7` (MockGroupMembershipProvider CDI ambiguity)
+- Migration issue: https://github.com/casehubio/work/issues/246
