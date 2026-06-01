@@ -1,33 +1,42 @@
-# Handover — 2026-05-31
-
-**Branch:** `issue-235-sxs-sweep` (project + workspace)
+# Handover — 2026-06-01
 
 ## Last Session
 
-Two streams of work:
-
-**#185 implementation** — reviewed spec (8 concerns, all addressed in v2), then implemented: javadoc updates to `ExclusionPolicy` + `CommaSeparatedExclusionPolicy`, new `ExpiringExclusionPolicy` (Clock-injected, 5 parse branches), `CheckResult`/`ExclusionPolicyDemoResponse`/`ExclusionPolicyDemoScenario` REST demo at `POST /examples/exclusion-policy/run`, 11 unit tests + 1 `@QuarkusTest`. Also fixed a pre-existing CDI ambiguity (`MockGroupMembershipProvider` + runtime-scope `casehub-platform`) across all three example modules. All tests green. **Uncommitted — ready to commit.**
-
-**Branch hygiene** — stamped all previously-unstamped closed project branches with `chore: branch closed` (issue-201, 204, 207, 212, 220, 228, 230, 233). Promoted 3 workspace specs to `docs/specs/` on project main. Verified all non-active branch content is on main. All blog entries published except today's (active branch).
-
-**ARC42STORIES migration** — confirmed this repo is on `DESIGN.md` (not ARC42STORIES.MD). Created **#246** to migrate `DESIGN.md` + `ARCHITECTURE.md` → `ARC42STORIES.MD`. https://github.com/casehubio/work/issues/246
+Closed `issue-235-sxs-sweep` — all sweep items done except #234 (blocked:
+connectors-core not in cache, Qhorus routing decision conflicts with a direct
+observer, classification undefined). Ran `mvn install` full build and fixed
+everything that surfaced: CDI `MockGroupMembershipProvider` ambiguity across
+16 files, broadcaster `flyway.locations` missing since #164 (Closes #247),
+ledger identity enricher CDI failures from a stale platform SNAPSHOT (Closes
+#248, workaround: exclude ledger identity package from test CDI scan).
+Build now green: 900+ tests, three PostgreSQL ITs, 25 native ITs.
 
 ## Immediate Next Step
 
-Commit the #185 work on `issue-235-sxs-sweep`. Run `/java-git-commit`. Two logical commits: (1) CDI fix (`application.properties` across three example modules), (2) #185 itself (javadoc + `examples/exclusion/` classes).
+**`#246`** — ARC42STORIES.MD migration (`DESIGN.md` + `ARCHITECTURE.md`).
+Not yet started. Run `/work` to begin.
+
+## Cross-Module
+
+**Blocked by:**
+- `casehub-platform` — needs Jandex in `casehub-platform-api` so the ledger identity enricher exclusion workaround can be removed and the no-ops are properly discovered. Text drafted for filing. Protocol PP-20260601-37179a captures the rule.
 
 ## What's Left
 
-- `#185` uncommitted (ready) · XS · Low
-- `#246` ARC42STORIES.MD migration — new issue, not yet started · L · Medium
+- `#234` — blocked (connectors-core not built, Qhorus routing conflict, classification undefined); documented and labeled · S · High
+- ledger exclude-types workaround — temporary; remove when casehub-platform refreshes · XS · Low
 
 ## What's Next
 
-*Unchanged — `git show HEAD~1:HANDOFF.md`*
+| # | Description | Scale | Complexity | Notes |
+|---|-------------|-------|------------|-------|
+| #246 | Migrate DESIGN.md + ARCHITECTURE.md → ARC42STORIES.MD | L | Med | — |
+| parent#66 | Apply CLAUDE.md size discipline to remaining casehubio repos | L | Low | casehub-work is reference impl |
 
-## References
+## Key References
 
-- Spec: `wksp/specs/issue-235-sxs-sweep/2026-05-30-185-exclusion-policy-examples.md`
-- Blog: `wksp/blog/2026-05-31-mdp01-the-date-in-the-field.md`
-- Garden entry: `GE-20260531-9118e7` (MockGroupMembershipProvider CDI ambiguity)
-- Migration issue: https://github.com/casehubio/work/issues/246
+- Garden: GE-20260601-b76fba (QuarkusTestResource cannot override build-time fixed properties)
+- Garden: GE-20260601-7a3b38 (DefaultBean invisible when supertype JAR missing Jandex / stale SNAPSHOT)
+- Protocol: PP-20260601-37179a (library JARs that ship CDI beans must include Jandex)
+- Blog: `2026-06-01-mdp01-the-build-that-kept-giving.md`
+- Platform issue text: drafted in session — file against casehubio/platform
