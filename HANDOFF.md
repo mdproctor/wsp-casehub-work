@@ -1,15 +1,10 @@
-# Handover — 2026-06-01
+# HANDOFF — 2026-06-02
 
 ## Last Session
 
-Closed `issue-235-sxs-sweep` — all sweep items done except #234 (blocked:
-connectors-core not in cache, Qhorus routing decision conflicts with a direct
-observer, classification undefined). Ran `mvn install` full build and fixed
-everything that surfaced: CDI `MockGroupMembershipProvider` ambiguity across
-16 files, broadcaster `flyway.locations` missing since #164 (Closes #247),
-ledger identity enricher CDI failures from a stale platform SNAPSHOT (Closes
-#248, workaround: exclude ledger identity package from test CDI scan).
-Build now green: 900+ tests, three PostgreSQL ITs, 25 native ITs.
+Re-applied `update-claude-md` modular detection fix in cc-praxis (`issue-109` branch closed) — another Claude session had reverted it. Also: closed cc-praxis `issue-109-write-content-restructure`. New commits from parallel session landed on casehub/work main: WorkItemCallerRef utility, CI dispatch chain update, HttpWebhookChannel boundary doc.
+
+*Previous session (2026-06-01):* Closed `issue-235-sxs-sweep` — all sweep items done except #234 (blocked). Full build green: 900+ tests, three PostgreSQL ITs, 25 native ITs. Fixes: CDI ambiguity (#247, #248), broadcaster flyway.locations.
 
 ## Immediate Next Step
 
