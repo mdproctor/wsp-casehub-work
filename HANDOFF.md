@@ -2,36 +2,32 @@
 
 ## Last Session
 
-Re-applied `update-claude-md` modular detection fix in cc-praxis (`issue-109` branch closed) — another Claude session had reverted it. Also: closed cc-praxis `issue-109-write-content-restructure`. New commits from parallel session landed on casehub/work main: WorkItemCallerRef utility, CI dispatch chain update, HttpWebhookChannel boundary doc.
-
-*Previous session (2026-06-01):* Closed `issue-235-sxs-sweep` — all sweep items done except #234 (blocked). Full build green: 900+ tests, three PostgreSQL ITs, 25 native ITs. Fixes: CDI ambiguity (#247, #248), broadcaster flyway.locations.
+Completed work-end for `issue-235-sxs-sweep` — branch was already squash-merged upstream from a previous session; confirmed via `git log upstream/main | grep ExpiringExclusion`. Pre-close sweep: 3 garden entries (jax-rs-path-conflict, record-tostring-rest, jpa-converter-autoapply), 1 protocol (PP-20260602-fb90a6 spi-test-scope-default-bean-noop), ADR-0005 (group membership snapshot at WorkItem creation), diary entry mdp03. Branch stamped EPIC-CLOSED.md, deletion due 2026-06-16. Also fixed `write-content` skill: mandatory-gates.md now loaded in Step 0 and Step 5 produces a visible checklist before any draft — prevents process narration slipping through.
 
 ## Immediate Next Step
 
-**`#246`** — ARC42STORIES.MD migration (`DESIGN.md` + `ARCHITECTURE.md`).
-Not yet started. Run `/work` to begin.
+*Unchanged — `git show HEAD~1:HANDOFF.md`*
 
 ## Cross-Module
 
-**Blocked by:**
-- `casehub-platform` — needs Jandex in `casehub-platform-api` so the ledger identity enricher exclusion workaround can be removed and the no-ops are properly discovered. Text drafted for filing. Protocol PP-20260601-37179a captures the rule.
+*Unchanged — `git show HEAD~1:HANDOFF.md`*
 
 ## What's Left
 
 - `#234` — blocked (connectors-core not built, Qhorus routing conflict, classification undefined); documented and labeled · S · High
 - ledger exclude-types workaround — temporary; remove when casehub-platform refreshes · XS · Low
+- 6 workspace branches past deletion date (epic-excluded-users, epic-exclusion-audit, epic-output-schema, issue-204, issue-207, issue-212) — all have EPIC-CLOSED.md, prompt for deletion · XS · Low
 
 ## What's Next
 
-| # | Description | Scale | Complexity | Notes |
-|---|-------------|-------|------------|-------|
-| #246 | Migrate DESIGN.md + ARCHITECTURE.md → ARC42STORIES.MD | L | Med | — |
-| parent#66 | Apply CLAUDE.md size discipline to remaining casehubio repos | L | Low | casehub-work is reference impl |
+*Unchanged — `git show HEAD~1:HANDOFF.md`*
 
 ## Key References
 
-- Garden: GE-20260601-b76fba (QuarkusTestResource cannot override build-time fixed properties)
-- Garden: GE-20260601-7a3b38 (DefaultBean invisible when supertype JAR missing Jandex / stale SNAPSHOT)
-- Protocol: PP-20260601-37179a (library JARs that ship CDI beans must include Jandex)
-- Blog: `2026-06-01-mdp01-the-build-that-kept-giving.md`
-- Platform issue text: drafted in session — file against casehubio/platform
+- Garden: GE-20260602-fd91cb (JAX-RS @Path vs platform Path naming conflict)
+- Garden: GE-20260602-9eb73f (Java record toString() corrupts REST response maps)
+- Garden: GE-20260602-63b535 (JPA @Converter autoApply=true converts DTOs unexpectedly)
+- Protocol: PP-20260602-fb90a6 (spi-test-scope-default-bean-noop)
+- ADR: docs/adr/0005-group-membership-snapshot-at-workitem-creation.md
+- Blog: `2026-06-02-mdp03-sweep-and-what-stuck.md`
+- Previous refs: `git show HEAD~1:HANDOFF.md`
