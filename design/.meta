@@ -1,0 +1,8 @@
+branch: issue-243-status-lifecycle-fixes
+project-sha: fa58e788af4619a125085c19ddcb4925c6e9b08f
+date: 2026-06-03
+issue: 243
+issue-repo: casehubio/work
+flyway-next-v: 34
+design-repo: workspace
+design-section-hashes:
