@@ -98,7 +98,7 @@ case BreachDecision.Chained chained -> {
         try {
             yield executeBreachDecision(item, chained.fallback(), ctx, now);
         } catch (final BreachExecutionFailed e2) {
-            yield executeExhausted(item, now);
+            yield executeExhausted(item, "policy-exhausted", now);
         }
     }
 }
@@ -106,18 +106,20 @@ case BreachDecision.Chained chained -> {
 
 Note: `BreachExecutionFailed` is a private static final class in `ExpiryLifecycleService`. The Chained handler catches it only because it is in the same class. This is intentional — the exception is a private control-flow signal, not a public contract.
 
-**`executeExhausted(WorkItem item, Instant now)`:**
+**`executeExhausted(WorkItem item, String reason, Instant now)`:**
 
 ```java
-private BreachDecision.Exhausted executeExhausted(final WorkItem item, final Instant now) {
+private BreachDecision.Exhausted executeExhausted(final WorkItem item, final String reason, final Instant now) {
     item.status = WorkItemStatus.ESCALATED;
     item.completedAt = now;
     workItemStore.put(item);
-    writeAudit(item, "ESCALATED", "policy-exhausted", now);
+    writeAudit(item, "ESCALATED", reason, now);
     fireLifecycleEvent("ESCALATED", item);
-    return new BreachDecision.Exhausted("policy-exhausted");
+    return new BreachDecision.Exhausted(reason);
 }
 ```
+
+The `reason` parameter flows into the audit entry detail and the `BreachDecision.Exhausted` returned to `SlaBreachEvent` — consumers see the specific cause, not a hardcoded string.
 
 **`checkExpired()` and `checkClaimDeadlines()` — batch safety:**
 
@@ -144,7 +146,7 @@ An audit entry is written (not just a log line) — the audit trail is the obser
 case BreachDecision.Exhausted exhausted -> executeExhausted(item, exhausted.reason(), now);
 ```
 
-(Allows `SlaBreachPolicy` implementations to return `new BreachDecision.Exhausted(reason)` directly for future flexibility, though this path currently isn't used by the built-in policies.)
+`SlaBreachPolicy` implementations may return `BreachDecision.Exhausted` directly; the reason passes through to the audit and event.
 
 ### Summary: ESCALATED semantics
 
