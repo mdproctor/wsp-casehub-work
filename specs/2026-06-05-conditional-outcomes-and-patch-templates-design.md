@@ -2,7 +2,7 @@
 
 **Branch:** `issue-177-outcomes-and-patch`
 **Issues:** #177 (primary), #199
-**Date:** 2026-06-05 (rev 2 — post-review)
+**Date:** 2026-06-05 (rev 3 — post-review)
 
 ---
 
@@ -35,20 +35,30 @@ public record Outcome(String name, String displayName, String condition) {}
 
 Currently stores `["approved","rejected"]` (name strings). After this change stores full `Outcome` objects: `[{"name":"approved","displayName":"Approved","condition":"..."}]`.
 
-No Flyway migration. `OutcomeCodecs.decodePermittedOutcomes()` uses explicit format detection:
+No Flyway migration. `OutcomeCodecs.decodePermittedOutcomes()` uses explicit format detection via Jackson token inspection — not exception-as-control-flow:
 
 ```java
-String trimmed = json.trim();
-if (trimmed.startsWith("[{") || trimmed.equals("[]")) {
-    return MAPPER.readValue(trimmed, new TypeReference<List<Outcome>>() {});
-} else {
-    // old string-array format — wrap into Outcome with null displayName/condition
-    List<String> names = MAPPER.readValue(trimmed, new TypeReference<List<String>>() {});
-    return names.stream().map(n -> new Outcome(n, null, null)).toList();
+public static List<Outcome> decodePermittedOutcomes(final String json) {
+    if (json == null || json.isBlank()) return null;
+    try {
+        ArrayNode arr = (ArrayNode) MAPPER.readTree(json);
+        if (arr.isEmpty() || arr.get(0).isObject()) {
+            // new format: array of Outcome objects (or empty)
+            return MAPPER.convertValue(arr, new TypeReference<List<Outcome>>() {});
+        } else {
+            // old format: array of name strings — wrap with null displayName/condition
+            return StreamSupport.stream(arr.spliterator(), false)
+                .map(n -> new Outcome(n.asText(), null, null))
+                .toList();
+        }
+    } catch (final Exception e) {
+        LOG.warnf("Failed to decode permittedOutcomes JSON: %s", e.getMessage());
+        return null;
+    }
 }
 ```
 
-Explicit token inspection, not exception-as-control-flow. Old rows decode correctly; new instantiations write the new format. The format migrates naturally as WorkItems are instantiated from templates.
+`readTree()` parses the JSON correctly regardless of whitespace between tokens. `arr.get(0).isObject()` detects format from the first element type, not the raw string. Null/blank guard and try-catch preserve the existing error contract (corrupt JSON → warn + return null). Old rows decode correctly; new instantiations write the new format.
 
 **Deliberate decision — conditions are snapshotted at instantiation:** Conditions are stored in `WorkItem.permittedOutcomes` at instantiation time, not re-read from the template at completion time. This means changing a condition on a template has no effect on already-live WorkItems. This is intentional and consistent with `inputDataSchema` and `outputDataSchema` snapshotting. Operators should be aware: in-flight WorkItems are evaluated against the template state at their creation time.
 
@@ -58,12 +68,12 @@ Explicit token inspection, not exception-as-control-flow. Old rows decode correc
 |--------|--------|
 | `decodePermittedOutcomes(String)` | Return type `List<String>` → `List<Outcome>`. Explicit format detection (see above). |
 | `encodePermittedOutcomes(List<String>)` | **Removed.** No remaining callers after `WorkItemCreateRequest` type change. |
-| `encodePermittedOutcomes(List<Outcome>)` | **New.** Delegates to `encodeOutcomes()`. |
+| `encodePermittedOutcomes(List<Outcome>)` | **Not added.** After the format change, `encodePermittedOutcomes(List<Outcome>)` and `encodeOutcomes(List<Outcome>)` would be functionally identical — same JSON, same column shape. Adding the wrapper creates confusion about which to use for which column. Callers use `encodeOutcomes()` directly for both the template `outcomes` column and the WorkItem `permittedOutcomes` column. |
 | `parseOutcomeNames(String)` | **Removed.** Dead code after all 3 instantiation call sites updated (see below). |
-| `encodeOutcomes(List<Outcome>)` | Unchanged. |
+| `encodeOutcomes(List<Outcome>)` | Unchanged. Used for both `WorkItemTemplate.outcomes` and `WorkItem.permittedOutcomes`. |
 | `decodeOutcomes(String)` | Unchanged. |
 
-`WorkItemTemplateService` static wrappers `parseOutcomeNames()` and `encodePermittedOutcomes(List<String>)` are also removed — they delegate to the above methods which are gone.
+`WorkItemTemplateService` static wrappers `parseOutcomeNames()` and `encodePermittedOutcomes(List<String>)` are also removed — they delegate to methods that are gone.
 
 ### Instantiation Change Sites — 3 Locations
 
@@ -103,6 +113,10 @@ public class OutcomeValidator {
         if (outcome.length() > 255) throw ...;
 
         List<Outcome> definitions = OutcomeCodecs.decodePermittedOutcomes(item.permittedOutcomes);
+        if (definitions == null) {
+            throw new IllegalStateException(
+                "permittedOutcomes on WorkItem " + item.id + " is non-null but failed to decode — data integrity error");
+        }
         Optional<Outcome> match = definitions.stream()
             .filter(o -> outcome.equals(o.name()))
             .findFirst();
@@ -222,26 +236,40 @@ New handler in `WorkItemTemplateResource`. No new Maven dependency — `JsonNode
 
 ### Implementation Strategy
 
-The handler accepts `JsonNode patch`. For each of the ~22 template fields, it applies `patch.has(fieldName)` to distinguish absent (leave unchanged) from present (apply — null clears). This is explicit, readable, and maintains the same validation path as PUT.
+The handler accepts `JsonNode patch`. For each of the 25 template fields, it applies `patch.has(fieldName)` to distinguish absent (leave unchanged) from present (apply — null clears). This is explicit, readable, and maintains the same validation path as PUT.
 
-**Standard field pattern** (String/Integer/Boolean fields — 18 of 22):
+**Three standard patterns by field type (20 of 25 fields):**
 
 ```java
-if (patch.has("description")) t.description = patch.get("description").isNull()
-    ? null : patch.get("description").asText();
+// String fields (13): description, category, candidateGroups, candidateUsers,
+//   requiredCapabilities, defaultPayload, labelPaths, parentRole,
+//   assignmentStrategy, onThresholdReached, excludedUsers, excludedGroups, scope
+JsonNode node = patch.get("description");
+if (patch.has("description")) t.description = node.isNull() ? null : node.asText();
+
+// Integer fields (6): defaultExpiryHours, defaultClaimHours, defaultExpiryBusinessHours,
+//   defaultClaimBusinessHours, instanceCount, requiredCount
+// intValue() returns 0 on null nodes; isNull() guard is required.
+if (patch.has("defaultExpiryHours")) t.defaultExpiryHours = node.isNull() ? null : node.intValue();
+
+// Boolean fields (1): allowSameAssignee
+// booleanValue() returns false on null nodes; isNull() guard is required.
+if (patch.has("allowSameAssignee")) t.allowSameAssignee = node.isNull() ? null : node.booleanValue();
 ```
 
-**Special fields requiring explicit handling:**
+Use `intValue()` / `booleanValue()`, not `asInt()` / `asBoolean()` — the `as*()` variants return defaults (0 / false) on null nodes, defeating the clear-on-null semantic.
+
+**Special fields (5 of 25) requiring explicit handling:**
 
 | Field | Handling |
 |-------|---------|
 | `name` | Present + null → 400 (`name` required when provided). Present + non-null → conflict check same as PUT. |
-| `priority` | `patch.get("priority").asText()` → `WorkItemPriority.valueOf()` in try-catch → 400 on invalid value. Null → clear. |
-| `outcomes` | `patch.get("outcomes")` → deserialize as `List<Outcome>` via `ObjectMapper` → `OutcomeCodecs.encodeOutcomes()`. Null node → null (clear). |
-| `inputDataSchema` | `patch.get("inputDataSchema")` — must be object node or null; `.toString()` for storage. Null node → null. Non-object node → 400. |
+| `priority` | Non-null: `WorkItemPriority.valueOf(node.asText())` in try-catch → 400 on invalid enum value. Null → clear. |
+| `outcomes` | Non-null: `MAPPER.convertValue(node, new TypeReference<List<Outcome>>(){})` → `OutcomeCodecs.encodeOutcomes()`. Null → null (clear). |
+| `inputDataSchema` | Non-null: must be object node (`node.isObject()`) → `node.toString()` for storage; non-object → 400. Null → null (clear). |
 | `outputDataSchema` | Same as `inputDataSchema`. |
 
-**`createdBy`:** Not patchable — absent from `UpdateTemplateRequest` for the same reason (authorship is immutable). If present in patch, silently ignore.
+**`createdBy`:** Not patchable — authorship is immutable. If present in the patch body, silently ignore it. This follows the same convention as PUT, which also has no `t.createdBy = request.createdBy()` assignment. A 400 on unexpected fields would be stricter but inconsistent with how PUT handles the same constraint (it simply omits the field from the request type rather than rejecting it).
 
 After applying all present fields: run `WorkItemTemplateValidationService.validate(t)` → same as PUT. Return 200 `toResponse(t)`.
 
@@ -282,7 +310,7 @@ Special fields:
 | File | Change |
 |------|--------|
 | `api/.../Outcome.java` | Add `condition` field; source break at all constructor call sites |
-| `runtime/.../OutcomeCodecs.java` | `decodePermittedOutcomes()` → `List<Outcome>` with format detection; add `encodePermittedOutcomes(List<Outcome>)`; remove `encodePermittedOutcomes(List<String>)` and `parseOutcomeNames()` |
+| `runtime/.../OutcomeCodecs.java` | `decodePermittedOutcomes()` → `List<Outcome>` with `readTree()` format detection; remove `encodePermittedOutcomes(List<String>)` and `parseOutcomeNames()`; `encodeOutcomes()` now used for both columns |
 | `runtime/.../WorkItemTemplateService.java` | Remove delegate wrappers for removed methods; update `instantiate()` call site |
 | `runtime/.../MultiInstanceSpawnService.java` | Update 2 call sites: `parseOutcomeNames()` → `decodeOutcomes()` |
 | `runtime/.../WorkItemSpawnService.java` | Update 1 call site: same change |
@@ -292,5 +320,6 @@ Special fields:
 | `runtime/.../WorkItemContextBuilder.java` | Line 70: extract name strings from `List<Outcome>` before putting in JEXL context |
 | `runtime/.../WorkItemResponse.java` | `permittedOutcomes` type `List<String>` → `List<Outcome>` (REST API break, acknowledged) |
 | `runtime/.../WorkItemMapper.java` | Update response mapping for `permittedOutcomes` new type |
+| `runtime/.../WorkItemWithAuditResponse.java` | `permittedOutcomes` type `List<String>` → `List<Outcome>` (REST API break, same as `WorkItemResponse`) |
 | `runtime/.../WorkItemTemplateResource.java` | Add `@PATCH` handler |
 | Test files | New/extended per test plan above |
