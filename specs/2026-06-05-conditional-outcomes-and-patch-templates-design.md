@@ -2,7 +2,7 @@
 
 **Branch:** `issue-177-outcomes-and-patch`
 **Issues:** #177 (primary), #199
-**Date:** 2026-06-05 (rev 3 — post-review)
+**Date:** 2026-06-05 (rev 4 — post-review)
 
 ---
 
@@ -73,7 +73,7 @@ public static List<Outcome> decodePermittedOutcomes(final String json) {
 | `encodeOutcomes(List<Outcome>)` | Unchanged. Used for both `WorkItemTemplate.outcomes` and `WorkItem.permittedOutcomes`. |
 | `decodeOutcomes(String)` | Unchanged. |
 
-`WorkItemTemplateService` static wrappers `parseOutcomeNames()` and `encodePermittedOutcomes(List<String>)` are also removed — they delegate to methods that are gone.
+`WorkItemTemplateService` static wrappers `parseOutcomeNames()`, `encodePermittedOutcomes(List<String>)`, and `decodePermittedOutcomes(String)` are also removed. `parseOutcomeNames()` and `encodePermittedOutcomes(List<String>)` delegate to removed methods. `decodePermittedOutcomes(String)` returns `List<String>` but delegates to `OutcomeCodecs.decodePermittedOutcomes()` which now returns `List<Outcome>` — compile error — and its only caller (`validateOutcome()` in `WorkItemService`) is also being removed. `encodeOutcomes(List<Outcome>)` is kept (unchanged, valid).
 
 ### Instantiation Change Sites — 3 Locations
 
@@ -213,6 +213,34 @@ actorId.startsWith('mgr-')
 resolution != null && resolution.contains('APPROVED')
 ```
 
+### Test Plan
+
+**`OutcomeCodecs` (unit — extend `OutcomeTest` or new class):**
+- `decodePermittedOutcomes` with new object-array format → `List<Outcome>` with correct fields
+- `decodePermittedOutcomes` with old string-array format → wraps to `List<Outcome>` with null displayName/condition
+- `decodePermittedOutcomes` with whitespace-formatted JSON e.g. `[ {"name":"approved"} ]` → correct (regression against the old `startsWith` bug)
+- `decodePermittedOutcomes` with null/blank → null
+- `decodePermittedOutcomes` with corrupt JSON → null (warn, no throw)
+- Round-trip: `encodeOutcomes(outcomes)` → `decodePermittedOutcomes()` → same `List<Outcome>`
+
+**`OutcomeValidator` (unit — new `OutcomeValidatorTest`):**
+- `permittedOutcomes` null: returns without throwing (unconstrained)
+- Null condition on matching outcome: accepted by name alone
+- Condition evaluating true: accepted
+- Condition evaluating false: `IllegalArgumentException`
+- Condition referencing `resolution`: non-null on complete path, null on reject path — verified separately
+- Condition referencing `reason`: non-null on reject path, null on complete path
+- Condition referencing `actorId`: matched correctly
+- Old-format `permittedOutcomes` (string-array): fallback decode, name validation still works
+- `decodePermittedOutcomes` returns null (corrupt data in `permittedOutcomes`): `IllegalStateException`, not NPE
+
+**Integration (add scenario to `WorkItemLifecycleIT` or `CreditDecisionScenario`):**
+- Create template with conditional outcome; instantiate; complete with satisfied condition → 200
+- Same; complete with unsatisfied condition → 400
+- Create WorkItem directly with old-format string-array `permittedOutcomes` value in DB; complete → correct name validation via fallback decode
+
+---
+
 ### ADR Needed
 
 Two decisions embedded in this spec warrant ADR entries:
@@ -311,12 +339,12 @@ Special fields:
 |------|--------|
 | `api/.../Outcome.java` | Add `condition` field; source break at all constructor call sites |
 | `runtime/.../OutcomeCodecs.java` | `decodePermittedOutcomes()` → `List<Outcome>` with `readTree()` format detection; remove `encodePermittedOutcomes(List<String>)` and `parseOutcomeNames()`; `encodeOutcomes()` now used for both columns |
-| `runtime/.../WorkItemTemplateService.java` | Remove delegate wrappers for removed methods; update `instantiate()` call site |
+| `runtime/.../WorkItemTemplateService.java` | Remove delegate wrappers: `parseOutcomeNames()`, `encodePermittedOutcomes(List<String>)`, `decodePermittedOutcomes(String)`; update `instantiate()` call site |
 | `runtime/.../MultiInstanceSpawnService.java` | Update 2 call sites: `parseOutcomeNames()` → `decodeOutcomes()` |
 | `runtime/.../WorkItemSpawnService.java` | Update 1 call site: same change |
 | `runtime/.../WorkItemCreateRequest.java` | `permittedOutcomes` field type `List<String>` → `List<Outcome>` |
 | `runtime/.../OutcomeValidator.java` | **New** `@ApplicationScoped` bean encapsulating condition validation |
-| `runtime/.../WorkItemService.java` | Replace `validateOutcome()` with `OutcomeValidator.validate()` injection; add `resolution`/`actorId`/`reason` threading |
+| `runtime/.../WorkItemService.java` | Replace `validateOutcome()` with `OutcomeValidator.validate()` injection; add `resolution`/`actorId`/`reason` threading. Line 107: `WorkItemTemplateService.encodePermittedOutcomes(request.permittedOutcomes)` → `WorkItemTemplateService.encodeOutcomes(request.permittedOutcomes)` |
 | `runtime/.../WorkItemContextBuilder.java` | Line 70: extract name strings from `List<Outcome>` before putting in JEXL context |
 | `runtime/.../WorkItemResponse.java` | `permittedOutcomes` type `List<String>` → `List<Outcome>` (REST API break, acknowledged) |
 | `runtime/.../WorkItemMapper.java` | Update response mapping for `permittedOutcomes` new type |
