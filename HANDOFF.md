@@ -1,3 +1,5 @@
+*Updated: #191, casehubio/parent#161, casehubio/parent#162 closed — removed from backlog.*
+
 # HANDOFF — 2026-06-04
 
 ## Last Session
@@ -17,8 +19,6 @@ Pick up #240 (human task lifecycle alignment, L/High) — the #245 DELEGATED imp
 
 - `#234` — still blocked (connectors-core not built, Qhorus routing conflict, classification undefined) · S · High
 - ledger exclude-types workaround — still temporary · XS · Low
-- casehubio/parent#161 — sync casehub-work.md for #243-245 changes · XS · Low
-- casehubio/parent#162 — sync PLATFORM.md capability ownership · XS · Low
 - 6 workspace branches past deletion date (epic-excluded-users, epic-exclusion-audit, epic-output-schema, issue-204, issue-207, issue-212) · XS · Low
 
 ## What's Next
@@ -26,7 +26,6 @@ Pick up #240 (human task lifecycle alignment, L/High) — the #245 DELEGATED imp
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
 | #240 | design: human task lifecycle alignment | L | High | #245 DELEGATED done without it — now critical |
-| #191 | feat: extract persistence-memory module from testing/ | M | Low | |
 | #236 | feat: replace VocabularyScope enum with Path-based scope hierarchy | M | Low | |
 
 ## Key References
