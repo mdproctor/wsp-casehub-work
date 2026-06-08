@@ -2,7 +2,7 @@
 
 **Issue:** casehubio/work#256
 **Date:** 2026-06-08
-**Status:** Design approved — revision 4
+**Status:** Design approved — revision 5
 
 ---
 
@@ -106,31 +106,53 @@ Each gets JPA and InMemory implementations. MongoDB where the module exists.
 
 Every static Panache call in optional modules must route through a tenant-aware store. The following calls were confirmed by audit:
 
-**Queues module:**
+**Queues module** (5 stores: `QueueViewStore`, `QueueMembershipStore`, `WorkItemFilterStore`, `FilterChainStore`, `QueueStateStore`):
 
 | Call | File | Replacement |
 |------|------|-------------|
-| `QueueView.listAll()` | `FilterEvaluationObserver.java:107` | `QueueViewStore.scanAll()` (new) |
+| `QueueView.listAll()` | `FilterEvaluationObserver.java:107` | `QueueViewStore.scanAll()` |
 | `QueueView.findById()` | `QueueResource.java:114,162` | `QueueViewStore.get()` |
 | `QueueView.findById()` | `WorkItemQueueMetrics.java:49` | `QueueViewStore.get()` |
-| `WorkItemQueueMembership.findByWorkItemId()` | `QueueMembershipTracker.java:85` | `QueueMembershipStore.findByWorkItemId()` (new) |
+| `WorkItemQueueMembership.findByWorkItemId()` | `QueueMembershipTracker.java:85` | `QueueMembershipStore.findByWorkItemId()` |
 | `WorkItemQueueMembership.deleteByWorkItemId()` | `QueueMembershipTracker.java:107` | `QueueMembershipStore.deleteByWorkItemId()` |
 | `WorkItemQueueMembership.persist()` | `QueueMembershipTracker.java:111` | `QueueMembershipStore.put()` |
+| `WorkItemFilter.findActive()` | `FilterEngineImpl.java:77,148` | `WorkItemFilterStore.findActive()` |
+| `WorkItemFilter.listAll()` | `FilterResource.java:57` | `WorkItemFilterStore.scanAll()` |
+| `WorkItemFilter.findById()` | `FilterResource.java:90,110` | `WorkItemFilterStore.get()` |
+| `FilterChain.findOrCreateForFilter()` | `FilterEngineImpl.java:82,155` | `FilterChainStore.findOrCreateForFilter()` |
+| `FilterChain.findByFilterId()` | `FilterEngineImpl.java:118` | `FilterChainStore.findByFilterId()` |
+| `WorkItemQueueState.findByIdOptional()` | `WorkItemQueueState.java:36`, `QueueStateResource.java:107` | `QueueStateStore.get()` |
+| `WorkItemQueueState.findOrCreate()` | `QueueStateResource.java:140` | `QueueStateStore.findOrCreate()` |
 
-**Notifications module:**
+Note: `WorkItemFilter.serializeActions()` is a static utility method (JSON serialization), not data access — no store routing needed.
+
+**Notifications module** (1 store: `NotificationRuleStore`):
 
 | Call | File | Replacement |
 |------|------|-------------|
-| `WorkItemNotificationRule.findEnabledForEventType()` | `NotificationDispatcher.java:72` | `NotificationRuleStore.findEnabledForEventType()` (new) |
+| `WorkItemNotificationRule.findEnabledForEventType()` | `NotificationDispatcher.java:72` | `NotificationRuleStore.findEnabledForEventType()` |
 | `WorkItemNotificationRule.list/findById/findAllEnabled` | `NotificationRuleResource.java:85,86,93,107,140` | `NotificationRuleStore` methods |
 
-**AI module:**
+**AI module** (2 stores: `WorkerSkillProfileStore`, `EscalationSummaryStore`):
 
 | Call | File | Replacement |
 |------|------|-------------|
-| `WorkerSkillProfile.findById()` | `WorkerProfileSkillProfileProvider.java:26`, `WorkerSkillProfileResource.java:44,75` | `WorkerSkillProfileStore.get()` (new) |
+| `WorkerSkillProfile.findById()` | `WorkerProfileSkillProfileProvider.java:26`, `WorkerSkillProfileResource.java:44,75` | `WorkerSkillProfileStore.get()` |
 | `WorkerSkillProfile.listAll()` | `WorkerSkillProfileResource.java:63` | `WorkerSkillProfileStore.scanAll()` |
 | `WorkerSkillProfile.deleteById()` | `WorkerSkillProfileResource.java:92` | `WorkerSkillProfileStore.delete()` |
+| `EscalationSummary.findByWorkItemId()` | `EscalationSummaryResource.java:36` | `EscalationSummaryStore.findByWorkItemId()` |
+
+### Store count summary
+
+| Module | New tenant-scoped stores | New cross-tenant stores |
+|--------|--------------------------|-------------------------|
+| runtime | 7 (TemplateStore, RelationStore, SpawnGroupStore, ScheduleStore, LabelDefinitionStore, LabelVocabularyStore, FilterRuleStore) | 3 (CrossTenantWorkItemStore, CrossTenantWorkItemScheduleStore, CrossTenantRoutingCursorStore) |
+| queues | 5 (QueueViewStore, QueueMembershipStore, WorkItemFilterStore, FilterChainStore, QueueStateStore) | 0 |
+| notifications | 1 (NotificationRuleStore) | 0 |
+| ai | 2 (WorkerSkillProfileStore, EscalationSummaryStore) | 0 |
+| **Total** | **15** | **3** |
+
+Existing stores extended with tenant filtering: 6 (WorkItemStore, AuditEntryStore, WorkItemNoteStore, RoutingCursorStore, IssueLinkStore, WorkItemLedgerEntryRepository). Grand total: **24 store implementations** (15 new + 6 extended + 3 cross-tenant).
 
 **InMemory stores (persistence-memory):** inject `CurrentPrincipal`, filter the backing collection on `tenancyId` in every read, stamp on every write.
 
