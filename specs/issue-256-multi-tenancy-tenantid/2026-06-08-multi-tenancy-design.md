@@ -2,7 +2,7 @@
 
 **Issue:** casehubio/work#256
 **Date:** 2026-06-08
-**Status:** Design approved — revision 2
+**Status:** Design approved — revision 3
 
 ---
 
@@ -38,16 +38,40 @@ Add `tenancy_id VARCHAR(255) NOT NULL` to every JPA entity:
 
 Every store implementation injects `CurrentPrincipal` and applies `tenancyId` unconditionally to every query. Per protocols `tenancy-repository-pattern` and `no-conditional-tenancy-filtering`.
 
-### isCrossTenantAdmin() — principled position
+### Cross-tenant access — separate types, not a flag
 
-`CurrentPrincipal.isCrossTenantAdmin()` is honoured. When true, the store omits the tenant filter and returns results across all tenants. This is not a conditional tenancy gate (which `no-conditional-tenancy-filtering` prohibits) — it is an authorization check. The protocol prohibits gating tenancy filtering on a *deployment mode* or *feature flag*. `isCrossTenantAdmin()` is an *identity claim* on the authenticated principal — the difference between "this deployment doesn't do tenancy" (prohibited) and "this principal is authorized to see all tenants" (permitted).
+Cross-tenant access follows the engine's pattern (engine#405): separate `CrossTenant*` store interfaces, a `@CrossTenant` CDI qualifier, and a dedicated `SystemCurrentPrincipal`. Tenant-scoped stores always filter — they never check `isCrossTenantAdmin()` and never conditionally omit the tenant predicate.
 
-**Who gets `isCrossTenantAdmin() = true`:**
-- `TenantContextRunner` when establishing system context for Quartz jobs and startup recovery (actorId = "system", crossTenantAdmin = true for the recovery scan specifically)
-- `RoutingCursorCleanupJob` for GC
-- Future admin/diagnostic endpoints (explicitly gated by `@RolesAllowed`)
+**`@CrossTenant` qualifier** (`runtime/repository/`): a CDI `@Qualifier` annotation marking injection points that require cross-tenant data access. Convention-based marker — enforced by code review, not CDI machinery. Greppable: "where does cross-tenant access happen?" → `grep @CrossTenant`.
 
-**Who does NOT get it:** Normal REST requests. The `MockCurrentPrincipal` defaults to `crossTenantAdmin = false`.
+**Cross-tenant store interfaces** (`runtime/repository/`):
+
+| Interface | Methods | Used by |
+|-----------|---------|---------|
+| `CrossTenantWorkItemStore` | `findActiveWithDeadlines()` — active items with non-null expiresAt or claimDeadline | Startup recovery scan |
+| `CrossTenantWorkItemScheduleStore` | `findActive()` — active schedules | Startup recovery scan |
+| `CrossTenantRoutingCursorStore` | `cleanupStale(Instant cutoff)` — delete cursors older than cutoff | RoutingCursorCleanupJob |
+
+Each interface exposes only the methods the cross-tenant use case requires — no `put()`, no `delete()` (except GC), no `scanAll()`. The type system bounds the blast radius.
+
+Each gets a JPA implementation that omits the tenant predicate. When #257 adds PostgreSQL RLS, these implementations switch to `SET LOCAL ROLE casehub_crosstenancy` — the same mechanism the engine uses — without changing any caller.
+
+**`SystemCurrentPrincipal`** (`runtime/service/`): an `@ApplicationScoped` bean qualified with a `@WorkSystem` annotation (casehub-work's equivalent of engine's `@EngineSystem`). Implements `CurrentPrincipal` with `actorId = "system"`, `tenancyId = TenancyConstants.DEFAULT_TENANT_ID`, `isCrossTenantAdmin() = true`. Never `@DefaultBean` — never displaces `MockCurrentPrincipal`. Accessed only via `@WorkSystem` qualifier from `CrossTenantProducer`.
+
+**`CrossTenantProducer`** (`runtime/service/`): produces `@CrossTenant`-qualified cross-tenant store beans. Validates at startup that `SystemCurrentPrincipal.isCrossTenantAdmin() == true` — a contract assertion that fails loudly if the system principal is misconfigured.
+
+```java
+@Produces @CrossTenant @ApplicationScoped
+public CrossTenantWorkItemStore produceWorkItemStore() {
+    if (!systemPrincipal.isCrossTenantAdmin()) {
+        throw new IllegalStateException(
+            "SystemCurrentPrincipal.isCrossTenantAdmin() must return true");
+    }
+    return crossTenantWorkItemStore;
+}
+```
+
+**What `isCrossTenantAdmin()` is NOT used for:** tenant-scoped stores never read it. It exists on `CurrentPrincipal` for the producer's startup assertion and for future platform-level system-actor contracts. Normal store queries are unconditionally tenant-filtered — no flags, no conditions, no escape hatches.
 
 ### Insert vs update contract
 
@@ -60,7 +84,7 @@ Every store implementation injects `CurrentPrincipal` and applies `tenancyId` un
 - `WorkItemStore` / `JpaWorkItemStore` — tenant predicate on `get()`, `scan()`, `scanAll()`, `findByCallerRef()`, `scanRoots()`, `countByParentAndAssignee()`; stamp on `put()`
 - `AuditEntryStore` / `JpaAuditEntryStore` — tenant predicate on all queries
 - `WorkItemNoteStore` / `JpaWorkItemNoteStore` — tenant predicate on all queries
-- `RoutingCursorStore` / `JpaRoutingCursorStore` — tenant predicate on all queries; plus a `cleanupStale(Instant cutoff)` method with no tenant filter (GC-only, documented)
+- `RoutingCursorStore` / `JpaRoutingCursorStore` — tenant predicate on all queries (GC cleanup lives on `CrossTenantRoutingCursorStore`, not here)
 - `IssueLinkStore` / `JpaIssueLinkStore` — tenant predicate on all queries
 - `WorkItemLedgerEntryRepository` / `JpaWorkItemLedgerEntryRepository` — tenant predicate on `findByWorkItemId()`, `findLatestByWorkItemId()`, `findEarliestByWorkItemId()`
 
@@ -132,11 +156,11 @@ Replace polling schedulers with per-item Quartz timers. Each timer carries `{wor
 
 **Scale characteristic:** per-item timers mean N Quartz jobs for N active WorkItems with deadlines. A system with 50K active items has 50K+ triggers. This is within Quartz JDBC store's design envelope — triggers are indexed rows, not in-heap objects.
 
-**Startup recovery:** with JDBC store, timers that fired while the application was down are handled by Quartz's misfire policy. Set `org.quartz.jobStore.misfireThreshold` to a reasonable value (e.g. 60s). Misfired triggers execute immediately on startup. A separate recovery scan is needed only if JDBC store state is lost (disaster recovery) — in that case, a `@Startup` bean runs a one-time cross-tenant scan:
-- WorkItems: `status NOT IN (COMPLETED, REJECTED, CANCELLED, EXPIRED, ESCALATED) AND (expires_at IS NOT NULL OR claim_deadline IS NOT NULL)` — re-schedule timers for each.
-- WorkItemSchedules: `active = true` — re-schedule Quartz triggers for each.
+**Startup recovery:** with JDBC store, timers that fired while the application was down are handled by Quartz's misfire policy. Set `org.quartz.jobStore.misfireThreshold` to a reasonable value (e.g. 60s). Misfired triggers execute immediately on startup. A separate recovery scan is needed only if JDBC store state is lost (disaster recovery) — in that case, a `@Startup` bean injects `@CrossTenant CrossTenantWorkItemStore` and `@CrossTenant CrossTenantWorkItemScheduleStore` and runs a one-time scan:
+- WorkItems: `crossTenantWorkItemStore.findActiveWithDeadlines()` — re-schedule timers for each, using the entity's `tenancyId` as Quartz job data.
+- WorkItemSchedules: `crossTenantWorkItemScheduleStore.findActive()` — re-schedule Quartz triggers for each.
 
-This recovery scan uses `isCrossTenantAdmin() = true` context (see §2).
+This is the one bounded cross-tenant operation — runs once at startup, not recurring. Uses `@CrossTenant` stores, not `TenantContextRunner`.
 
 ### ExpiryCleanupJob → ExpiryTimerJob
 
@@ -184,7 +208,7 @@ Every state transition that touches `expiresAt` or `claimDeadline` needs a corre
 
 ### RoutingCursorCleanupJob
 
-Remains as periodic GC. Cross-tenant bulk delete is correct for pure housekeeping — no business logic, no events, idempotent. Uses `RoutingCursorStore.cleanupStale(cutoff)` which applies no tenant filter (documented as GC-only).
+Remains as periodic GC. Cross-tenant bulk delete is correct for pure housekeeping — no business logic, no events, idempotent. The job injects `@CrossTenant CrossTenantRoutingCursorStore` and calls `cleanupStale(cutoff)`. The tenant-scoped `RoutingCursorStore` has no cleanup method — GC is exclusively a cross-tenant concern.
 
 ---
 
@@ -202,13 +226,14 @@ Internally:
 3. Runs the work
 4. Tears down the context
 
-A separate `runInCrossTenantContext()` variant sets `isCrossTenantAdmin() = true` — used only by the startup recovery scan.
+There is no `runInCrossTenantContext()` variant. Cross-tenant access is handled by `@CrossTenant` stores injected at the bean level (see §2), not by manipulating the principal. This keeps two concerns cleanly separated:
+- **Per-tenant async work** → `TenantContextRunner.runInTenantContext()` (Quartz jobs, `@ObservesAsync` handlers)
+- **Cross-tenant system work** → `@CrossTenant` stores (startup recovery, GC)
 
 **Used by:**
-- Quartz expiry/claim-deadline/schedule job handlers — `runInTenantContext()`
+- Quartz expiry/claim-deadline/schedule job handlers — each job carries tenancyId in its job data; the handler calls `runInTenantContext(tenancyId, () -> ...)` before processing
 - `MultiInstanceCoordinator.onChildTerminal()` (`@ObservesAsync`) — reads tenancyId from event's WorkItem
-- Startup recovery scan — `runInCrossTenantContext()` for the scan, then `runInTenantContext()` per item if processing is needed
-- `NotificationDispatcher` — currently dispatches to virtual threads via `CompletableFuture.runAsync()` which loses context; must wrap in `runInTenantContext()` using tenancyId from the event
+- `NotificationDispatcher` — wraps channel `send()` calls in `runInTenantContext()` using tenancyId from the event
 - Any future `@ObservesAsync` handler that needs tenant context
 
 ---
@@ -289,7 +314,8 @@ assertThat(workItemStore.get(itemA.id)).isEmpty(); // tenant isolation
 Every store implementation (JPA, InMemory, MongoDB) gets multi-tenant tests:
 - Create data as tenant A → switch to tenant B → assert B cannot see/modify/delete A's data
 - Assert `put()` on update preserves existing tenancyId
-- Assert `isCrossTenantAdmin() = true` sees all tenants
+- Assert cross-tenant stores (`@CrossTenant CrossTenantWorkItemStore`) see data across all tenants
+- Assert tenant-scoped stores never return cross-tenant data regardless of principal configuration
 
 ### Level 2: Timer and async context propagation tests
 
