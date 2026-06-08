@@ -2,7 +2,7 @@
 
 **Issue:** casehubio/work#256
 **Date:** 2026-06-08
-**Status:** Design approved — revision 5
+**Status:** Design approved — revision 6
 
 ---
 
@@ -96,6 +96,7 @@ public CrossTenantWorkItemStore produceWorkItemStore() {
 | `WorkItemRelationStore` | Static `WorkItemRelation.find*` | `put`, `findBySource`, `findByTarget`, `findBySourceAndType`, `delete` |
 | `WorkItemSpawnGroupStore` | Static `WorkItemSpawnGroup.find*` | `put`, `get`, `findByParentId`, `findByParentAndKey`, `findMultiInstanceByParentId` |
 | `WorkItemScheduleStore` | Static `WorkItemSchedule.find*` | `put`, `get`, `scanAll`, `delete` |
+| `WorkItemLinkStore` | Static `WorkItemLink.find*` in `WorkItemResource.java:687,688,708` | `put`, `get`, `findByWorkItemId`, `findByWorkItemIdAndType`, `delete` |
 | `LabelDefinitionStore` | Static `LabelDefinition.findByVocabularyId/findByPath` | `put`, `findByVocabularyId`, `findByPath`, `delete` |
 | `LabelVocabularyStore` | Static `LabelVocabulary` calls | `put`, `get`, `scanAll`, `delete` |
 | `FilterRuleStore` | Static `FilterRule.allEnabled` | `put`, `get`, `allEnabled`, `delete` |
@@ -146,13 +147,13 @@ Note: `WorkItemFilter.serializeActions()` is a static utility method (JSON seria
 
 | Module | New tenant-scoped stores | New cross-tenant stores |
 |--------|--------------------------|-------------------------|
-| runtime | 7 (TemplateStore, RelationStore, SpawnGroupStore, ScheduleStore, LabelDefinitionStore, LabelVocabularyStore, FilterRuleStore) | 3 (CrossTenantWorkItemStore, CrossTenantWorkItemScheduleStore, CrossTenantRoutingCursorStore) |
+| runtime | 8 (TemplateStore, RelationStore, SpawnGroupStore, ScheduleStore, LabelDefinitionStore, LabelVocabularyStore, FilterRuleStore, LinkStore) | 3 (CrossTenantWorkItemStore, CrossTenantWorkItemScheduleStore, CrossTenantRoutingCursorStore) |
 | queues | 5 (QueueViewStore, QueueMembershipStore, WorkItemFilterStore, FilterChainStore, QueueStateStore) | 0 |
 | notifications | 1 (NotificationRuleStore) | 0 |
 | ai | 2 (WorkerSkillProfileStore, EscalationSummaryStore) | 0 |
-| **Total** | **15** | **3** |
+| **Total** | **16** | **3** |
 
-Existing stores extended with tenant filtering: 6 (WorkItemStore, AuditEntryStore, WorkItemNoteStore, RoutingCursorStore, IssueLinkStore, WorkItemLedgerEntryRepository). Grand total: **24 store implementations** (15 new + 6 extended + 3 cross-tenant).
+Existing stores extended with tenant filtering: 6 (WorkItemStore, AuditEntryStore, WorkItemNoteStore, RoutingCursorStore, IssueLinkStore, WorkItemLedgerEntryRepository). Grand total: **25 store implementations** (16 new + 6 extended + 3 cross-tenant).
 
 **InMemory stores (persistence-memory):** inject `CurrentPrincipal`, filter the backing collection on `tenancyId` in every read, stamp on every write.
 
