@@ -2,7 +2,7 @@
 
 **Issue:** casehubio/work#256
 **Date:** 2026-06-08
-**Status:** Design approved — revision 3
+**Status:** Design approved — revision 4
 
 ---
 
@@ -24,7 +24,7 @@ Add `tenancy_id VARCHAR(255) NOT NULL` to every JPA entity:
 
 **Optional modules:** WorkItemQueueState, QueueView, WorkItemFilter, FilterChain, WorkItemQueueMembership (queues); WorkItemIssueLink (issue-tracker); WorkItemNotificationRule (notifications); WorkerSkillProfile, EscalationSummary (ai).
 
-**casehub-work-ledger:** `WorkItemLedgerEntry` extends `LedgerEntry` (casehub-ledger) via JOINED inheritance. The base `LedgerEntry` has no `tenancyId` column — casehub-ledger manages tenancy at the repository query level, not on the entity. `WorkItemLedgerEntryRepository` and its JPA implementation must add tenant filtering to all query methods (`findByWorkItemId`, `findLatestByWorkItemId`, `findEarliestByWorkItemId`). The `work_item_ledger_entry` join table gets a `tenancy_id` column (V2002 migration in the ledger module's Flyway range). The base `ledger_entry` table is owned by casehub-ledger — casehub-work must not add columns to it.
+**casehub-work-ledger:** `WorkItemLedgerEntry` extends `LedgerEntry` (casehub-ledger) via JOINED inheritance. The base `LedgerEntry` has no `tenancyId` column — casehub-ledger manages tenancy at the repository query level, not on the entity. `WorkItemLedgerEntryRepository` and its JPA implementation must add tenant filtering to all query methods (`findByWorkItemId`, `findLatestByWorkItemId`, `findEarliestByWorkItemId`). The `work_item_ledger_entry` join table gets a `tenancy_id` column (V2004 migration — after queues V2002/V2003 in the shared `db/work/migration/` path). The base `ledger_entry` table is owned by casehub-ledger — casehub-work must not add columns to it.
 
 **Collection table** `work_item_label`: no separate `tenancy_id` — owned by WorkItem via `@CollectionTable`, inherits parent's tenancy filter through JOINs.
 
@@ -102,7 +102,35 @@ public CrossTenantWorkItemStore produceWorkItemStore() {
 
 Each gets JPA and InMemory implementations. MongoDB where the module exists.
 
-**Optional module stores** (queues, notifications, ai) — entities in these modules that use static Panache calls (`QueueView.findById()`, `QueueView.listAll()`, `WorkItemNotificationRule.findEnabledForEventType()`, `WorkerSkillProfile.listAll()`, etc.) must also route through tenant-aware stores or inject `CurrentPrincipal` directly where the class is already a data access class.
+### Optional module static Panache calls — exhaustive enumeration
+
+Every static Panache call in optional modules must route through a tenant-aware store. The following calls were confirmed by audit:
+
+**Queues module:**
+
+| Call | File | Replacement |
+|------|------|-------------|
+| `QueueView.listAll()` | `FilterEvaluationObserver.java:107` | `QueueViewStore.scanAll()` (new) |
+| `QueueView.findById()` | `QueueResource.java:114,162` | `QueueViewStore.get()` |
+| `QueueView.findById()` | `WorkItemQueueMetrics.java:49` | `QueueViewStore.get()` |
+| `WorkItemQueueMembership.findByWorkItemId()` | `QueueMembershipTracker.java:85` | `QueueMembershipStore.findByWorkItemId()` (new) |
+| `WorkItemQueueMembership.deleteByWorkItemId()` | `QueueMembershipTracker.java:107` | `QueueMembershipStore.deleteByWorkItemId()` |
+| `WorkItemQueueMembership.persist()` | `QueueMembershipTracker.java:111` | `QueueMembershipStore.put()` |
+
+**Notifications module:**
+
+| Call | File | Replacement |
+|------|------|-------------|
+| `WorkItemNotificationRule.findEnabledForEventType()` | `NotificationDispatcher.java:72` | `NotificationRuleStore.findEnabledForEventType()` (new) |
+| `WorkItemNotificationRule.list/findById/findAllEnabled` | `NotificationRuleResource.java:85,86,93,107,140` | `NotificationRuleStore` methods |
+
+**AI module:**
+
+| Call | File | Replacement |
+|------|------|-------------|
+| `WorkerSkillProfile.findById()` | `WorkerProfileSkillProfileProvider.java:26`, `WorkerSkillProfileResource.java:44,75` | `WorkerSkillProfileStore.get()` (new) |
+| `WorkerSkillProfile.listAll()` | `WorkerSkillProfileResource.java:63` | `WorkerSkillProfileStore.scanAll()` |
+| `WorkerSkillProfile.deleteById()` | `WorkerSkillProfileResource.java:92` | `WorkerSkillProfileStore.delete()` |
 
 **InMemory stores (persistence-memory):** inject `CurrentPrincipal`, filter the backing collection on `tenancyId` in every read, stamp on every write.
 
@@ -233,7 +261,7 @@ There is no `runInCrossTenantContext()` variant. Cross-tenant access is handled 
 **Used by:**
 - Quartz expiry/claim-deadline/schedule job handlers — each job carries tenancyId in its job data; the handler calls `runInTenantContext(tenancyId, () -> ...)` before processing
 - `MultiInstanceCoordinator.onChildTerminal()` (`@ObservesAsync`) — reads tenancyId from event's WorkItem
-- `NotificationDispatcher` — wraps channel `send()` calls in `runInTenantContext()` using tenancyId from the event
+- `NotificationDispatcher` — requires both: (a) tenant-scoped rule loading via `NotificationRuleStore.findEnabledForEventType()` (runs synchronously in the `AFTER_SUCCESS` observer where `CurrentPrincipal` is still available), and (b) `runInTenantContext()` wrapping for channel `send()` calls dispatched to virtual threads via `CompletableFuture.runAsync()` (which loses request context)
 - Any future `@ObservesAsync` handler that needs tenant context
 
 ---
@@ -282,8 +310,8 @@ Each module's migration stays within its allocated V-number range.
 | Migration | Module | Tables |
 |-----------|--------|--------|
 | V35 | runtime | work_item, work_item_template, audit_entry, work_item_note, work_item_link, work_item_spawn_group, work_item_schedule, work_item_relation, routing_cursor, label_definition, label_vocabulary, filter_rule |
-| V2002 | ledger | work_item_ledger_entry |
 | V2003 | queues | work_item_queue_state, queue_view, work_item_filter, filter_chain, work_item_queue_membership |
+| V2004 | ledger | work_item_ledger_entry |
 | V3001 | notifications | work_item_notification_rule |
 | V4002 | ai | worker_skill_profile, escalation_summary |
 | V5002 | issue-tracker | work_item_issue_link |
@@ -308,6 +336,8 @@ workItemStore.put(itemA);
 mutablePrincipal.setTenancyId("tenant-b");
 assertThat(workItemStore.get(itemA.id)).isEmpty(); // tenant isolation
 ```
+
+Level 2 and Level 3 tests rely on `TenantContextRunner` establishing per-invocation context for async paths, not on `MutableCurrentPrincipal`. `MutableCurrentPrincipal` is for synchronous Level 1 store tests and Level 4 REST tests only.
 
 ### Level 1: Store isolation tests
 
