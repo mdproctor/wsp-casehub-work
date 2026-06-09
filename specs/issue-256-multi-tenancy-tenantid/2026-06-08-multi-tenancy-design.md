@@ -24,7 +24,7 @@ Add `tenancy_id VARCHAR(255) NOT NULL` to every JPA entity:
 
 **Optional modules:** WorkItemQueueState, QueueView, WorkItemFilter, FilterChain, WorkItemQueueMembership (queues); WorkItemIssueLink (issue-tracker); WorkItemNotificationRule (notifications); WorkerSkillProfile, EscalationSummary (ai).
 
-**casehub-work-ledger:** `WorkItemLedgerEntry` extends `LedgerEntry` (casehub-ledger) via JOINED inheritance. The base `LedgerEntry` has no `tenancyId` column — casehub-ledger manages tenancy at the repository query level, not on the entity. `WorkItemLedgerEntryRepository` and its JPA implementation must add tenant filtering to all query methods (`findByWorkItemId`, `findLatestByWorkItemId`, `findEarliestByWorkItemId`). The `work_item_ledger_entry` join table gets a `tenancy_id` column (V2004 migration — after queues V2002/V2003 in the shared `db/work/migration/` path). The base `ledger_entry` table is owned by casehub-ledger — casehub-work must not add columns to it.
+**casehub-work-ledger:** `WorkItemLedgerEntry` extends `LedgerEntry` (casehub-ledger) via JOINED inheritance. `LedgerEntry` gains `tenancy_id` on the base `ledger_entry` table via casehub-ledger's V1000 migration — `WorkItemLedgerEntry` inherits it automatically. No separate `tenancy_id` column or migration is needed in `work_item_ledger_entry`. `WorkItemLedgerEntryRepository` and its JPA implementation must add tenant filtering to all query methods (`findByWorkItemId`, `findLatestByWorkItemId`, `findEarliestByWorkItemId`) — the `tenancy_id` column is already present on the joined base table.
 
 **Collection table** `work_item_label`: no separate `tenancy_id` — owned by WorkItem via `@CollectionTable`, inherits parent's tenancy filter through JOINs.
 
@@ -334,10 +334,11 @@ Each module's migration stays within its allocated V-number range.
 |-----------|--------|--------|
 | V35 | runtime | work_item, work_item_template, audit_entry, work_item_note, work_item_link, work_item_spawn_group, work_item_schedule, work_item_relation, routing_cursor, label_definition, label_vocabulary, filter_rule |
 | V2003 | queues | work_item_queue_state, queue_view, work_item_filter, filter_chain, work_item_queue_membership |
-| V2004 | ledger | work_item_ledger_entry |
 | V3001 | notifications | work_item_notification_rule |
 | V4002 | ai | worker_skill_profile, escalation_summary |
 | V5002 | issue-tracker | work_item_issue_link |
+
+`work_item_ledger_entry` requires no migration — `tenancy_id` is inherited from `ledger_entry` (base table) via JOINED inheritance once casehub-ledger's V1000 ships.
 
 Each migration: `ADD COLUMN tenancy_id VARCHAR(255) NOT NULL DEFAULT '278776f9-e1b0-46fb-9032-8bddebdcf9ce'`. Plus constraint and PK changes for WorkItemTemplate and RoutingCursor. Plus index on `tenancy_id` per table.
 
