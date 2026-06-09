@@ -17,7 +17,10 @@ Complete work-end for `issue-256-multi-tenancy-tenantid`. The branch is implemen
 - `#234` — still blocked (connectors-core not built, Qhorus routing conflict, classification undefined) · S · High
 - ledger exclude-types workaround — still temporary · XS · Low
 - 6 workspace branches past deletion date · XS · Low
-- 2 forage entries pending submission (CDI @RequestScoped resolution gotcha, @CacheResult tenant leak gotcha) · XS · Low
+- 3 forage entries pending — run `forage SWEEP` with these descriptions:
+  1. gotcha (score 10): @RequestScoped CDI bean silently displaces @DefaultBean @ApplicationScoped in all request contexts — defaults must match or tests break silently
+  2. gotcha (score 12): Quarkus @CacheResult cache key omits CDI-injected tenancyId — cross-tenant data leak through cache
+  3. gotcha (score 9): Upstream Maven SNAPSHOT breaking change breaks downstream CI silently — local .m2 has locally-installed jar, CI resolves published version with different signatures
 
 ## What's Next
 
