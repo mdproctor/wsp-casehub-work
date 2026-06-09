@@ -1,15 +1,12 @@
-*Updated: #191, casehubio/parent#161, casehubio/parent#162 closed — removed from backlog.*
-
-# HANDOFF — 2026-06-04
+# HANDOFF — 2026-06-09
 
 ## Last Session
 
-Status lifecycle cleanup session. Closed five issues on branch `issue-243-status-lifecycle-fixes`:
-#243 (EXPIRED missing from `isTerminal()` — fixed 8 call sites), #244 (ESCALATED terminal status now wired — `BreachDecision.Exhausted` as fifth sealed variant, `executeExhausted()` sets ESCALATED when Chained policy exhausts all branches, `SLA_REASSIGNED` replaces `ESCALATED` as the reassignment event name), #245 (DELEGATED lifecycle redesign — `DelegationState` dropped, `delegate()` sets DELEGATED, `acceptDelegation()`/`declineDelegation()` new endpoints, `DeclineTarget` preference key, V34 migration), #241 (findById on WorkItemService), #239 (GroupMembershipProvider callers verified — no code change needed). Landed on upstream/main. Docs synced: DESIGN.md, ARCHITECTURE.md. Peer-repo issues filed: casehubio/parent#161 (casehub-work.md), casehubio/parent#162 (PLATFORM.md).
+Multi-tenancy implementation for casehub-work (#256). 25 commits on `issue-256-multi-tenancy-tenantid`: `tenancy_id` on every entity (5 Flyway migrations), 25 store implementations (16 new tenant-scoped + 6 existing extended + 3 cross-tenant), CDI events with tenancyId, tenant-scoped SSE streams, polling schedulers replaced with per-item Quartz timers (18-transition lifecycle matrix), TenantContextRunner for async paths, @CrossTenant qualifier pattern matching engine. Spec at revision 6 after 5 review rounds. Code review passed — 2 findings fixed (SpawnGroupResource isolation gap, ReportService @CacheResult tenant leak). Protocol captured: PP-20260607-69eba2 (tenancyid-server-side-only). 3 out-of-scope issues filed: #257 (RLS), #258 (webhook tenant mapping), #259 (protocol update).
 
 ## Immediate Next Step
 
-Pick up #240 (human task lifecycle alignment, L/High) — the #245 DELEGATED implementation was done without full design, making #240 more urgent. Run `/work` to start.
+Complete work-end for `issue-256-multi-tenancy-tenantid`. The branch is implementation-complete but work-end was interrupted mid-procedure. Resume with: pre-close sweep (forage, protocol, ADR, diary), then Steps 2–10 of work-end. Two pending forage entries to submit: (1) @RequestScoped CDI bean displaces @DefaultBean in all request contexts, (2) @CacheResult cache key missing CDI-injected tenancyId = tenant data leak. #255 and #251 removed from COVERS — close only #256.
 
 ## Cross-Module
 
@@ -19,18 +16,21 @@ Pick up #240 (human task lifecycle alignment, L/High) — the #245 DELEGATED imp
 
 - `#234` — still blocked (connectors-core not built, Qhorus routing conflict, classification undefined) · S · High
 - ledger exclude-types workaround — still temporary · XS · Low
-- 6 workspace branches past deletion date (epic-excluded-users, epic-exclusion-audit, epic-output-schema, issue-204, issue-207, issue-212) · XS · Low
+- 6 workspace branches past deletion date · XS · Low
+- 2 forage entries pending submission (CDI @RequestScoped resolution gotcha, @CacheResult tenant leak gotcha) · XS · Low
 
 ## What's Next
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
 | #240 | design: human task lifecycle alignment | L | High | #245 DELEGATED done without it — now critical |
+| #255 | chore(persistence-memory): minor review findings | XS | Low | removed from #256 COVERS |
+| #251 | OutcomeCodecs / PATCH template: minor quality gaps | XS | Low | removed from #256 COVERS |
 | #236 | feat: replace VocabularyScope enum with Path-based scope hierarchy | M | Low | |
 
 ## Key References
 
-- Garden: GE-20260604-7e0560 (untracked file aborts git rebase when replayed commit would create it)
-- Garden REVISE: GE-20260529-5a82f1 (partial rebase plan — CONFLICT(modify/delete) variant added)
-- Blog: `2026-06-04-mdp01-states-that-existed-on-paper.md`
+- Spec: `specs/issue-256-multi-tenancy-tenantid/2026-06-08-multi-tenancy-design.md` (revision 6)
+- Plan: `plans/2026-06-09-multi-tenancy-implementation.md`
+- Protocol: PP-20260607-69eba2 (tenancyid-server-side-only) in casehub/garden
 - Previous refs: `git show HEAD~1:HANDOFF.md`
