@@ -1,0 +1,9 @@
+branch: issue-236-path-based-scope-hierarchy
+project-sha: a8281f06637b942b041e03615f457000d6505db2
+date: 2026-06-12
+issue: 236
+issue-repo: casehubio/work
+covers: 236
+flyway-next-v: 5003
+design-repo: project
+design-section-hashes: 
