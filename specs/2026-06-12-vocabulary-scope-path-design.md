@@ -179,9 +179,15 @@ UPDATE label_vocabulary SET scope = owner_id WHERE scope IN ('ORG', 'TEAM', 'PER
 
 -- Drop owner_id
 ALTER TABLE label_vocabulary DROP COLUMN owner_id;
+
+-- Enforce: one vocabulary per scope path per tenant
+-- Follows V35 precedent: uq_work_item_template_name_tenant UNIQUE(name, tenancy_id)
+CREATE UNIQUE INDEX uq_label_vocabulary_scope_tenant ON label_vocabulary(scope, tenancy_id);
 ```
 
 **Data loss acknowledgment:** ORG/TEAM/PERSONAL vocabularies become single-segment paths. The tier distinction is lost because the old schema never captured hierarchy — `ownerId="hr-team"` at TEAM scope didn't record which org. New vocabularies use proper hierarchical paths. The seeded GLOBAL row converts to `scope=''` (root).
+
+**Collision caveat:** The `SET scope = owner_id` conversion collapses different tiers sharing an ownerId into the same path. If a dev database has both `(ORG, 'engineering')` and `(TEAM, 'engineering')` for the same tenant, the unique index creation fails. This is correct — the migration surfaces the collision rather than silently orphaning a row. In practice this requires deliberate REST API calls and no production data exists.
 
 **H2 compatibility:** `ALTER COLUMN ... TYPE` and `DROP COLUMN` work in both PostgreSQL and H2 `MODE=PostgreSQL`.
 
