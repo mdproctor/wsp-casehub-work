@@ -91,7 +91,63 @@ record AddDefinitionRequest(String path, String description, String addedBy, Str
 Response addDefinition(AddDefinitionRequest request)
 ```
 
-Scope parsing: null/blank → `Path.root()`, otherwise `Path.parse(scope)`.
+**Full collapsed `addDefinition` implementation:**
+
+```java
+@POST
+@Transactional
+public Response addDefinition(final AddDefinitionRequest request) {
+    if (request == null || request.path() == null || request.path().isBlank()) {
+        return Response.status(Response.Status.BAD_REQUEST)
+                .entity(Map.of("error", "path is required")).build();
+    }
+    if (request.path().contains("*") || request.path().contains("?")) {
+        return Response.status(Response.Status.BAD_REQUEST)
+                .entity(Map.of("error", "path must not contain wildcard characters")).build();
+    }
+
+    final io.casehub.platform.api.path.Path labelPath;
+    try {
+        labelPath = io.casehub.platform.api.path.Path.parse(request.path());
+    } catch (IllegalArgumentException e) {
+        return Response.status(Response.Status.BAD_REQUEST)
+                .entity(Map.of("error", "invalid path: " + e.getMessage())).build();
+    }
+
+    final io.casehub.platform.api.path.Path scopePath;
+    try {
+        scopePath = (request.scope() == null || request.scope().isBlank())
+                ? io.casehub.platform.api.path.Path.root()
+                : io.casehub.platform.api.path.Path.parse(request.scope());
+    } catch (IllegalArgumentException e) {
+        return Response.status(Response.Status.BAD_REQUEST)
+                .entity(Map.of("error", "invalid scope: " + e.getMessage())).build();
+    }
+
+    final LabelVocabulary vocab = scopePath.equals(io.casehub.platform.api.path.Path.root())
+            ? vocabularyService.findGlobalVocabulary()
+            : vocabularyService.findOrCreateVocabulary(scopePath, scopePath.value());
+
+    if (vocab == null) {
+        return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                .entity(Map.of("error", "GLOBAL vocabulary not found — check Flyway V3 migration")).build();
+    }
+
+    final LabelDefinition def = vocabularyService.addDefinition(
+            vocab.id, labelPath, request.description(),
+            request.addedBy() != null ? request.addedBy() : "unknown");
+
+    return Response.status(Response.Status.CREATED)
+            .entity(Map.of("id", def.id, "path", def.path.value(), "scope", scopePath.value()))
+            .build();
+}
+```
+
+Key changes visible in the implementation:
+- **Scope parsing:** null/blank → `Path.root()`, otherwise `Path.parse(scope)` with error handling.
+- **Vocabulary name derivation:** auto-created vocabularies use `scopePath.value()` as the name — the path string IS the identity. The `name` parameter stays on `findOrCreateVocabulary` because it serves a display purpose ("HR Team Leave Vocabulary" vs "casehubio/hr-team"), but the REST endpoint derives it from the path for auto-creation.
+- **Response serialization:** `scopePath.value()` returns a flat string, not a JSON object. Without `.value()`, Jackson would serialize `Path` as `{"value":"…","segments":[…]}`.
+- **All GLOBAL/ORG/TEAM/PERSONAL branching eliminated** — the enum parsing, ownerId defaulting for PERSONAL, ownerId validation for ORG/TEAM, and scope-specific error messages all collapse to a single Path parse + root check.
 
 **`GET /vocabulary` (listAll):** Currently hardcodes `VocabularyScope.PERSONAL` (= "show everything"). No `Path` equivalent of "deepest possible" exists. Change to list all definitions by scanning all vocabularies and flatmapping their definitions — no scope filter applied. This is what the endpoint was effectively doing (scope enforcement is deferred). The `listAccessible(Path)` method remains available for when scope enforcement is activated.
 
@@ -99,7 +155,11 @@ Scope parsing: null/blank → `Path.root()`, otherwise `Path.parse(scope)`.
 
 No changes needed. `LabelVocabularyStore` SPI and implementations (JPA, InMemory) do generic CRUD without referencing `VocabularyScope`. The entity field type change is transparent via JPA converter.
 
-### Flyway Migration — V5003
+### Flyway Migration — V36
+
+File: `runtime/src/main/resources/db/work/migration/V36__vocabulary_scope_to_path.sql`
+
+V36, not V5003. Per `docs/FLYWAY.md`, V1–V999 belongs to the runtime module (currently at V35). V5000–V5999 belongs to `casehub-work-issue-tracker`.
 
 ```sql
 -- Widen scope column
@@ -125,9 +185,30 @@ ALTER TABLE label_vocabulary DROP COLUMN owner_id;
 
 **`VocabularyScenario`:** `VocabularyScope.TEAM` → `Path.of("casehubio", TEAM_ID)`. Demonstrates proper two-segment path following platform convention.
 
+**`PathAttributeConverterTest` — root roundtrip test:** The root-path guard is the entire point of the converter change. Add test cases:
+
+```java
+@Test
+void rootPath_roundtrips() {
+    PathAttributeConverter converter = new PathAttributeConverter();
+    // Path.root() → "" in database
+    assertThat(converter.convertToDatabaseColumn(Path.root())).isEqualTo("");
+    // "" in database → Path.root()
+    assertThat(converter.convertToEntityAttribute("")).isEqualTo(Path.root());
+}
+```
+
 ### Cleanup
 
 Delete `VocabularyScope.java`. All references eliminated by the changes above.
+
+### ARC42STORIES.MD Updates
+
+Three updates in the Layer 16 Key Files and Key Wiring sections:
+
+1. **Remove VocabularyScope.java row** (~line 1452): file deleted.
+2. **Update LabelVocabulary.java description** (~line 1450): change "scope enum GLOBAL/ORG/TEAM/PERSONAL" to "scope uses `Path` from `casehub-platform-api`; `PathAttributeConverter` stores as VARCHAR".
+3. **Update Key Wiring section** (~line 1468): note that `LabelVocabulary.scope` now also uses `PathAttributeConverter` alongside `LabelDefinition.path`.
 
 ## Files Changed
 
@@ -137,13 +218,15 @@ Delete `VocabularyScope.java`. All references eliminated by the changes above.
 | `runtime/.../model/LabelVocabulary.java` | scope: enum → Path, drop ownerId |
 | `runtime/.../model/PathAttributeConverter.java` | Root path guard in `convertToEntityAttribute` |
 | `runtime/.../service/LabelVocabularyService.java` | All scope methods: enum → Path |
-| `runtime/.../api/VocabularyResource.java` | Scope in body, drop ownerId, listAll without filter |
-| `runtime/.../resources/db/work/migration/V5003__vocabulary_scope_to_path.sql` | Migration |
+| `runtime/.../api/VocabularyResource.java` | Scope in body, drop ownerId, listAll without filter, full impl shown above |
+| `runtime/.../resources/db/work/migration/V36__vocabulary_scope_to_path.sql` | Migration |
 | `persistence-memory/.../InMemoryLabelVocabularyStore.java` | No changes needed |
 | `runtime/test/.../LabelVocabularyServiceTest.java` | Rewrite scope tests |
+| `runtime/test/.../PathAttributeConverterTest.java` | Add root roundtrip test |
 | `runtime/test/.../JpaLabelVocabularyStoreTenancyTest.java` | GLOBAL → Path.root() |
 | `runtime/test/.../JpaLabelDefinitionStoreTenancyTest.java` | GLOBAL → Path.root() |
 | `examples/.../VocabularyScenario.java` | TEAM → Path.of("casehubio", TEAM_ID) |
+| `ARC42STORIES.MD` | Remove VocabularyScope.java row, update LabelVocabulary description, update Key Wiring |
 
 ## Garden Entries Referenced
 
