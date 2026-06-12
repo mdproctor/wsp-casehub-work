@@ -64,7 +64,7 @@ Root semantics: `Path.root().isAncestorOf(anyNonRoot)` returns true (empty segme
 
 **`listAccessible(VocabularyScope)` → `listAccessible(Path)`:** Same logic, new types.
 
-**`findGlobalVocabulary()`:** Filter changes from `v.scope == VocabularyScope.GLOBAL` to `v.scope.equals(Path.root())`. Name unchanged — "global" is still the domain concept.
+**`findGlobalVocabulary()` — deleted.** Only caller was `VocabularyResource.addDefinition()` for the root-scope branch. In the new model, root is just another path — `findOrCreateVocabulary(Path.root(), "Global")` handles it. The method also hid a multi-tenant bug: `scanAll()` filters by `currentPrincipal.tenancyId()`, but the V3 seed row gets the V35 default tenant UUID (`278776f9-...`). Any other tenant's `findGlobalVocabulary()` returned null → 500 error. Unifying to `findOrCreateVocabulary` fixes this — auto-creates a root vocabulary per tenant on first use.
 
 **`findOrCreateVocabulary` — simplified:**
 
@@ -74,6 +74,19 @@ Root semantics: `Path.root().isAncestorOf(anyNonRoot)` returns true (empty segme
 ```
 
 Lookup changes from `scope == scope && ownerId.equals(v.ownerId)` to `scope.equals(v.scope)`.
+
+**`listAllDefinitions()` — new method:**
+
+```java
+@Transactional
+public List<LabelDefinition> listAllDefinitions() {
+    return labelVocabularyStore.scanAll().stream()
+            .flatMap(v -> labelDefinitionStore.findByVocabularyId(v.id).stream())
+            .toList();
+}
+```
+
+Provides the unfiltered listing that `GET /vocabulary` needs. `VocabularyResource` injects only `LabelVocabularyService` — it has no path to `LabelDefinitionStore` without this method. Both `listAllDefinitions()` and `listAccessible(Path)` remain — the former for the current unfiltered endpoint, the latter for when scope enforcement activates.
 
 ### REST API — `VocabularyResource`
 
@@ -124,14 +137,8 @@ public Response addDefinition(final AddDefinitionRequest request) {
                 .entity(Map.of("error", "invalid scope: " + e.getMessage())).build();
     }
 
-    final LabelVocabulary vocab = scopePath.equals(io.casehub.platform.api.path.Path.root())
-            ? vocabularyService.findGlobalVocabulary()
-            : vocabularyService.findOrCreateVocabulary(scopePath, scopePath.value());
-
-    if (vocab == null) {
-        return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                .entity(Map.of("error", "GLOBAL vocabulary not found — check Flyway V3 migration")).build();
-    }
+    final String vocabName = scopePath.value().isEmpty() ? "Global" : scopePath.value();
+    final LabelVocabulary vocab = vocabularyService.findOrCreateVocabulary(scopePath, vocabName);
 
     final LabelDefinition def = vocabularyService.addDefinition(
             vocab.id, labelPath, request.description(),
@@ -145,11 +152,12 @@ public Response addDefinition(final AddDefinitionRequest request) {
 
 Key changes visible in the implementation:
 - **Scope parsing:** null/blank → `Path.root()`, otherwise `Path.parse(scope)` with error handling.
-- **Vocabulary name derivation:** auto-created vocabularies use `scopePath.value()` as the name — the path string IS the identity. The `name` parameter stays on `findOrCreateVocabulary` because it serves a display purpose ("HR Team Leave Vocabulary" vs "casehubio/hr-team"), but the REST endpoint derives it from the path for auto-creation.
+- **Unified vocabulary resolution:** all scopes (including root) go through `findOrCreateVocabulary`. No root-vs-non-root branching. No null check. This also fixes the pre-existing multi-tenant bug where `findGlobalVocabulary()` returned null for non-default tenants (the V3 seed row was locked to the V35 default tenant UUID).
+- **Vocabulary name derivation:** root scope gets `"Global"`, non-root gets `scopePath.value()`. The `name` parameter stays on `findOrCreateVocabulary` because it serves a display purpose ("HR Team Leave Vocabulary" vs "casehubio/hr-team"), but the REST endpoint derives it from the path for auto-creation.
 - **Response serialization:** `scopePath.value()` returns a flat string, not a JSON object. Without `.value()`, Jackson would serialize `Path` as `{"value":"…","segments":[…]}`.
-- **All GLOBAL/ORG/TEAM/PERSONAL branching eliminated** — the enum parsing, ownerId defaulting for PERSONAL, ownerId validation for ORG/TEAM, and scope-specific error messages all collapse to a single Path parse + root check.
+- **All GLOBAL/ORG/TEAM/PERSONAL branching eliminated** — the enum parsing, ownerId defaulting for PERSONAL, ownerId validation for ORG/TEAM, scope-specific error messages, and the root special case all collapse to a single Path parse + findOrCreateVocabulary.
 
-**`GET /vocabulary` (listAll):** Currently hardcodes `VocabularyScope.PERSONAL` (= "show everything"). No `Path` equivalent of "deepest possible" exists. Change to list all definitions by scanning all vocabularies and flatmapping their definitions — no scope filter applied. This is what the endpoint was effectively doing (scope enforcement is deferred). The `listAccessible(Path)` method remains available for when scope enforcement is activated.
+**`GET /vocabulary` (listAll):** Currently hardcodes `VocabularyScope.PERSONAL` (= "show everything"). No `Path` equivalent of "deepest possible" exists. Change to call `vocabularyService.listAllDefinitions()` — scans all tenant-visible vocabularies and flatmaps their definitions. This is what the endpoint was effectively doing (scope enforcement is deferred). The `listAccessible(Path)` method remains available for when scope enforcement is activated.
 
 ### Store/Repository Layer
 
@@ -237,4 +245,6 @@ Three updates in the Layer 16 Key Files and Key Wiring sections:
 - Removes parallel scope type per boundary rule
 - Uses `Path` from `casehub-platform-api` as designed
 - `VocabularyScope` is in `runtime/model/` (not `casehub-work-api`) — no external consumers, no cross-repo propagation
-- No deferred concerns requiring separate issues
+- Fixes pre-existing multi-tenant bug in `findGlobalVocabulary()` — seeded GLOBAL vocabulary was locked to default tenant
+
+**Deferred:** `FilterScope` enum in `queues/` module (`PERSONAL`, `TEAM`, `ORG`) — same boundary rule violation, 58 references. Tracked as #263.
