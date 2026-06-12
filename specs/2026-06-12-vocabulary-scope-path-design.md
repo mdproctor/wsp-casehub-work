@@ -350,7 +350,9 @@ Three updates in the Layer 16 Key Files and Key Wiring sections:
 | `runtime/test/.../PathAttributeConverterTest.java` | Add root roundtrip test |
 | `runtime/test/.../JpaLabelVocabularyStoreTenancyTest.java` | GLOBAL → Path.root() |
 | `runtime/test/.../JpaLabelDefinitionStoreTenancyTest.java` | GLOBAL → Path.root() |
+| `runtime/test/.../api/LabelEndpointTest.java` | Rewrite vocabulary tests: scope in body, drop ownerId tests, delete `personal_defaultsOwnerToAddedBy`, `org_missingOwnerId_returns400`, `invalidScope_returns400` (conceptually invalidated); update response assertions from enum strings to path strings |
 | `examples/.../VocabularyScenario.java` | TEAM → Path.of("casehubio", TEAM_ID) |
+| `docs/api-reference.md` | Rewrite Vocabulary API section (~line 619+): `POST /vocabulary` with scope in body, Path-based hierarchy, drop ownerId, update curl examples, remove `501` for non-GLOBAL scopes |
 | `ARC42STORIES.MD` | Remove VocabularyScope.java row, update LabelVocabulary description, update Key Wiring |
 
 ## Garden Entries Referenced
