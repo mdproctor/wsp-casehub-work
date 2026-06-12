@@ -66,14 +66,17 @@ Root semantics: `Path.root().isAncestorOf(anyNonRoot)` returns true (empty segme
 
 **`findGlobalVocabulary()` — deleted.** Only caller was `VocabularyResource.addDefinition()` for the root-scope branch. In the new model, root is just another path — `findOrCreateVocabulary(Path.root(), "Global")` handles it. The method also hid a multi-tenant bug: `scanAll()` filters by `currentPrincipal.tenancyId()`, but the V3 seed row gets the V35 default tenant UUID (`278776f9-...`). Any other tenant's `findGlobalVocabulary()` returned null → 500 error. Unifying to `findOrCreateVocabulary` fixes this — auto-creates a root vocabulary per tenant on first use.
 
-**`findOrCreateVocabulary` — simplified:**
+**`findOrCreateVocabulary` — simplified, delegates to store:**
 
 ```java
-// Before: (VocabularyScope scope, String ownerId, String name)
-// After:  (Path scope, String name)
+// Before: (VocabularyScope scope, String ownerId, String name) — scan-all + filter + create
+// After:  (Path scope, String name) — delegates to store.findOrCreate()
+public LabelVocabulary findOrCreateVocabulary(Path scope, String name) {
+    return labelVocabularyStore.findOrCreate(scope, name);
+}
 ```
 
-Lookup changes from `scope == scope && ownerId.equals(v.ownerId)` to `scope.equals(v.scope)`.
+The service decides the name (`"Global"` for root, `scopePath.value()` for non-root). The store handles atomicity. See Store/Repository Layer below.
 
 **`listAllDefinitions()` — new method:**
 
@@ -161,7 +164,113 @@ Key changes visible in the implementation:
 
 ### Store/Repository Layer
 
-No changes needed. `LabelVocabularyStore` SPI and implementations (JPA, InMemory) do generic CRUD without referencing `VocabularyScope`. The entity field type change is transparent via JPA converter.
+The store SPI is missing a natural key lookup — `LabelDefinitionStore` has `findByPath(Path)` but `LabelVocabularyStore` has no equivalent. This forces the service into `scanAll().stream().filter()`, which is both inefficient and non-atomic.
+
+**Two new methods on `LabelVocabularyStore` SPI:**
+
+```java
+Optional<LabelVocabulary> findByScope(Path scope);
+
+LabelVocabulary findOrCreate(Path scope, String name);
+```
+
+`findByScope` provides the targeted natural key lookup. `findOrCreate` provides atomic get-or-create — each backend handles concurrency with its own tools.
+
+**Default implementation** (for backends that don't need special concurrency handling):
+
+```java
+default LabelVocabulary findOrCreate(Path scope, String name) {
+    return findByScope(scope).orElseGet(() -> {
+        LabelVocabulary vocab = new LabelVocabulary();
+        vocab.scope = scope;
+        vocab.name = name;
+        return put(vocab);
+    });
+}
+```
+
+**JPA implementation** — `@Transactional(REQUIRES_NEW)` isolates vocabulary creation so a UNIQUE constraint violation doesn't corrupt the caller's transaction. After a constraint violation, the Hibernate Session is dirty and unusable; `clear()` resets it, and the re-query finds the winning thread's committed row.
+
+```java
+@Override
+public Optional<LabelVocabulary> findByScope(Path scope) {
+    return withTenantQuery(() ->
+        LabelVocabulary.find("scope = ?1 AND tenancyId = ?2", scope, currentPrincipal.tenancyId())
+            .firstResultOptional());
+}
+
+@Override
+@Transactional(TxType.REQUIRES_NEW)
+public LabelVocabulary findOrCreate(Path scope, String name) {
+    return withTenantQuery(() -> {
+        Optional<LabelVocabulary> existing = LabelVocabulary
+            .find("scope = ?1 AND tenancyId = ?2", scope, currentPrincipal.tenancyId())
+            .firstResultOptional();
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+        LabelVocabulary vocab = new LabelVocabulary();
+        vocab.scope = scope;
+        vocab.name = name;
+        vocab.tenancyId = currentPrincipal.tenancyId();
+        try {
+            vocab.persistAndFlush();
+            return vocab;
+        } catch (PersistenceException e) {
+            LabelVocabulary.getEntityManager().clear();
+            return LabelVocabulary
+                .find("scope = ?1 AND tenancyId = ?2", scope, currentPrincipal.tenancyId())
+                .<LabelVocabulary>firstResultOptional()
+                .orElseThrow(() -> new IllegalStateException(
+                    "Concurrent vocabulary creation failed", e));
+        }
+    });
+}
+```
+
+`REQUIRES_NEW` side-effect: if the outer transaction later fails, the vocabulary persists independently. Harmless — an empty vocabulary at a scope path is inert.
+
+**InMemory implementation** — `synchronized` for atomicity:
+
+```java
+@Override
+public Optional<LabelVocabulary> findByScope(Path scope) {
+    String tenancyId = currentPrincipal.tenancyId();
+    return store.values().stream()
+        .filter(v -> tenancyId.equals(v.tenancyId))
+        .filter(v -> scope.equals(v.scope))
+        .findFirst();
+}
+
+@Override
+public LabelVocabulary findOrCreate(Path scope, String name) {
+    String tenancyId = currentPrincipal.tenancyId();
+    synchronized (store) {
+        Optional<LabelVocabulary> existing = store.values().stream()
+            .filter(v -> tenancyId.equals(v.tenancyId))
+            .filter(v -> scope.equals(v.scope))
+            .findFirst();
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+        LabelVocabulary vocab = new LabelVocabulary();
+        vocab.id = UUID.randomUUID();
+        vocab.scope = scope;
+        vocab.name = name;
+        vocab.tenancyId = tenancyId;
+        store.put(vocab.id, vocab);
+        return vocab;
+    }
+}
+```
+
+**Three layers of fix:**
+
+| Layer | What it fixes | Mechanism |
+|-------|--------------|-----------|
+| `findByScope(Path)` on SPI | Scan-all inefficiency | Targeted JPQL query |
+| `UNIQUE(scope, tenancy_id)` | Data corruption | Database constraint (in V36 migration) |
+| `findOrCreate` on SPI | Race condition → 500 | `REQUIRES_NEW` + catch + re-query (JPA); `synchronized` (InMemory) |
 
 ### Flyway Migration — V36
 
@@ -231,10 +340,12 @@ Three updates in the Layer 16 Key Files and Key Wiring sections:
 | `runtime/.../model/VocabularyScope.java` | **Deleted** |
 | `runtime/.../model/LabelVocabulary.java` | scope: enum → Path, drop ownerId |
 | `runtime/.../model/PathAttributeConverter.java` | Root path guard in `convertToEntityAttribute` |
-| `runtime/.../service/LabelVocabularyService.java` | All scope methods: enum → Path |
-| `runtime/.../api/VocabularyResource.java` | Scope in body, drop ownerId, listAll without filter, full impl shown above |
-| `runtime/.../resources/db/work/migration/V36__vocabulary_scope_to_path.sql` | Migration |
-| `persistence-memory/.../InMemoryLabelVocabularyStore.java` | No changes needed |
+| `runtime/.../repository/LabelVocabularyStore.java` | Add `findByScope(Path)`, `findOrCreate(Path, String)` with default impl |
+| `runtime/.../repository/jpa/JpaLabelVocabularyStore.java` | Override `findByScope` (JPQL), `findOrCreate` (REQUIRES_NEW + catch + re-query) |
+| `runtime/.../service/LabelVocabularyService.java` | All scope methods: enum → Path; `findOrCreateVocabulary` delegates to store; add `listAllDefinitions()`; delete `findGlobalVocabulary()` |
+| `runtime/.../api/VocabularyResource.java` | Scope in body, drop ownerId, listAll calls `listAllDefinitions()`, full impl shown above |
+| `runtime/.../resources/db/work/migration/V36__vocabulary_scope_to_path.sql` | Migration + UNIQUE(scope, tenancy_id) |
+| `persistence-memory/.../InMemoryLabelVocabularyStore.java` | Override `findByScope` (filter), `findOrCreate` (synchronized) |
 | `runtime/test/.../LabelVocabularyServiceTest.java` | Rewrite scope tests |
 | `runtime/test/.../PathAttributeConverterTest.java` | Add root roundtrip test |
 | `runtime/test/.../JpaLabelVocabularyStoreTenancyTest.java` | GLOBAL → Path.root() |
