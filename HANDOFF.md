@@ -1,6 +1,6 @@
 # HANDOFF — 2026-06-14
 
-*Updated: cross-repo commits from casehub-iot session (iot#15, parent#237).*
+*Updated: engine#468 + engine#469 closed — casehub-engine-inbound merged (engine PR #492).*
 
 ## Last Session
 
@@ -10,7 +10,7 @@
 
 ## Immediate Next Step
 
-No trailing work. Pick from What's Next or switch to engine for casehub-engine-inbound (engine#468).
+No trailing work. Pick from What's Next.
 
 ## What's Left
 
@@ -21,8 +21,6 @@ No trailing work. Pick from What's Next or switch to engine for casehub-engine-i
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
 | #263 | feat: replace FilterScope enum with Path-based hierarchy (queues) | M | Low | same pattern as #236 |
-| engine#468 | feat: casehub-engine-inbound bridge module | M | Med | spec in engine wksp |
-| engine#469 | test: E2E Slack InboundMessage → Qhorus → WorkItem | S | Med | depends on engine#468 |
 | #240 | design: human task lifecycle alignment | L | High | now critical |
 | #253 | feat: MongoDB store — complete drop-in replacement | M | Med | |
 
