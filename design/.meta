@@ -1,0 +1,9 @@
+branch: issue-263-filterscope-to-path
+project-sha: fc5f7253dd0e47208173cbb4e0a82fff5efd24a5
+date: 2026-06-16
+issue: 263
+issue-repo: casehubio/work
+covers: 263
+flyway-next-v: 5003
+design-repo: project
+design-section-hashes: 
