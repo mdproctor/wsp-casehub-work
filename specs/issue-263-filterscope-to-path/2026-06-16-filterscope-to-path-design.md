@@ -29,9 +29,11 @@ This is identical in pattern to #236 (`VocabularyScope → Path`), applied to th
   in any store SPI and is redundant once path carries the hierarchy.
 - `PathAttributeConverter` is in `runtime/`, which queues already depends on — no module
   changes needed.
-- **Scope on stored entities is organizational metadata for access control** (which filters/queues
-  are visible to whom). The filter engine does not enforce scope when applying filters to WorkItems;
-  that enforcement is a UI/access-control concern and is deferred.
+- **Scope is stored but not a predicate in `filterStore.findActive()`** — the engine evaluates all
+  active tenant filters against all WorkItems regardless of scope. Scope governs management
+  visibility only: who can list, create, and delete a filter or queue view. A future implementor
+  adding scope-aware filter retrieval (e.g. `findActive(callerScopePath)`) would be adding a new
+  execution semantic, not implementing deferred enforcement.
 
 ### `WorkItemFilterBean` (SPI interface)
 
@@ -82,6 +84,17 @@ try {
 - Null or blank → `Path.root()` (widest scope; equivalent to the old ORG default)
 - Valid non-blank string → `Path.parse(req.scope())`
 - Malformed string → 400 with error message
+
+### Scope is immutable after creation (FilterResource only)
+
+`FilterResource.update()` (PUT `/{id}`) reuses `CreateFilterRequest` but only acts on
+`name`, `conditionExpression`, and `actions`. After the change, the record has a `scope` field
+that the update path must explicitly ignore. Scope is a creation-time property — it defines the
+namespace the filter was created under, matching the vocabulary precedent from #236 (vocabularies
+are found-or-created by scope, not updated to a different scope). Silently discarding the scope
+field in PUT is the correct behaviour; no separate request type is needed.
+
+`QueueResource` has no PUT endpoint — this point is `FilterResource`-only.
 
 ### list() serialization
 
