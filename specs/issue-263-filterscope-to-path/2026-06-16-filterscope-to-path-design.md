@@ -29,11 +29,11 @@ This is identical in pattern to #236 (`VocabularyScope → Path`), applied to th
   in any store SPI and is redundant once path carries the hierarchy.
 - `PathAttributeConverter` is in `runtime/`, which queues already depends on — no module
   changes needed.
-- **Scope is stored but not a predicate in `filterStore.findActive()`** — the engine evaluates all
-  active tenant filters against all WorkItems regardless of scope. Scope governs management
-  visibility only: who can list, create, and delete a filter or queue view. A future implementor
-  adding scope-aware filter retrieval (e.g. `findActive(callerScopePath)`) would be adding a new
-  execution semantic, not implementing deferred enforcement.
+- **Scope is stored metadata with no current enforcement**: `findActive()`, `scanAll()`, and queue
+  membership resolution all ignore it. Its intended future role is management visibility (who can
+  list/create/delete a filter or queue view), not evaluation (which WorkItems a filter applies to).
+  A future implementor adding a scope predicate to `findActive()` would be introducing a new
+  execution semantic, not completing deferred enforcement.
 
 ### `WorkItemFilterBean` (SPI interface)
 
