@@ -1,12 +1,8 @@
-# HANDOFF — 2026-06-14
-
-*Updated: engine#468 + engine#469 closed — casehub-engine-inbound merged (engine PR #492).*
+# HANDOFF — 2026-06-16
 
 ## Last Session
 
-**Cross-repo (from casehub-iot session 2026-06-14/15):** Created `docs/repos/casehub-iot.md` deep-dive (iot#15, closed). Updated PLATFORM.md iot testing entry with YAML fixtures + DeviceTypeHandler SPI (parent#237, closed). Updated deep-dive for dual-layer discovery (iot#11). All on branch `issue-235-p0-layering-decisions`.
-
-**Previous (2026-06-13):** Implemented #236 — replaced VocabularyScope enum with Path-based scope hierarchy. Five rounds of design review before implementation. The refactoring exposed and fixed: ownerId redundancy (compound key collapsed to single Path), findGlobalVocabulary multi-tenant bug (seeded row locked to default tenant), and a TOCTOU race in findOrCreateVocabulary (fixed with three-layer store SPI: findByScope + UNIQUE constraint + REQUIRES_NEW findOrCreate). Filed #263 (FilterScope — same violation in queues module). Closed #236.
+Investigation-only — no work-repo commits. Traced ledger#138: the `@DefaultBean` no-op fix was already done; the missing piece was the consumer-compat-test module (a Quarkus app that boots `casehub-ledger` with no infrastructure and no `exclude-types`). That module was built and pushed to the ledger fork, but from the wrong session (casehub-work instead of ledger) — noted in ledger workspace HANDOFF and memory. engine#468 spec was found on the wrong workspace branch (`issue-473-fix-ci-timeouts`) — spec is complete; engine#468 itself is already merged (PR #492).
 
 ## Immediate Next Step
 
@@ -26,7 +22,6 @@ No trailing work. Pick from What's Next.
 
 ## Key References
 
-- Garden: GE-20260613-8845fa (flyway_scan.py cross-module V-number gotcha)
-- Blog: `2026-06-13-mdp01-the-enum-that-was-always-a-path.md`
-- Spec: `docs/specs/2026-06-12-vocabulary-scope-path-design.md`
+- Garden: GE-20260616-06385b (git log --all --diff-filter=A — find file additions across branches)
+- Blog: `2026-06-16-mdp04-things-in-the-wrong-place.md`
 - Previous refs: `git show HEAD~1:HANDOFF.md`
