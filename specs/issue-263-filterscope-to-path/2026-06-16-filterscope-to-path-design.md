@@ -21,15 +21,35 @@ This is identical in pattern to #236 (`VocabularyScope → Path`), applied to th
 ### `WorkItemFilter` and `QueueView` (JPA entities)
 
 - `scope: FilterScope` → `scope: Path` with `@Convert(converter = PathAttributeConverter.class)`
-- `ownerId` field — **dropped**. Path encodes ownership; a personal filter for actor `alice`
+- Column widened from `VARCHAR(20)` to `VARCHAR(500)`.
+- `Path.root()` stores as `""` (empty string). `PathAttributeConverter` handles the roundtrip
+  (`""` → `Path.root()`). The column is `NOT NULL`; empty string satisfies that constraint.
+- `ownerId` field — **dropped**. Path encodes ownership: a personal filter for actor `alice`
   lives at `Path.of("alice")`, an org-wide filter at `Path.root()`. `ownerId` is not queried
   in any store SPI and is redundant once path carries the hierarchy.
 - `PathAttributeConverter` is in `runtime/`, which queues already depends on — no module
   changes needed.
+- **Scope on stored entities is organizational metadata for access control** (which filters/queues
+  are visible to whom). The filter engine does not enforce scope when applying filters to WorkItems;
+  that enforcement is a UI/access-control concern and is deferred.
 
 ### `WorkItemFilterBean` (SPI interface)
 
-- `FilterScope scope()` → `Path scope()`
+`scope()` is **deleted** from the interface. The method was never called: `FilterEngineImpl`
+only invokes `bean.matches(workItem)` and `bean.actions()`; `LambdaFilterRegistry.all()` returns
+all beans with no scope filtering. More fundamentally, `scope()` is architecturally incoherent on
+a CDI lambda bean: `matches(WorkItem)` IS the scope discriminator — a filter that applies only to
+certain WorkItems encodes that condition in its match logic. A separate `scope()` declaration has
+no enforcement path and no semantic grounding.
+
+The interface becomes:
+
+```java
+public interface WorkItemFilterBean {
+    boolean matches(WorkItem workItem);
+    List<FilterAction> actions();
+}
+```
 
 ### `FilterScope` enum
 
@@ -37,14 +57,43 @@ Deleted entirely.
 
 ## REST API
 
+### Request bodies
+
 `CreateFilterRequest` and `CreateQueueRequest` replace `(FilterScope scope, String ownerId)`
 with `String scope` (nullable path string).
 
-- Null or absent → `Path.root()` (widest scope; equivalent to the old ORG default)
-- Non-null → `Path.parse(req.scope())`
+### Parsing in create endpoints
 
-`list()` responses serialize `scope` via `path.value()` — same JSON field, now an open-ended
-string instead of an enum constant.
+Both `FilterResource.create()` and `QueueResource.create()` apply the VocabularyResource
+pattern from #236 — three cases:
+
+```java
+final Path scopePath;
+try {
+    scopePath = (req.scope() == null || req.scope().isBlank())
+            ? Path.root()
+            : Path.parse(req.scope());
+} catch (IllegalArgumentException e) {
+    return Response.status(400)
+            .entity(Map.of("error", "invalid scope: " + e.getMessage())).build();
+}
+```
+
+- Null or blank → `Path.root()` (widest scope; equivalent to the old ORG default)
+- Valid non-blank string → `Path.parse(req.scope())`
+- Malformed string → 400 with error message
+
+### list() serialization
+
+`FilterResource.list()` and `QueueResource.list()` currently put `f.scope` (an enum) directly
+into `Map<String, Object>`. After the change `f.scope` is a `Path` record; Jackson would
+serialize it as an object, not a string. Both must call `.value()` explicitly:
+
+```java
+"scope", f.scope.value()   // or q.scope.value()
+```
+
+This matches `VocabularyResource.listAll()` from #236.
 
 ## Schema
 
@@ -53,33 +102,57 @@ No Flyway migration: there are no installs. Modify `V2000__queues_schema.sql` di
 - Both `work_item_filter` and `queue_view`: widen `scope VARCHAR(20)` → `scope VARCHAR(500)`
 - Remove `owner_id VARCHAR(255)` column from both table definitions
 
-## Call Sites
+## Call Site Inventory
 
-All touched in this PR — no callers outside the queues module tree.
+All 58 references to `FilterScope`, across 4 modules:
 
-### `WorkItemFilterBean` implementations
+### `queues/` module
 
 | File | Change |
 |------|--------|
-| `queues-dashboard/SecurityWritersFilter.java` | `return FilterScope.ORG;` → `return Path.root();` |
-| `queues-examples/review/SecurityWritersFilter.java` | same |
+| `model/WorkItemFilter.java` | `scope: FilterScope` → `scope: Path` + `@Convert`; drop `ownerId` |
+| `model/QueueView.java` | same |
+| `service/WorkItemFilterBean.java` | delete `FilterScope scope()` entirely |
+| `api/FilterResource.java` | request: `(FilterScope scope, String ownerId)` → `String scope`; parse with try/catch; `f.scope.value()` in list |
+| `api/QueueResource.java` | same |
+| `repository/jpa/JpaWorkItemFilterStoreTenancyTest.java` | `f.scope = FilterScope.ORG` → `f.scope = Path.root()` |
+| `repository/jpa/JpaQueueViewStoreTenancyTest.java` | `qv.scope = FilterScope.ORG` → `qv.scope = Path.root()` |
+| `repository/jpa/JpaFilterChainStoreTenancyTest.java` | `f.scope = FilterScope.ORG` → `f.scope = Path.root()` |
 
-### Examples and tests
+### `queues-dashboard/` module
 
-All `FilterScope.ORG` → `Path.root()`.  
-`FilterScope.TEAM` (QueueModuleScenario) → `Path.of("team")` (illustrative; callers choose their own paths).
+| File | Change |
+|------|--------|
+| `SecurityWritersFilter.java` | remove `scope()` override entirely (method deleted from interface) |
+| `ReviewStepService.java` | `f.scope = FilterScope.ORG` → `f.scope = Path.root()` |
+
+### `queues-examples/` module
+
+| File | Usages | Change |
+|------|--------|--------|
+| `security/SecurityEscalationScenario.java` | 6 | all `FilterScope.ORG` → `Path.root()` |
+| `triage/SupportTriageScenario.java` | 7 | all `FilterScope.ORG` → `Path.root()` |
+| `finance/FinanceApprovalScenario.java` | 4 | all `FilterScope.ORG` → `Path.root()` |
+| `legal/LegalRoutingScenario.java` | 4 | all `FilterScope.ORG` → `Path.root()` |
+| `lifecycle/QueueLifecycleScenario.java` | 1 | `FilterScope.ORG` → `Path.root()` |
+| `review/DocumentReviewScenario.java` | 4 | all `FilterScope.ORG` → `Path.root()` |
+| `review/SecurityWritersFilter.java` | 2 | remove `scope()` override entirely |
+
+### `examples/` module (outside queues tree)
+
+| File | Usages | Change |
+|------|--------|--------|
+| `queues/QueueModuleScenario.java` | 1 | `FilterScope.TEAM` → `Path.of("team")` (illustrative; callers choose their own paths) |
 
 ## Platform Coherence
 
 - Removes a parallel scope type — brings queues into alignment with the boundary rule
 - No new types introduced; no new module deps
 - `PathAttributeConverter` reused as-is from `runtime/`
-- No consumers outside this repo depend on `FilterScope` (queues module is not published as a
-  standalone artifact)
+- `WorkItemFilterBean` SPI is cleaner: two methods, both enforced by the engine
 
 ## Testing
 
-- Existing tenancy tests (`JpaWorkItemFilterStoreTenancyTest`, `JpaQueueViewStoreTenancyTest`,
-  `JpaFilterChainStoreTenancyTest`) updated: `f.scope = FilterScope.ORG` → `f.scope = Path.root()`
+- Existing tenancy tests updated: `FilterScope.ORG` → `Path.root()`
 - `PathAttributeConverter` roundtrip already covered by `PathAttributeConverterTest` in runtime
 - No new test types needed; the scope field change is mechanical
