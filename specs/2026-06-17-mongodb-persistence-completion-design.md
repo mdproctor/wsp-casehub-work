@@ -181,7 +181,7 @@ Four entities have JPA `@UniqueConstraint` annotations that must be mirrored as 
 | `work_item_issue_links` | `{workItemId: 1, trackerType: 1, externalRef: 1}` unique | `@UniqueConstraint(work_item_id, tracker_type, external_ref)` |
 | `label_vocabularies` | `{scope: 1, tenancyId: 1}` unique | Required for `findOrCreate()` upsert atomicity |
 
-Create these indexes in the Panache MongoDB entity classes via `@MongoEntity` or programmatically at startup. Store implementations that rely on uniqueness for correctness (e.g. `findByParentAndKey()` idempotency, `findExisting()` duplicate detection) must handle `MongoWriteException` with duplicate key error code.
+Create these indexes programmatically at startup — a `@Startup @ApplicationScoped` bean calling `collection.createIndex()` at boot. (`@MongoEntity` only supports `collection`, `database`, `clientName`, `readPreference` — no index definitions.) Store implementations that rely on uniqueness for correctness (e.g. `findByParentAndKey()` idempotency, `findExisting()` duplicate detection) must handle `MongoWriteException` with duplicate key error code.
 
 **Performance indexes** (e.g. `{tenancyId: 1, workItemId: 1}` on notes/links, `{tenancyId: 1, active: 1, nextFireAt: 1}` on schedules) are operational concerns — they belong in a deployment guide, not this spec. The correctness indexes above are the baseline.
 
