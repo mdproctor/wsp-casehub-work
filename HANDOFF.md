@@ -2,11 +2,11 @@
 
 ## Last Session
 
-Completed #263 — replaced `FilterScope` enum (PERSONAL/TEAM/ORG) with `Path` from
-`casehub-platform-api` in the queues module. All 20 files updated, 104 tests green,
-pushed to upstream (`casehubio/work`). Two design discoveries worth noting: `WorkItemFilterBean.scope()`
-was dead code deleted from the interface; filter/queue scope is management metadata with
-no execution enforcement (captured as protocol PP-20260616-4896da).
+Fixed CI (casehub-ledger SNAPSHOT broke ledger + examples tests — #265) then
+completed #266: comprehensive docs audit fixing 42 errors across 10 files.
+API reference rewritten from scratch (90 endpoints), all docs renamed from
+quarkus-work to casehub-work, stale code examples fixed, 3 missing example
+scenarios documented. Code review caught 4 additional issues (status transitions).
 
 ## Immediate Next Step
 
@@ -25,6 +25,6 @@ Branch is closed and pushed. Pick from What's Next.
 
 ## Key References
 
-- Garden: GE-20260616-e15321 (JAX-RS @Path + platform Path import collision)
-- Blog: `2026-06-16-mdp01-filtering-out-the-enum.md`
+- CI fix: #265 (closed — tenancyId bind + JPA trust-score repo selection)
+- Audit: #266 (closed — 42 errors fixed across 10 docs)
 - Previous refs: `git show HEAD~1:HANDOFF.md`
