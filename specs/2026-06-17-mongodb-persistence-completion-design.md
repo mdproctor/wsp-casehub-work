@@ -2,23 +2,27 @@
 
 ## Problem
 
-`persistence-mongodb/` implements `WorkItemStore` and `AuditEntryStore` but not the remaining seven runtime/core SPIs. Consumers wanting MongoDB-only persistence still need a JPA datasource for all of these:
+`persistence-mongodb/` implements `WorkItemStore` and `AuditEntryStore` but not the remaining eleven runtime/core SPIs. Consumers wanting MongoDB-only persistence still need a JPA datasource for all of these:
 
-| SPI | Module | Complexity |
-|-----|--------|-----------|
-| WorkItemNoteStore | runtime | Simple CRUD |
-| WorkItemScheduleStore | runtime | Simple CRUD + `findDue()` query |
-| WorkItemLinkStore | runtime | Simple CRUD + `findByWorkItemIdAndType()` |
-| LabelVocabularyStore | runtime | Simple CRUD |
-| FilterRuleStore | runtime | Simple CRUD |
-| RoutingCursorStore | core | Atomic increment (`acquireNext()`) |
-| IssueLinkStore | issue-tracker | CRUD + compound-key lookups |
+| SPI | Module | Complexity | Functional coupling |
+|-----|--------|-----------|-------------------|
+| WorkItemNoteStore | runtime | Simple CRUD | — |
+| WorkItemScheduleStore | runtime | CRUD + `findDue()` + OCC | → WorkItemTemplateStore |
+| WorkItemTemplateStore | runtime | CRUD + `getByName()` | ← WorkItemScheduleStore |
+| WorkItemLinkStore | runtime | CRUD + type filter | — |
+| WorkItemSpawnGroupStore | runtime | CRUD + composite queries + OCC | — |
+| WorkItemRelationStore | runtime | Directed graph queries | — |
+| LabelVocabularyStore | runtime | CRUD + `findByScope()` + `findOrCreate()` | → LabelDefinitionStore |
+| LabelDefinitionStore | runtime | CRUD + `findByPath()` | ← LabelVocabularyStore |
+| FilterRuleStore | runtime | CRUD + `allEnabled()` | — |
+| RoutingCursorStore | core | Atomic increment (`acquireNext()`) | — |
+| IssueLinkStore | issue-tracker | CRUD + compound-key lookups | — |
 
-The original issue listed only three (WorkItemNoteStore, IssueLinkStore, RoutingCursorStore). The actual gap is seven.
+Functional coupling means the stores must be implemented together — adding Mongo schedules without Mongo templates causes `WorkItemScheduleService.fireSchedule()` to read from an empty JPA table, silently producing nothing. Same for vocabularies without definitions.
 
 ## Approach
 
-Implement all seven in `persistence-mongodb/` following the established pattern: Panache MongoDB document class + `@Alternative @Priority(1)` store class + tenant scoping via `CurrentPrincipal`.
+Implement all eleven in `persistence-mongodb/` following the established pattern: Panache MongoDB document class + `@Alternative @Priority(1)` store class + tenant scoping via `CurrentPrincipal`.
 
 Add `casehub-work-issue-tracker` as a compile dependency of `persistence-mongodb`. This follows the `persistence-memory` precedent — both persistence backend modules centralize all store implementations in one module. The alternative (each optional module contributing its own Mongo store) distributes MongoDB knowledge across the codebase rather than centralizing it. The centralized approach is better: one module owns all MongoDB persistence, one place to look, one dependency to add.
 
@@ -64,13 +68,22 @@ Add `casehub-work-issue-tracker` as a compile dependency of `persistence-mongodb
 ### MongoWorkItemScheduleStore + MongoWorkItemScheduleDocument
 
 - Collection: `work_item_schedules`
-- Fields: `id`, `tenancyId`, `name`, `templateId`, `cronExpression`, `active`, `createdBy`, `createdAt`, `lastFiredAt`, `nextFireAt`, `version` (Long)
-- `put()`: assign UUID + createdAt + tenancyId if absent, `persistOrUpdate()`
+- Fields: `id`, `tenancyId`, `name`, `templateId`, `cronExpression`, `active` (boolean), `createdBy`, `createdAt`, `lastFiredAt`, `nextFireAt`, `version` (Long)
+- `put()`: OCC-safe write — use `mongoCollection().findOneAndUpdate()` with filter `{_id: id, version: currentVersion}` and update `{$set: {all fields}, $inc: {version: 1}}`. On new documents (no existing `_id`), use a plain `persist()` with `version: 0`. If filter matches zero documents on update → throw `jakarta.persistence.OptimisticLockException` (or equivalent). This matches JPA's `@Version` behavior for clustered double-fire prevention.
 - `get()`: filter on `_id + tenancyId`
 - `scanAll()`: filter on `tenancyId`, sort by `name ASC`
 - `delete()`: filter on `_id + tenancyId`, return `deletedCount > 0`
 - `findDue()`: filter on `active: true AND nextFireAt != null AND nextFireAt <= now AND tenancyId`, sort by `nextFireAt ASC`
-- **OCC note:** The JPA entity uses `@Version` for optimistic locking (prevents double-fire in clustered deployments). MongoDB's `findOneAndUpdate` with a version-check filter provides equivalent OCC semantics.
+
+### MongoWorkItemTemplateStore + MongoWorkItemTemplateDocument
+
+- Collection: `work_item_templates`
+- Fields: `id`, `tenancyId`, `name`, `description`, `category`, `priority`, `candidateGroups`, `candidateUsers`, `requiredCapabilities`, `defaultExpiryHours`, `defaultClaimHours`, `defaultExpiryBusinessHours`, `defaultClaimBusinessHours`, `defaultPayload`, `labelPaths`, `outcomes`, `excludedUsers`, `excludedGroups`, `scope`, `inputDataSchema`, `outputDataSchema`, `instanceCount`, `requiredCount`, `parentRole`, `assignmentStrategy`, `onThresholdReached`, `allowSameAssignee`, `createdBy`, `createdAt`
+- `put()`: assign UUID + createdAt + tenancyId if absent, `persistOrUpdate()`
+- `get()`: filter on `_id + tenancyId`
+- `getByName()`: filter on `name + tenancyId`
+- `scanAll()`: filter on `tenancyId`, sort by `name ASC`
+- `delete()`: filter on `_id + tenancyId`, return `deletedCount > 0`
 
 ### MongoWorkItemLinkStore + MongoWorkItemLinkDocument
 
@@ -82,6 +95,30 @@ Add `casehub-work-issue-tracker` as a compile dependency of `persistence-mongodb
 - `findByWorkItemIdAndType()`: filter on `workItemId + relationType + tenancyId`, sort by `createdAt ASC`
 - `delete()`: filter on `_id + tenancyId`, return `deletedCount > 0`
 
+### MongoWorkItemSpawnGroupStore + MongoWorkItemSpawnGroupDocument
+
+- Collection: `work_item_spawn_groups`
+- Fields: `id`, `tenancyId`, `parentId`, `idempotencyKey`, `createdAt`, `version` (Long), `instanceCount`, `requiredCount`, `onThresholdReached`, `allowSameAssignee`, `parentRole`, `completedCount`, `rejectedCount`, `policyTriggered`
+- `put()`: OCC-safe write — same `findOneAndUpdate` + version-check pattern as WorkItemScheduleStore. M-of-N counter increments (`completedCount`, `rejectedCount`) go through `put()`, so the version check prevents double-counting under concurrent child completion.
+- `get()`: filter on `_id + tenancyId`
+- `findByParentId()`: filter on `parentId + tenancyId`, sort by `createdAt DESC`
+- `findByParentAndKey()`: filter on `parentId + idempotencyKey + tenancyId`
+- `findMultiInstanceByParentId()`: filter on `parentId + tenancyId + requiredCount != null`
+- `delete()`: filter on `_id + tenancyId`, return `deletedCount > 0`
+
+### MongoWorkItemRelationStore + MongoWorkItemRelationDocument
+
+- Collection: `work_item_relations`
+- Fields: `id`, `tenancyId`, `sourceId`, `targetId`, `relationType`, `createdBy`, `createdAt`
+- `put()`: assign UUID + createdAt + tenancyId if absent, `persistOrUpdate()`
+- `get()`: filter on `_id + tenancyId`
+- `findBySourceId()`: filter on `sourceId + tenancyId`, sort by `createdAt ASC`
+- `findByTargetId()`: filter on `targetId + tenancyId`, sort by `createdAt ASC`
+- `findBySourceAndType()`: filter on `sourceId + relationType + tenancyId`, sort by `createdAt ASC`
+- `findByTargetAndType()`: filter on `targetId + relationType + tenancyId`, sort by `createdAt ASC`
+- `findExisting()`: filter on `sourceId + targetId + relationType + tenancyId`
+- `delete()`: filter on `_id + tenancyId`, return `deletedCount > 0`
+
 ### MongoLabelVocabularyStore + MongoLabelVocabularyDocument
 
 - Collection: `label_vocabularies`
@@ -89,8 +126,18 @@ Add `casehub-work-issue-tracker` as a compile dependency of `persistence-mongodb
 - `put()`: assign UUID + tenancyId if absent, `persistOrUpdate()`
 - `get()`: filter on `_id + tenancyId`
 - `scanAll()`: filter on `tenancyId`
-- `findByScope()`: filter on `scope + tenancyId`
-- `findOrCreate()`: inherits default method from interface (check-then-act); production-safe override using `findOneAndUpdate` with `upsert: true` for atomicity
+- `findByScope()`: filter on `scope + tenancyId` (exact match on the String representation)
+- `findOrCreate()`: override the default method with atomic `findOneAndUpdate` + `upsert: true` for race-safety (the default check-then-act is not safe under concurrent creation)
+- `delete()`: filter on `_id + tenancyId`, return `deletedCount > 0`
+
+### MongoLabelDefinitionStore + MongoLabelDefinitionDocument
+
+- Collection: `label_definitions`
+- Fields: `id`, `tenancyId`, `path` (String — `Path.toString()` / `Path.of()`), `vocabularyId`, `description`, `createdBy`, `createdAt`
+- `put()`: assign UUID + createdAt + tenancyId if absent, `persistOrUpdate()`
+- `get()`: filter on `_id + tenancyId`
+- `findByVocabularyId()`: filter on `vocabularyId + tenancyId`
+- `findByPath()`: filter on `path + tenancyId` (exact match on String representation)
 - `delete()`: filter on `_id + tenancyId`, return `deletedCount > 0`
 
 ### MongoFilterRuleStore + MongoFilterRuleDocument
@@ -105,7 +152,7 @@ Add `casehub-work-issue-tracker` as a compile dependency of `persistence-mongodb
 
 ## CDI
 
-All seven stores: `@ApplicationScoped @Alternative @Priority(1)` — Tier 2 per `persistence-backend-cdi-priority.md` (located at `casehub/garden/docs/protocols/universal/persistence-backend-cdi-priority.md`).
+All eleven stores: `@ApplicationScoped @Alternative @Priority(1)` — Tier 2 per `persistence-backend-cdi-priority.md` (located at `casehub/garden/docs/protocols/universal/persistence-backend-cdi-priority.md`).
 
 ## Dependencies
 
@@ -120,7 +167,26 @@ Add to `persistence-mongodb/pom.xml`:
 
 ## SPI Javadoc
 
-Update all seven SPI interfaces: replace any "No Tier 2 (MongoDB) exists yet" lines with the Tier 2 entry referencing `casehub-work-persistence-mongodb`.
+Update all eleven SPI interfaces: replace any "No Tier 2 (MongoDB) exists yet" lines with the Tier 2 entry referencing `casehub-work-persistence-mongodb`.
+
+## OCC Pattern — Versioned Entities
+
+Two domain models use `@Version` for optimistic concurrency control:
+- **WorkItemSchedule** — prevents clustered double-fire of recurring schedules
+- **WorkItemSpawnGroup** — prevents double-counting of M-of-N child completions
+
+MongoDB Panache `persistOrUpdate()` does a plain upsert by `_id` — no version check. Both Mongo store implementations must use the raw `mongoCollection().findOneAndUpdate()` escape hatch:
+
+```
+filter:  {_id: id, version: currentVersion}
+update:  {$set: {field1: v1, ...}, $inc: {version: 1}}
+options: returnDocument: AFTER
+```
+
+- New documents: plain `persist()` with `version: 0L`
+- Existing documents: `findOneAndUpdate` with version filter. If result is `null` (filter matched zero documents), throw `jakarta.persistence.OptimisticLockException`
+
+This matches JPA's `@Version` semantics: any concurrent modification bumps the version, causing the stale writer's filter to miss.
 
 ## Out of Scope — Filed as #267
 
@@ -137,10 +203,14 @@ Each store gets a `@QuarkusTest` following the existing `MongoWorkItemStoreTest`
 
 Tenant isolation tests are inline — each test creates data under two distinct tenancyIds and asserts queries only return data for the active tenant:
 
-- `MongoWorkItemNoteStoreTest` — append/findById/findByWorkItemId/update/delete roundtrip; tenant isolation (note created by tenant-A invisible to tenant-B)
+- `MongoWorkItemNoteStoreTest` — append/findById/findByWorkItemId/update/delete roundtrip; tenant isolation
 - `MongoIssueLinkStoreTest` — save/findById/findByWorkItemId/findByRef/findByTrackerRef/delete; delete extracts `link.id` and validates tenancyId; tenant isolation
 - `MongoRoutingCursorStoreTest` — first acquireNext returns 0; sequential calls advance and wrap at poolSize; concurrent-safe (atomic); tenant isolation (cursor state per-tenant)
-- `MongoWorkItemScheduleStoreTest` — put/get/scanAll/delete/findDue roundtrip; findDue only returns active schedules with nextFireAt <= now; tenant isolation
+- `MongoWorkItemScheduleStoreTest` — put/get/scanAll/delete/findDue roundtrip; findDue only returns active schedules with nextFireAt <= now; OCC: concurrent put with stale version throws OptimisticLockException; tenant isolation
+- `MongoWorkItemTemplateStoreTest` — put/get/getByName/scanAll/delete roundtrip; tenant isolation
 - `MongoWorkItemLinkStoreTest` — put/get/findByWorkItemId/findByWorkItemIdAndType/delete; tenant isolation
-- `MongoLabelVocabularyStoreTest` — CRUD + findByPathPrefix; tenant isolation
-- `MongoFilterRuleStoreTest` — CRUD + findActive; tenant isolation
+- `MongoWorkItemSpawnGroupStoreTest` — put/get/findByParentId/findByParentAndKey/findMultiInstanceByParentId/delete; OCC: concurrent counter increment with stale version throws; tenant isolation
+- `MongoWorkItemRelationStoreTest` — put/get/findBySourceId/findByTargetId/findBySourceAndType/findByTargetAndType/findExisting/delete; tenant isolation
+- `MongoLabelVocabularyStoreTest` — put/get/scanAll/findByScope/findOrCreate/delete; findOrCreate atomicity; tenant isolation
+- `MongoLabelDefinitionStoreTest` — put/get/findByVocabularyId/findByPath/delete; tenant isolation
+- `MongoFilterRuleStoreTest` — put/get/allEnabled/scanAll/delete; allEnabled only returns enabled rules; tenant isolation
