@@ -71,9 +71,22 @@ Three new classes in `io.casehub.work.mongodb`:
   `lastAccessed < cutoff`. No `tenancyId` filter. Return deleted count.
 - `@ApplicationScoped @Alternative @Priority(1)`
 
-Each injects `MongoClient` and accesses the database/collection following the
-same pattern as existing tenant-scoped Mongo stores. Cross-tenant in MongoDB
-means omitting the `tenancyId` predicate — there is no RLS equivalent to bypass.
+Each uses the existing Panache document classes (`MongoWorkItemDocument`,
+`MongoWorkItemScheduleDocument`, `MongoRoutingCursorDocument`) for queries and
+deletes — no `MongoClient` injection needed. All three operations are simple
+finds and deletes that map directly to Panache static methods. This follows the
+established codebase pattern: raw `MongoClient` is reserved for operations
+Panache can't express (atomic `findOneAndUpdate` with `$inc`/OCC).
+
+All query results are converted via the existing `toDomain()` methods on the
+Panache document classes:
+- `findActiveWithDeadlines()` → `MongoWorkItemDocument::toDomain` → `List<WorkItem>`
+- `findActive()` → `MongoWorkItemScheduleDocument::toDomain` → `List<WorkItemSchedule>`
+- `cleanupStale()` → returns `long` (delete count) — no domain conversion needed
+
+Cross-tenant in MongoDB means omitting the `tenancyId` predicate — there is no
+RLS equivalent to bypass. The `@CrossTenant` qualifier + `CrossTenantProducer`'s
+`isCrossTenantAdmin()` check is the security gate.
 
 ### 3. Tests (persistence-mongodb)
 
@@ -82,9 +95,17 @@ One test class per new store, following existing Mongo store test patterns:
 - Verify cross-tenant methods return results from all tenancies
 - For cursor cleanup: verify correct delete count and non-stale row survival
 
+**CDI wiring validation:** One test (in `MongoCrossTenantWorkItemStoreTest`)
+injects via `@CrossTenant CrossTenantWorkItemStore` and verifies data
+round-trips through MongoDB. This validates the full CDI chain:
+`@CrossTenant` injection → `CrossTenantProducer` → interface resolution →
+Mongo `@Alternative @Priority(1)` implementation. The producer's
+`validateSystemPrincipal()` passes because `SystemCurrentPrincipal`
+(`@WorkSystem`-qualified, in `runtime`) always returns
+`isCrossTenantAdmin() = true` — independent of the test's unqualified
+`MutableCurrentPrincipal`.
+
 Existing `CrossTenantWorkItemStoreTest` in runtime (JPA-specific) unchanged.
-No new integration test classes — existing `TimerRecoveryStartup` and
-`RoutingCursorCleanupJob` exercise the cross-tenant path through the producer.
 
 ## Scope
 
