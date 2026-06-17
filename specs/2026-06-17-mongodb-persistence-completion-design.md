@@ -78,7 +78,7 @@ Add `casehub-work-issue-tracker` as a compile dependency of `persistence-mongodb
 ### MongoWorkItemTemplateStore + MongoWorkItemTemplateDocument
 
 - Collection: `work_item_templates`
-- Fields: `id`, `tenancyId`, `name`, `description`, `category`, `priority`, `candidateGroups`, `candidateUsers`, `requiredCapabilities`, `defaultExpiryHours`, `defaultClaimHours`, `defaultExpiryBusinessHours`, `defaultClaimBusinessHours`, `defaultPayload`, `labelPaths`, `outcomes`, `excludedUsers`, `excludedGroups`, `scope`, `inputDataSchema`, `outputDataSchema`, `instanceCount`, `requiredCount`, `parentRole`, `assignmentStrategy`, `onThresholdReached`, `allowSameAssignee`, `createdBy`, `createdAt`
+- Fields: `id`, `tenancyId`, `name`, `description`, `category`, `priority` (String — `WorkItemPriority.name()` on write, `WorkItemPriority.valueOf()` on read, matching MongoWorkItemDocument pattern), `candidateGroups`, `candidateUsers`, `requiredCapabilities`, `defaultExpiryHours`, `defaultClaimHours`, `defaultExpiryBusinessHours`, `defaultClaimBusinessHours`, `defaultPayload`, `labelPaths`, `outcomes`, `excludedUsers`, `excludedGroups`, `scope`, `inputDataSchema`, `outputDataSchema`, `instanceCount`, `requiredCount`, `parentRole`, `assignmentStrategy`, `onThresholdReached`, `allowSameAssignee`, `createdBy`, `createdAt`
 - `put()`: assign UUID + createdAt + tenancyId if absent, `persistOrUpdate()`
 - `get()`: filter on `_id + tenancyId`
 - `getByName()`: filter on `name + tenancyId`
@@ -168,6 +168,22 @@ Add to `persistence-mongodb/pom.xml`:
 ## SPI Javadoc
 
 Update all eleven SPI interfaces: replace any "No Tier 2 (MongoDB) exists yet" lines with the Tier 2 entry referencing `casehub-work-persistence-mongodb`.
+
+## Unique Indexes
+
+Four entities have JPA `@UniqueConstraint` annotations that must be mirrored as MongoDB unique compound indexes. Without them, uniqueness guarantees are silently lost — concurrent operations create duplicate data. Additionally, `LabelVocabularyStore.findOrCreate()` requires a unique index for the upsert to be atomic.
+
+| Collection | Index fields | Mirrors |
+|-----------|-------------|---------|
+| `work_item_templates` | `{name: 1, tenancyId: 1}` unique | `@UniqueConstraint(name, tenancy_id)` |
+| `work_item_spawn_groups` | `{parentId: 1, idempotencyKey: 1}` unique | `@UniqueConstraint(parent_id, idempotency_key)` |
+| `work_item_relations` | `{sourceId: 1, targetId: 1, relationType: 1}` unique | `@UniqueConstraint(source_id, target_id, relation_type)` |
+| `work_item_issue_links` | `{workItemId: 1, trackerType: 1, externalRef: 1}` unique | `@UniqueConstraint(work_item_id, tracker_type, external_ref)` |
+| `label_vocabularies` | `{scope: 1, tenancyId: 1}` unique | Required for `findOrCreate()` upsert atomicity |
+
+Create these indexes in the Panache MongoDB entity classes via `@MongoEntity` or programmatically at startup. Store implementations that rely on uniqueness for correctness (e.g. `findByParentAndKey()` idempotency, `findExisting()` duplicate detection) must handle `MongoWriteException` with duplicate key error code.
+
+**Performance indexes** (e.g. `{tenancyId: 1, workItemId: 1}` on notes/links, `{tenancyId: 1, active: 1, nextFireAt: 1}` on schedules) are operational concerns — they belong in a deployment guide, not this spec. The correctness indexes above are the baseline.
 
 ## OCC Pattern — Versioned Entities
 
