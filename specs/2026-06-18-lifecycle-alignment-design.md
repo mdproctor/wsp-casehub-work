@@ -305,6 +305,8 @@ wi.statusNote = statusNote;
 
 Without this, progress data is silently lost for MongoDB-backed deployments.
 
+**Pre-existing gap (separate issue):** `MongoWorkItemDocument` is also missing 13+ fields present on the JPA `WorkItem` entity: `version`, `accumulatedUnclaimedSeconds`, `lastReturnedToPoolAt`, `confidenceScore`, `callerRef`, `parentId`, `scope`, `templateId`, `permittedOutcomes`, `excludedUsers`, `outcome`, `inputDataSchema`, `outputDataSchema`. MongoDB-backed deployments silently lose this data on round-trip. File as a separate casehub-work issue — not introduced by this spec.
+
 ### 7. Response DTOs and context builder
 
 **7a. WorkItemResponse and WorkItemWithAuditResponse**
@@ -371,6 +373,36 @@ The ESCALATED pre-check at line 75 already returns before reaching this guard. A
 
 Filed as casehub-engine issue.
 
+**9c. HumanTaskRecoveryService — use isTerminal() instead of explicit EnumSet**
+
+`HumanTaskRecoveryService` (engine work-adapter) has an explicit `EnumSet` at line 53-58:
+
+```java
+private static final Set<WorkItemStatus> TERMINAL_STATUSES =
+    EnumSet.of(COMPLETED, REJECTED, CANCELLED, EXPIRED);
+```
+
+This is the same fragility pattern as the adapter status filter. A FAULTED or OBSOLETE WorkItem that completes during JVM downtime is skipped — the PlanItem stays DELEGATED forever. Fix: replace `TERMINAL_STATUSES.contains(workItem.status)` with `workItem.status.isTerminal()` and delete the `TERMINAL_STATUSES` constant.
+
+ESCALATED passes through to `applier.apply()` which hits the `applyStatus()` default branch and returns false — no PlanItem transition, which is correct (ESCALATED keeps PlanItem DELEGATED). The missing escalation context signal during recovery is a pre-existing gap unrelated to this spec.
+
+**9d. ActionGateCompletionApplier — explicit FAULTED and OBSOLETE mapping**
+
+The `isTerminal()` change in 9a widens the blast radius: FAULTED and OBSOLETE now reach `routeGate()` where previously the explicit status filter would have dropped them. The gate applier's switch must handle both:
+
+```java
+switch (status) {
+    case COMPLETED -> handleApproved(gateRef, workItem);
+    case REJECTED, CANCELLED, OBSOLETE -> handleRejected(gateRef, workItem);
+    case EXPIRED, FAULTED -> handleExpired(gateRef);
+    default -> LOG.debugf("...");
+}
+```
+
+Rationale:
+- **FAULTED → `handleExpired()`** — system failure prevented a human decision on the gate. Semantically identical to EXPIRED: no approval was given, infrastructure is to blame. Fires `ActionGateExpiredEvent`.
+- **OBSOLETE → `handleRejected()`** — case context changed, the gated action is no longer relevant. Semantically closest to CANCELLED: gate terminated without approval, action should not proceed. Fires `ActionGateRejectedEvent`.
+
 ### 10. WorkItemLifecycleAdapter — javadoc fix
 
 The class javadoc (line 54) says: "ESCALATED is not terminal: the WorkItem re-enters PENDING with new candidate groups." This is wrong. It describes the `EscalateTo` action (non-terminal, status stays PENDING, event is SLA_REASSIGNED) but labels it with the ESCALATED status name.
@@ -415,7 +447,8 @@ Contents:
 |---|---|---|
 | casehub-parent | Create docs/LIFECYCLE.md; update PLATFORM.md (capability ownership + lifecycle protocol) | High |
 | casehub-work | Add FAULTED, OBSOLETE to WorkItemStatus; `fault()`, `faultFromSystem()`, `obsolete()`, `obsoleteFromSystem()`, `cancelFromSystem()`, `progress()` methods; REST endpoints; WorkEventType alignment (25 values); SLA_EXTENDED lifecycle event; FilterRegistryEngine.toFilterEvent() update; MongoWorkItemDocument fields; WorkItemContextBuilder fields; WorkItemResponse/WithAuditResponse fields; Flyway V37 | High |
-| casehub-engine | WorkItemLifecycleAdapter: replace explicit status filter with `isTerminal()`; PlanItemCompletionApplier: add FAULTED→markFaulted() + OBSOLETE→markCancelled(), fire PlanItemFaultedEvent for FAULTED and EXPIRED; fix adapter class javadoc; add PlanItemStatus.FAULTED javadoc note | High |
+| casehub-engine | WorkItemLifecycleAdapter: replace explicit status filter with `isTerminal()`; PlanItemCompletionApplier: add FAULTED→markFaulted() + OBSOLETE→markCancelled(), fire PlanItemFaultedEvent for FAULTED and EXPIRED; HumanTaskRecoveryService: replace EnumSet with `isTerminal()`; ActionGateCompletionApplier: add FAULTED→handleExpired() + OBSOLETE→handleRejected(); fix adapter class javadoc; add PlanItemStatus.FAULTED javadoc note | High |
+| casehub-work | File issue: MongoWorkItemDocument 13+ field sync gap (pre-existing) | Medium |
 | casehub-work | WorkItemStatus.DELEGATED javadoc cross-reference | Medium |
 | casehub-qhorus | CommitmentState.DELEGATED javadoc cross-reference | Medium |
 | casehub-engine | PlanItemStatus.DELEGATED javadoc cross-reference | Medium |
