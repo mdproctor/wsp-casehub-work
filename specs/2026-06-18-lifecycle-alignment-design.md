@@ -2,7 +2,7 @@
 
 **Issue:** casehubio/work#240
 **Date:** 2026-06-18
-**Status:** Draft
+**Status:** Draft — revised after review
 
 ---
 
@@ -76,21 +76,21 @@ PLATFORM.md already flags this as Known Overlap Risk #3. The WorkItem and Commit
 
 No code change fixes this — the semantics are correct within each system. The fix is documentation: javadoc on all three must cross-reference the others and explicitly state the difference.
 
-### Issue 4 — WorkEventType has 7+ gaps
+### Issue 4 — WorkEventType has 5 lifecycle event gaps
 
-Events fired as string names that have no `WorkEventType` enum value:
+Five events are fired as lifecycle events via `WorkItemLifecycleEvent.of()` but have no `WorkEventType` enum value. The `eventType()` method silently falls back to `WorkEventType.CREATED` for these — any observer switching on `WorkEventType` misclassifies them:
 
-| Event fired | `eventType()` returns |
-|---|---|
-| DELEGATION_ACCEPTED | CREATED (silent fallback) |
-| DELEGATION_DECLINED | CREATED |
-| SLA_REASSIGNED | CREATED |
-| SLA_EXTENDED | CREATED |
-| BREACH_POLICY_MISCONFIGURED | CREATED |
-| LABEL_ADDED | CREATED |
-| LABEL_REMOVED | CREATED |
+| Event fired | Source | `eventType()` returns |
+|---|---|---|
+| DELEGATION_ACCEPTED | `WorkItemService.acceptDelegation()` | CREATED (silent fallback) |
+| DELEGATION_DECLINED | `WorkItemService.declineDelegation()` | CREATED |
+| SLA_REASSIGNED | `ExpiryLifecycleService.executeEscalateTo()` | CREATED |
+| LABEL_ADDED | `WorkItemService.addLabel()` | CREATED |
+| LABEL_REMOVED | `WorkItemService.removeLabel()` | CREATED |
 
-The `eventType()` method silently falls back to `WorkEventType.CREATED` for any unknown event name. Any observer switching on `WorkEventType` misclassifies these events. This is a correctness bug.
+**Not affected:** `BREACH_POLICY_MISCONFIGURED` and `SLA_EXTENDED` are audit-only — written via `writeAudit()` with no `fireLifecycleEvent()` call. They never hit the `eventType()` fallback.
+
+**SLA_EXTENDED inconsistency:** `WorkItemService.extend()` fires `DEADLINE_EXTENDED` as a lifecycle event for actor-initiated extensions. `ExpiryLifecycleService.executeExtend()` writes `SLA_EXTENDED` as audit-only with explicit comment "No lifecycle event — deadline extension is not a status transition." Both are deadline extensions distinguished by provenance (actor vs policy). This inconsistency should be resolved: `SLA_EXTENDED` should also fire as a lifecycle event so SSE subscribers see all deadline changes. The actor field ("system" vs actor ID) distinguishes provenance; two distinct event types allow observers to count policy-driven vs actor-initiated extensions separately.
 
 ### Issue 5 — PlanItemStatus has no SUSPENDED
 
@@ -103,7 +103,7 @@ The word "escalation" is used for two different things:
 1. **The action** — re-routing a WorkItem to new groups when an SLA breaches → status stays PENDING, event is `SLA_REASSIGNED`, trigger is `AssignmentTrigger.SLA_ESCALATED`
 2. **The terminal state** — all re-routing branches exhausted → status is `ESCALATED`, set by `executeExhausted()`
 
-The code behavior is correct. But the `WorkItemLifecycleAdapter` javadoc says "ESCALATED is not terminal" which conflates the action with the state. The javadoc is wrong.
+The code behavior is correct. But the `WorkItemLifecycleAdapter` javadoc says "ESCALATED is not terminal" which conflates the action with the state. The javadoc describes the `EscalateTo` action (non-terminal, status stays PENDING) but labels it with the `ESCALATED` status name. When `status == WorkItemStatus.ESCALATED`, the WorkItem IS terminal — all breach policy branches have been exhausted. The adapter's `handleEscalation()` writes a `workItemEscalated` signal to the case context; it does NOT re-route the WorkItem to new groups.
 
 ### Issue 7 — Simple progress reporting gap
 
@@ -175,24 +175,30 @@ public enum WorkItemStatus {
 - Cancels expiry and claim deadline timers
 - Fires `WorkItemLifecycleEvent("FAULTED", ...)` (sync + async)
 - Typical callers: "system", AI agent IDs
+- Semantic: FAULTED means the system hosting or processing this WorkItem failed. PENDING→FAULTED means the infrastructure failed before anyone could act (e.g. WorkItem store became unavailable, tenant queue system crashed, item created with invalid data that prevents processing).
+
+**`faultFromSystem(UUID id, String actorId, String errorDetail)`**
+- Idempotent variant — returns silently if the item is already terminal (`if (item.status.isTerminal()) return item;`)
+- Used by infrastructure that may race with other terminal transitions (e.g. agent timeout handler that fires concurrently with the agent completing)
+- Same transition logic as `fault()` otherwise
 
 **`obsolete(UUID id, String triggeredBy, String reason)`**
-- Callable from any non-terminal state
+- Callable from any non-terminal state — throws on terminal items
 - Sets status to OBSOLETE, completedAt to now, resolution to reason
 - Cancels expiry and claim deadline timers
 - Fires `WorkItemLifecycleEvent("OBSOLETE", ...)` (sync + async)
-- Typical callers: "system", engine identity
+- Intended caller pattern: OBSOLETE is a context-driven termination, typically triggered by the engine or an orchestrator when the case context changes. Actors who decide work is unwanted should call `cancel()`, not `obsolete()`.
+
+**`obsoleteFromSystem(UUID id, String triggeredBy, String reason)`**
+- Idempotent variant — returns silently if the item is already terminal
+- Used by engine infrastructure that may race with other terminal transitions
 
 **`progress(UUID id, String actorId, Integer percentComplete, String statusNote)`**
 - Callable only from IN_PROGRESS
-- Updates percentComplete and statusNote fields
+- Updates percentComplete and statusNote fields on the entity
 - Fires `WorkItemLifecycleEvent("PROGRESS_UPDATE", ...)` (sync only — not a terminal event)
 - Does NOT change status
-
-**`faultFromSystem(UUID id, String actorId, String errorDetail)`**
-- System variant accepting any non-terminal status (parallel to `completeFromSystem` / `rejectFromSystem`)
-- Used by infrastructure (e.g. multi-instance coordinator, agent timeout handlers)
-- Skips schema validation
+- Note: the `percentComplete` and `statusNote` fields persist on the entity and survive transitions to SUSPENDED and back. The `progress()` method guard restricts when new progress is *recorded*, not when progress data *exists*. If the guard needs relaxing in future (e.g. for ASSIGNED items doing preliminary analysis), the entity fields already support it.
 
 ### 3. REST API
 
@@ -204,21 +210,36 @@ public enum WorkItemStatus {
 
 Naming follows existing pattern: verb paths (`claim`, `start`, `complete`, `reject`, `fault`, `obsolete`, `progress`).
 
-### 4. WorkEventType — complete enum (25 values)
+### 4. WorkEventType — complete enum (24 values)
 
 ```java
 public enum WorkEventType {
+    // Status transitions
     CREATED, ASSIGNED, STARTED, COMPLETED, REJECTED, FAULTED,
     CANCELLED, OBSOLETE, EXPIRED, ESCALATED,
+
+    // Delegation lifecycle
     DELEGATED, DELEGATION_ACCEPTED, DELEGATION_DECLINED,
+
+    // Pool transitions
     RELEASED, SUSPENDED, RESUMED,
+
+    // SLA events
     CLAIM_EXPIRED, SLA_REASSIGNED, SLA_EXTENDED, DEADLINE_EXTENDED,
+
+    // Operational
     SPAWNED, SIGNAL_RECEIVED, PROGRESS_UPDATE,
+
+    // Labels
     LABEL_ADDED, LABEL_REMOVED
 }
 ```
 
-The `eventType()` fallback in `WorkItemLifecycleEvent` changes from silently returning CREATED to letting `valueOf` throw. Any event fired without a corresponding enum value is a bug that tests must catch.
+**Not in this enum:** `BREACH_POLICY_MISCONFIGURED` — this is a diagnostic error marker on the audit trail, not a lifecycle event. It has no `WorkItemLifecycleEvent` and should not have enum parity with real lifecycle events.
+
+**SLA_EXTENDED change:** `ExpiryLifecycleService.executeExtend()` gains a `fireLifecycleEvent("SLA_EXTENDED", item)` call to resolve the inconsistency with actor-initiated `DEADLINE_EXTENDED`.
+
+The `eventType()` fallback in `WorkItemLifecycleEvent` changes from silently returning `CREATED` to letting `valueOf` throw. Any event fired without a corresponding enum value is a bug that tests must catch.
 
 ### 5. WorkItem entity — new columns
 
@@ -233,15 +254,40 @@ public String statusNote;
 ### 6. Flyway migration
 
 ```sql
+-- V37
 ALTER TABLE work_item ADD COLUMN percent_complete SMALLINT;
 ALTER TABLE work_item ADD COLUMN status_note TEXT;
 ```
 
+Target version: V37 (current is V36). Verify via Flyway scan script at implementation time in case another branch lands first. Per `docs/FLYWAY.md`, the V1–V999 range is owned by `runtime`.
+
 No migration for status enum — stored as STRING via `@Enumerated(EnumType.STRING)`.
 
-### 7. Bridge mapping — PlanItemCompletionApplier
+### 7. Bridge mapping — WorkItemLifecycleAdapter + PlanItemCompletionApplier
 
-The adapter's `applyStatus()` switch gains two cases:
+Two changes in casehub-engine's work-adapter module:
+
+**7a. WorkItemLifecycleAdapter status filter**
+
+The `onWorkItemLifecycle()` method's status filter (lines 80–83) currently lists COMPLETED, REJECTED, CANCELLED, EXPIRED. It must add FAULTED and OBSOLETE — without this, the async observer silently drops these events and PlanItemCompletionApplier never runs for them:
+
+```java
+// Before:
+if (status != WorkItemStatus.COMPLETED
+    && status != WorkItemStatus.REJECTED
+    && status != WorkItemStatus.CANCELLED
+    && status != WorkItemStatus.EXPIRED) return;
+
+// After:
+if (status != WorkItemStatus.COMPLETED
+    && status != WorkItemStatus.REJECTED
+    && status != WorkItemStatus.CANCELLED
+    && status != WorkItemStatus.EXPIRED
+    && status != WorkItemStatus.FAULTED
+    && status != WorkItemStatus.OBSOLETE) return;
+```
+
+**7b. PlanItemCompletionApplier.applyStatus() — two new cases**
 
 | WorkItemStatus | PlanItem transition | Rationale |
 |---|---|---|
@@ -249,25 +295,27 @@ The adapter's `applyStatus()` switch gains two cases:
 | REJECTED | `markRejected()` | Actor refusal |
 | FAULTED | `markFaulted()` | System failure — direct alignment |
 | CANCELLED | `markCancelled()` | Deliberate stop |
-| OBSOLETE | `markCancelled()` | Context-driven termination |
-| EXPIRED | `markFaulted()` | Deadline breach — a type of fault |
+| OBSOLETE | `markCancelled()` | Context-driven termination — cancel from engine's view |
+| EXPIRED | `markFaulted()` | Deadline breach — a type of fault (PlanItemStatus javadoc: "computation or timeout failure") |
 | ESCALATED | context signal, stays DELEGATED | All breach policies exhausted |
 
-This is a casehub-engine change (work-adapter module). Filed as engine issue.
+**EXPIRED→markFaulted() rationale:** PlanItemStatus javadoc already says "FAULTED (computation or timeout failure)." An expired deadline IS a timeout. `markCancelled()` would mean someone deliberately stopped the work — but nobody stopped it; time stopped it. That's a fault, not a cancellation. PlanItemStatus.FAULTED javadoc should gain a clarifying note: "Includes both computation failures (worker exceptions, retry exhaustion) and timeout failures (WorkItem deadline breaches at the casehub-work layer)."
 
-### 8. WorkItemLifecycleAdapter — ESCALATED handling
+Filed as casehub-engine issue.
 
-The adapter already handles ESCALATED correctly in code (writes context signal, PlanItem stays DELEGATED). The class javadoc is wrong — says "ESCALATED is not terminal" when the WorkItem IS terminal.
+### 8. WorkItemLifecycleAdapter — javadoc fix
 
-Fix the javadoc: "ESCALATED is terminal — all SLA breach policy branches have been exhausted. The adapter writes a `workItemEscalated` signal to the case context so the engine can react (e.g. notify supervisor, create replacement task). The PlanItem stays DELEGATED. Distinct from the SLA_REASSIGNED event, which fires when an EscalateTo decision re-routes the WorkItem to new groups without terminating it."
+The class javadoc (line 54) says: "ESCALATED is not terminal: the WorkItem re-enters PENDING with new candidate groups." This is wrong. It describes the `EscalateTo` action (non-terminal, status stays PENDING, event is SLA_REASSIGNED) but labels it with the ESCALATED status name.
+
+Fix: "ESCALATED is terminal — all SLA breach policy branches have been exhausted. The adapter writes a `workItemEscalated` signal to the case context so the engine can react (e.g. notify supervisor, create replacement task). The PlanItem stays DELEGATED. The SLA_REASSIGNED event (fired when an EscalateTo decision re-routes the WorkItem to new groups without terminating it) is a completely separate concern that does not go through the adapter — the WorkItem's status is PENDING, not ESCALATED, so the adapter's status filter skips it."
 
 ### 9. DELEGATED cross-system documentation
 
 All three DELEGATED declarations gain cross-references in javadoc:
 
-- `WorkItemStatus.DELEGATED`: "Pre-acceptance hold — non-terminal. See `docs/LIFECYCLE.md` for cross-system DELEGATED semantics."
-- `CommitmentState.DELEGATED`: "Obligation transferred — terminal. See `docs/LIFECYCLE.md` for cross-system DELEGATED semantics."
-- `PlanItemStatus.DELEGATED`: "Control passed to external actor — non-terminal. See `docs/LIFECYCLE.md` for cross-system DELEGATED semantics."
+- `WorkItemStatus.DELEGATED`: "Pre-acceptance hold — targeted to a named actor who must accept or decline. Non-terminal. Note: `CommitmentState.DELEGATED` (Qhorus) has opposite terminal semantics — obligation transferred and discharged. `PlanItemStatus.DELEGATED` means control passed to an external actor (broader). See `docs/LIFECYCLE.md` for cross-system DELEGATED semantics."
+- `CommitmentState.DELEGATED`: "Obligation transferred to new debtor via HANDOFF — terminal, original obligation discharged. Note: `WorkItemStatus.DELEGATED` (casehub-work) is non-terminal — pre-acceptance hold. See `docs/LIFECYCLE.md`."
+- `PlanItemStatus.DELEGATED`: "Control passed to external actor (HumanTask, SubCase, Extension) — engine waiting for completion signal. Non-terminal. Distinct from `WorkItemStatus.DELEGATED` (pre-acceptance hold within the task) and `CommitmentState.DELEGATED` (terminal obligation transfer). See `docs/LIFECYCLE.md`."
 
 ### 10. PLATFORM.md updates
 
@@ -279,15 +327,17 @@ All three DELEGATED declarations gain cross-references in javadoc:
 
 ### 11. docs/LIFECYCLE.md (casehub-parent)
 
-New document — the authoritative cross-system lifecycle reference. Contents:
+New document — the authoritative cross-system lifecycle reference. This is the primary deliverable of #240 — the code changes implement it.
 
-1. **Contract** — this document is normative. Any repo adding lifecycle states must update it.
+Contents:
+
+1. **Contract** — this document is normative. Any repo adding lifecycle states must update it and ensure consistency and cohesiveness with the existing cross-system map.
 2. **The six lifecycle layers** — complete state machine for each, with state diagrams.
 3. **Cross-layer bridges** — WorkItem→PlanItem mapping, Commitment→WorkItem conceptual parallels, Workflow→PlanItem mapping.
 4. **Naming coherence** — where terminology aligns (FAULTED at 4 layers, COMPLETED at all layers, CANCELLED at all layers) and where it diverges (DELEGATED: 3 meanings; REJECTED vs DECLINED; EXPIRED at WorkItem/Commitment but not PlanItem/Case).
 5. **Industry spec alignment** — WS-HumanTask 1.1, OpenHumanTask, BPMN 2.0, CMMN 1.1 mapping tables.
 6. **Known gaps** — PlanItem SUSPENDED, COMPENSATING/COMPENSATED (BPMN), CMMN ManualActivation.
-7. **Design rationale** — why FAULTED not ERROR, why OBSOLETE exists only at WorkItem layer, why DELEGATED semantics intentionally diverge.
+7. **Design rationale** — why FAULTED not ERROR, why OBSOLETE exists only at WorkItem layer, why DELEGATED semantics intentionally diverge, why EXPIRED→FAULTED at PlanItem layer.
 
 ---
 
@@ -295,10 +345,10 @@ New document — the authoritative cross-system lifecycle reference. Contents:
 
 | Repo | Change | Priority |
 |---|---|---|
-| casehub-work | Add FAULTED, OBSOLETE to WorkItemStatus; `fault()`, `obsolete()`, `progress()` methods; REST endpoints; WorkEventType alignment; Flyway migration; WorkItemResponse update | High |
-| casehub-engine | PlanItemCompletionApplier: add FAULTED→markFaulted(), OBSOLETE→markCancelled(); fix WorkItemLifecycleAdapter javadoc | High |
 | casehub-parent | Create docs/LIFECYCLE.md; update PLATFORM.md (capability ownership + lifecycle protocol) | High |
-| casehub-work | DELEGATED javadoc cross-reference | Medium |
+| casehub-work | Add FAULTED, OBSOLETE to WorkItemStatus; `fault()`, `faultFromSystem()`, `obsolete()`, `obsoleteFromSystem()`, `progress()` methods; REST endpoints; WorkEventType alignment (24 values); SLA_EXTENDED lifecycle event; Flyway V37; WorkItemResponse update | High |
+| casehub-engine | WorkItemLifecycleAdapter: add FAULTED + OBSOLETE to status filter; PlanItemCompletionApplier: add FAULTED→markFaulted(), OBSOLETE→markCancelled(); fix adapter class javadoc; add PlanItemStatus.FAULTED javadoc note | High |
+| casehub-work | WorkItemStatus.DELEGATED javadoc cross-reference | Medium |
 | casehub-qhorus | CommitmentState.DELEGATED javadoc cross-reference | Medium |
 | casehub-engine | PlanItemStatus.DELEGATED javadoc cross-reference | Medium |
 | casehub-engine | File issue: PlanItemStatus.SUSPENDED gap | Low |
