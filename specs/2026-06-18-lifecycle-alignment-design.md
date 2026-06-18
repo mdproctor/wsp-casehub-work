@@ -403,6 +403,37 @@ Rationale:
 - **FAULTED → `handleExpired()`** — system failure prevented a human decision on the gate. Semantically identical to EXPIRED: no approval was given, infrastructure is to blame. Fires `ActionGateExpiredEvent`.
 - **OBSOLETE → `handleRejected()`** — case context changed, the gated action is no longer relevant. Semantically closest to CANCELLED: gate terminated without approval, action should not proceed. Fires `ActionGateRejectedEvent`.
 
+**9e. MultiInstanceGroupPolicy.cancelRemainingChildren() — isTerminal() + cancelFromSystem()**
+
+`cancelRemainingChildren()` has an explicit exclusion list at line 120-122:
+
+```java
+final List<WorkItemStatus> terminalStatuses = List.of(
+    WorkItemStatus.COMPLETED, WorkItemStatus.CANCELLED,
+    WorkItemStatus.REJECTED, WorkItemStatus.EXPIRED);
+```
+
+Missing FAULTED, OBSOLETE, and ESCALATED. A FAULTED child passes the filter → `cancel()` → `isTerminal()` throws `IllegalStateException` → group policy execution fails. This is a latent runtime bug activated by FAULTED/OBSOLETE.
+
+Two fixes:
+1. Replace the explicit list with `isTerminal()` filtering — either change the store query or filter in-memory
+2. Use `cancelFromSystem()` (Section 2) instead of `cancel()` for race safety — a child may reach terminal state between the query and the cancel call
+
+`suspendRemainingChildren()` at lines 129-130 is unaffected — it explicitly lists suspendable states (ASSIGNED, IN_PROGRESS) rather than excluding terminal ones.
+
+**9f. ReportService — replace hardcoded status lists with isActive()/isTerminal()**
+
+`ReportService` has four hardcoded status lists with pre-existing bugs that FAULTED/OBSOLETE compound:
+
+| Location | Label | Issue |
+|---|---|---|
+| Lines 62-63 | activeStatuses | Includes ESCALATED and EXPIRED (both terminal — wrong) |
+| Line 65 | terminalStatuses | Missing ESCALATED, EXPIRED, FAULTED, OBSOLETE |
+| Lines 220-222 | activeStatuses | Same bug as lines 62-63 |
+| Lines 370-371 | terminalStatuses | Has ESCALATED but missing EXPIRED, FAULTED, OBSOLETE |
+
+Fix: derive all status lists from `isActive()`/`isTerminal()` — e.g. `Arrays.stream(WorkItemStatus.values()).filter(WorkItemStatus::isActive).toList()`. Eliminates the fragility pattern permanently for ReportService. Pre-existing bug — can be a separate issue or folded into the casehub-work deliverable.
+
 ### 10. WorkItemLifecycleAdapter — javadoc fix
 
 The class javadoc (line 54) says: "ESCALATED is not terminal: the WorkItem re-enters PENDING with new candidate groups." This is wrong. It describes the `EscalateTo` action (non-terminal, status stays PENDING, event is SLA_REASSIGNED) but labels it with the ESCALATED status name.
@@ -423,7 +454,18 @@ All three DELEGATED declarations gain cross-references in javadoc:
 
 **New implementation protocol entry:**
 
-> **Lifecycle coherence:** Any repo adding, renaming, or removing lifecycle states must update `docs/LIFECYCLE.md`. New states must be justified against the existing cross-system map — naming must be consistent with peer layers unless a documented reason exists for divergence. See `docs/LIFECYCLE.md` for the authoritative cross-system state machine map.
+> **Lifecycle coherence:** Any repo adding, renaming, or removing lifecycle states must update `docs/LIFECYCLE.md`. New states must be justified against the existing cross-system map — naming must be consistent with peer layers unless a documented reason exists for divergence. Adding a terminal status requires auditing ALL consumers of `isTerminal()`/`isActive()` across the codebase — hardcoded status lists are the number one source of silent lifecycle bugs. Use `isTerminal()`/`isActive()` in consumer code; never enumerate statuses explicitly unless the switch is semantically distinct per status (e.g. `ActionGateCompletionApplier` maps each status to a different gate event). See `docs/LIFECYCLE.md` for the authoritative cross-system state machine map.
+
+**Systemic audit note for implementers:** Four review rounds surfaced 6 locations with hardcoded status enumeration across 4 modules. The implementation plan must include an IntelliJ find-references search on `WorkItemStatus` to catch any remaining sites not listed in this spec. Known sites:
+
+| Location | Fixed by this spec | Module |
+|---|---|---|
+| WorkItemLifecycleAdapter status filter | Yes (9a — isTerminal()) | engine |
+| HumanTaskRecoveryService.TERMINAL_STATUSES | Yes (9c — isTerminal()) | engine |
+| FilterRegistryEngine.toFilterEvent() | Yes (Section 8 — explicit, semantically distinct) | runtime |
+| MultiInstanceGroupPolicy.cancelRemainingChildren() | Yes (9e — isTerminal() + cancelFromSystem()) | runtime |
+| ReportService (4 locations) | Yes (9f — isActive()/isTerminal()) | reports |
+| ActionGateCompletionApplier | Yes (9d — explicit, semantically distinct per status) | engine |
 
 ### 13. docs/LIFECYCLE.md (casehub-parent)
 
@@ -446,7 +488,7 @@ Contents:
 | Repo | Change | Priority |
 |---|---|---|
 | casehub-parent | Create docs/LIFECYCLE.md; update PLATFORM.md (capability ownership + lifecycle protocol) | High |
-| casehub-work | Add FAULTED, OBSOLETE to WorkItemStatus; `fault()`, `faultFromSystem()`, `obsolete()`, `obsoleteFromSystem()`, `cancelFromSystem()`, `progress()` methods; REST endpoints; WorkEventType alignment (25 values); SLA_EXTENDED lifecycle event; FilterRegistryEngine.toFilterEvent() update; MongoWorkItemDocument fields; WorkItemContextBuilder fields; WorkItemResponse/WithAuditResponse fields; Flyway V37 | High |
+| casehub-work | Add FAULTED, OBSOLETE to WorkItemStatus; `fault()`, `faultFromSystem()`, `obsolete()`, `obsoleteFromSystem()`, `cancelFromSystem()`, `progress()` methods; REST endpoints; WorkEventType alignment (25 values); SLA_EXTENDED lifecycle event; FilterRegistryEngine.toFilterEvent() update; MultiInstanceGroupPolicy: isTerminal() + cancelFromSystem(); ReportService: replace hardcoded lists with isActive()/isTerminal(); MongoWorkItemDocument fields; WorkItemContextBuilder fields; WorkItemResponse/WithAuditResponse fields; Flyway V37 | High |
 | casehub-engine | WorkItemLifecycleAdapter: replace explicit status filter with `isTerminal()`; PlanItemCompletionApplier: add FAULTED→markFaulted() + OBSOLETE→markCancelled(), fire PlanItemFaultedEvent for FAULTED and EXPIRED; HumanTaskRecoveryService: replace EnumSet with `isTerminal()`; ActionGateCompletionApplier: add FAULTED→handleExpired() + OBSOLETE→handleRejected(); fix adapter class javadoc; add PlanItemStatus.FAULTED javadoc note | High |
 | casehub-work | File issue: MongoWorkItemDocument 13+ field sync gap (pre-existing) | Medium |
 | casehub-work | WorkItemStatus.DELEGATED javadoc cross-reference | Medium |
