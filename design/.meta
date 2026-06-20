@@ -1,0 +1,9 @@
+branch: issue-270-mongo-document-field-sync
+project-sha: 63ae0f164f5ddfbe06599433fcaa2833c08426bd
+date: 2026-06-20
+issue: 270
+issue-repo: casehubio/work
+covers: 270
+flyway-next-v: none
+design-repo: project
+design-section-hashes: 
