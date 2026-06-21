@@ -1,5 +1,7 @@
 # HANDOFF — 2026-06-21
 
+*Updated: engine#539, engine#540, qhorus#291 closed — removed from backlog.*
+
 ## Last Session
 
 Closed #270 (MongoWorkItemDocument field sync). Added 13 missing fields to
@@ -11,14 +13,12 @@ hardcoding) and #272 (WorkItemStore OCC contract docs).
 
 ## Immediate Next Step
 
-Cross-repo follow-up: engine#539 remains the highest priority — the engine
-adapter, applier, recovery service, and gate applier all need FAULTED/OBSOLETE
-handling. This is engine-repo work, not casehub-work.
+Pick up this-repo work: #271 (JPA terminal status hardcoding) or #272 (OCC
+contract docs) — both are small, local, and unblocked.
 
 ## Cross-Module
 
 **We're blocking:**
-- engine#539 — adapter/applier/recovery/gate need FAULTED + OBSOLETE · M · Med
 - parent#284 — LIFECYCLE.md normative doc + PLATFORM.md updates · L · Med
 
 ## What's Left
@@ -30,10 +30,7 @@ handling. This is engine-repo work, not casehub-work.
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| engine#539 | engine adapter/applier/recovery/gate for FAULTED/OBSOLETE | M | Med | spec sections 9a-9f; engine repo |
 | parent#284 | LIFECYCLE.md + PLATFORM.md lifecycle protocol | L | Med | parent repo |
-| qhorus#291 | CommitmentState.DELEGATED javadoc cross-reference | XS | Low | qhorus repo |
-| engine#540 | PlanItemStatus.SUSPENDED observability gap | S | Med | engine repo |
 | work#271 | JPA countByParentAndAssignee terminal status hardcoding | S | Low | this repo |
 | work#272 | WorkItemStore.put() OCC contract docs | XS | Low | this repo |
 
