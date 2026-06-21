@@ -1,0 +1,9 @@
+branch: issue-271-jpa-terminal-status-fix
+project-sha: fd8b5df96551e3b3f98f58c438c215d5d6147c19
+date: 2026-06-21
+issue: 271
+issue-repo: casehubio/work
+covers: 271,272
+flyway-next-v: none
+design-repo: project
+design-section-hashes: 4d2cc5ab:##
