@@ -40,3 +40,4 @@
 | [2026-06-17-mdp01-the-producer-that-forgot.md](2026-06-17-mdp01-the-producer-that-forgot.md) | 2026-06-17 | CrossTenantProducer hardcoded JPA types — silent no-op with MongoDB; fix via interface injection + three Mongo cross-tenant stores |
 | [2026-06-18-mdp01-the-lifecycle-that-grew-up.md](2026-06-18-mdp01-the-lifecycle-that-grew-up.md) | 2026-06-18 | Human task lifecycle alignment — FAULTED, OBSOLETE, progress reporting, 12 statuses, 25 event types |
 | [2026-06-21-mdp01-thirteen-fields-that-werent-there.md](2026-06-21-mdp01-thirteen-fields-that-werent-there.md) | 2026-06-21 | MongoWorkItemDocument missing 13 fields; OCC via replaceOne; outcome filter gap; 5 query method overrides |
+| [2026-06-22-mdp01-the-hardcoded-seven.md](2026-06-22-mdp01-the-hardcoded-seven.md) | 2026-06-22 | JPA stores hardcoded 4 of 7 terminal statuses; TERMINAL_STATUSES constant as single source of truth; OCC contract documented |
