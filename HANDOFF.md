@@ -1,5 +1,7 @@
 # HANDOFF — 2026-06-22
 
+*Updated: parent#284 closed — removed from backlog.*
+
 ## Last Session
 
 Closed #271 and #272 — the last two follow-ups from the #270 review. Replaced
@@ -9,19 +11,12 @@ requirement. All four store backends now reference the same source of truth.
 
 ## Immediate Next Step
 
-No this-repo work is queued. Pick up cross-repo work: parent#284 (LIFECYCLE.md)
-is the highest-value item — it blocks platform-wide lifecycle documentation.
-
-## Cross-Module
-
-**We're blocking:**
-- parent#284 — LIFECYCLE.md normative doc + PLATFORM.md updates · L · Med
+No this-repo work or cross-module blockers are queued. Check open issues for
+the next piece of work: `gh issue list --repo casehubio/work --state open`.
 
 ## What's Next
 
-| # | Description | Scale | Complexity | Notes |
-|---|-------------|-------|------------|-------|
-| parent#284 | LIFECYCLE.md + PLATFORM.md lifecycle protocol | L | Med | parent repo |
+No queued items — check open issues.
 
 ## Key References
 
