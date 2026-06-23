@@ -37,7 +37,11 @@ public class WorkItemLifecycleEmitter {
 
     public void emit(WorkItemLifecycleEvent event) {
         delegate.fire(event);
-        delegate.fireAsync(event);
+        delegate.fireAsync(event)
+            .exceptionally(ex -> {
+                LOG.warnf(ex, "Async lifecycle observer failure for %s", event.type());
+                return null;
+            });
     }
 }
 ```
@@ -47,11 +51,16 @@ A matching `WorkItemGroupLifecycleEmitter` wraps `Event<WorkItemGroupLifecycleEv
 ```java
 @ApplicationScoped
 public class WorkItemGroupLifecycleEmitter {
+    private static final Logger LOG = Logger.getLogger(WorkItemGroupLifecycleEmitter.class);
     @Inject Event<WorkItemGroupLifecycleEvent> delegate;
 
     public void emit(WorkItemGroupLifecycleEvent event) {
         delegate.fire(event);
-        delegate.fireAsync(event);
+        delegate.fireAsync(event)
+            .exceptionally(ex -> {
+                LOG.warnf(ex, "Async group lifecycle observer failure for group %s", event.groupId());
+                return null;
+            });
     }
 }
 ```
@@ -87,7 +96,7 @@ This also eliminates the defensive `if (lifecycleEvent != null)` checks scattere
 ### Why this is the right design
 
 - Makes dual-channel delivery structural, not conventional — impossible to fire one without the other
-- Single place to evolve firing behaviour (e.g. add `.exceptionally()` logging)
+- `.exceptionally()` on `fireAsync()` makes async observer failures visible — without it, exceptions from `@ObservesAsync` handlers propagate into CDI's managed executor and are silently swallowed (same failure mode the canonical adapter pattern addresses for `cloudEventBus.fireAsync()`)
 - The migration is mechanical — 5 injection changes, ~20 call sites updated
 - Breaking callers is the point — it forces every site through the emitter
 
@@ -243,11 +252,46 @@ WorkCloudEventAdapter
 
 `@ObservesAsync` dispatches to the managed executor before the transaction commits. A rolled-back transaction may still produce a CloudEvent. This is inherent to `@ObservesAsync` and shared with `MultiInstanceCoordinator` and `QueueDashboard`. CloudEvent consumers (casehub-ras) must be idempotent and tolerate spurious events from rolled-back transactions.
 
-### Event types emitted
+### CloudEvent type catalogue
 
-WorkItem lifecycle — 12 statuses (PENDING, ASSIGNED, IN_PROGRESS, COMPLETED, REJECTED, FAULTED, DELEGATED, SUSPENDED, CANCELLED, EXPIRED, ESCALATED, OBSOLETE) plus operational events (CREATED, SPAWNED, STARTED, PROGRESS_UPDATE, DEADLINE_EXTENDED, LABEL_ADDED, LABEL_REMOVED, DELEGATION_ACCEPTED, DELEGATION_DECLINED, RELEASED, RESUMED, CLAIM_EXPIRED, SLA_REASSIGNED, SLA_EXTENDED). All use the `io.casehub.work.workitem.<event>` prefix already built by `WorkItemLifecycleEvent.type()`.
+CloudEvent `type` is derived from the event name passed to `WorkItemLifecycleEvent.of()`, not from `WorkItemStatus`. Two status values (PENDING, IN_PROGRESS) are never event names — transitions into those statuses fire events named after the action (CREATED, RELEASED, STARTED, etc.).
 
-Group lifecycle — 3 values: `io.casehub.work.group.in_progress`, `io.casehub.work.group.completed`, `io.casehub.work.group.rejected`.
+**WorkItem lifecycle — 24 types** (traced from every production `WorkItemLifecycleEvent.of()` call):
+
+| CloudEvent `type` | Source method(s) |
+|---|---|
+| `io.casehub.work.workitem.created` | `WorkItemService.create()` |
+| `io.casehub.work.workitem.assigned` | `WorkItemService.claim()`, `QueueStateResource.pickup()` |
+| `io.casehub.work.workitem.started` | `WorkItemService.start()` |
+| `io.casehub.work.workitem.completed` | `WorkItemService.complete()` (both), `completeFromSystem()` |
+| `io.casehub.work.workitem.rejected` | `WorkItemService.reject()` (both), `rejectFromSystem()` |
+| `io.casehub.work.workitem.delegated` | `WorkItemService.delegate()` |
+| `io.casehub.work.workitem.delegation_accepted` | `WorkItemService.acceptDelegation()` |
+| `io.casehub.work.workitem.delegation_declined` | `WorkItemService.declineDelegation()` |
+| `io.casehub.work.workitem.released` | `WorkItemService.release()` |
+| `io.casehub.work.workitem.suspended` | `WorkItemService.suspend()` |
+| `io.casehub.work.workitem.resumed` | `WorkItemService.resume()` |
+| `io.casehub.work.workitem.cancelled` | `WorkItemService.cancel()`, `cancelFromSystem()` |
+| `io.casehub.work.workitem.faulted` | `WorkItemService.fault()`, `faultFromSystem()` |
+| `io.casehub.work.workitem.obsolete` | `WorkItemService.obsolete()`, `obsoleteFromSystem()` |
+| `io.casehub.work.workitem.spawned` | `WorkItemSpawnService.spawn()` |
+| `io.casehub.work.workitem.expired` | `ExpiryLifecycleService.executeFail()` |
+| `io.casehub.work.workitem.escalated` | `ExpiryLifecycleService.executeExhausted()` |
+| `io.casehub.work.workitem.progress_update` | `WorkItemService.progress()` |
+| `io.casehub.work.workitem.deadline_extended` | `WorkItemService.extend()` |
+| `io.casehub.work.workitem.label_added` | `WorkItemService.addLabel()` |
+| `io.casehub.work.workitem.label_removed` | `WorkItemService.removeLabel()` |
+| `io.casehub.work.workitem.claim_expired` | `ExpiryLifecycleService.checkClaimDeadlines()`, `processClaimDeadline()` |
+| `io.casehub.work.workitem.sla_reassigned` | `ExpiryLifecycleService.executeEscalateTo()` |
+| `io.casehub.work.workitem.sla_extended` | `ExpiryLifecycleService.executeExtend()` |
+
+**Group lifecycle — 3 types:**
+
+| CloudEvent `type` | Source |
+|---|---|
+| `io.casehub.work.group.in_progress` | `MultiInstanceGroupPolicy.fireEvent()` |
+| `io.casehub.work.group.completed` | `MultiInstanceGroupPolicy.fireEvent()` |
+| `io.casehub.work.group.rejected` | `MultiInstanceGroupPolicy.fireEvent()` |
 
 ### Dependencies
 
