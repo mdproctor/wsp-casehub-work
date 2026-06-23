@@ -7,64 +7,93 @@
 
 casehub-ras needs to observe WorkItem lifecycle events for situational awareness (e.g. "3 SLA breaches in 10 minutes across the same case type") without coupling to casehub-work types. The platform-standard decoupling mechanism is CloudEvents — every other foundation module (IoT, Qhorus, Connectors) already has a CloudEvent adapter. casehub-work does not.
 
-A prerequisite defect blocks a clean adapter: `WorkItemLifecycleEvent` is fired with a mix of `fire()` (sync) and `fireAsync()` (async) across different call sites. CDI treats these as independent channels — `fire()` delivers to `@Observes` only, `fireAsync()` delivers to `@ObservesAsync` only. No single observer annotation can catch all events. This also causes three existing bugs where sync observers miss async-only events.
+A prerequisite gap blocks a clean `@ObservesAsync` adapter: 13 methods in `WorkItemService` fire lifecycle events with `fire()` only (no `fireAsync()`). Terminal transitions (COMPLETED, REJECTED, CANCELLED, FAULTED, OBSOLETE) already fire both `fire()` and `fireAsync()`, but non-terminal transitions (CREATED, ASSIGNED, STARTED, DELEGATED, etc.) fire sync only. An `@ObservesAsync` adapter would miss those 13 event types.
+
+This gap also causes an existing bug: `QueueDashboard.onLifecycleEvent(@ObservesAsync)` misses all non-terminal events — the dashboard refreshes only on terminal transitions.
 
 ## Scope
 
 Three changes, one issue:
 
-1. **Normalize event firing** — every `WorkItemLifecycleEvent` and `WorkItemGroupLifecycleEvent` firing site calls both `fire()` and `fireAsync()`
-2. **Add `WorkCloudEventAdapter`** — bridges both event types to `CloudEvent` via `@ObservesAsync`
+1. **Normalize event firing** — add `fireAsync()` to the 13 fire()-only sites so both CDI channels are populated for all lifecycle events
+2. **Add `WorkCloudEventAdapter`** — bridges `WorkItemLifecycleEvent` and `WorkItemGroupLifecycleEvent` to `CloudEvent` via `@ObservesAsync`
 3. **File parent evaluation issue** — evaluate dual-channel CDI firing as a platform-wide standard
 
 ## Change 1: Event Firing Normalization
 
-### Root cause
+### Current state
 
-casehub-work is the only repo with mixed fire/fireAsync. All other repos (qhorus, iot, connectors, platform-streams) use async-only consistently. casehub-work's mixed pattern is an evolution artifact, not an intentional design.
+The firing pattern in `WorkItemService` is intentionally split by terminal vs non-terminal:
 
-### Existing bugs this fixes
+| Methods | `fire()` | `fireAsync()` |
+|---------|----------|---------------|
+| create, claim, start, delegate, acceptDelegation, declineDelegation, release, suspend, resume, progress, extend, addLabel, removeLabel | YES | NO |
+| complete (both variants), reject (both variants), completeFromSystem, rejectFromSystem, cancel, cancelFromSystem, fault, faultFromSystem, obsolete, obsoleteFromSystem | YES | YES |
+
+Zero methods are `fireAsync()`-only in `WorkItemService`. Every method that calls `fireAsync()` also calls `fire()` on the preceding line.
+
+### Existing bug this fixes
 
 | Observer | Annotation | Currently misses | Impact |
 |----------|-----------|-----------------|--------|
-| `LocalWorkItemEventBroadcaster` | `@Observes` | COMPLETED, REJECTED (async-only) | SSE streams incomplete — clients never see terminal events |
-| `WorkItemMetrics` | `@Observes` | COMPLETED, REJECTED (async-only) | Completion/rejection counters not incremented |
-| `FilterEvaluationObserver` | `@Observes` | COMPLETED, REJECTED (async-only) | Queue membership not updated on completion |
+| `QueueDashboard` | `@ObservesAsync` | CREATED, ASSIGNED, STARTED, DELEGATED, DELEGATION_ACCEPTED, DELEGATION_DECLINED, RELEASED, SUSPENDED, RESUMED, PROGRESS_UPDATE, DEADLINE_EXTENDED, LABEL_ADDED, LABEL_REMOVED | Dashboard refreshes only on terminal transitions — never shows new or reassigned work |
+
+`LocalWorkItemEventBroadcaster` (`@Observes`), `WorkItemMetrics` (`@Observes`), and `FilterEvaluationObserver` (`@Observes`) are NOT affected — they receive all events correctly via `fire()`.
+
+`MultiInstanceCoordinator` (`@ObservesAsync`) is safe — it filters on `child.status.isTerminal()`, and all terminal transitions already have `fireAsync()`.
 
 ### Sites to change
 
-Add the missing channel at each site. Order: `fire()` first (sync observers in-transaction), then `fireAsync()` (async observers post-commit).
-
-**WorkItemService** — add `fireAsync()` where only `fire()` exists:
+**WorkItemService** — add `fireAsync()` to the 13 methods that currently call `fire()` only:
 - `create()` — CREATED
 - `claim()` — ASSIGNED
 - `start()` — STARTED
 - `delegate()` — DELEGATED
 - `acceptDelegation()` — DELEGATION_ACCEPTED
+- `declineDelegation()` — DELEGATION_DECLINED
+- `release()` — RELEASED
+- `suspend()` — SUSPENDED
+- `resume()` — RESUMED
+- `progress()` — PROGRESS_UPDATE
+- `extend()` — DEADLINE_EXTENDED
+- `addLabel()` — LABEL_ADDED
+- `removeLabel()` — LABEL_REMOVED
 
-**WorkItemService** — add `fire()` where only `fireAsync()` exists:
-- `complete()` (both variants with/without rationale) — COMPLETED
-- `reject()` (both variants with/without rationale) — REJECTED
-- `completeFromSystem()` — COMPLETED
-- `rejectFromSystem()` — REJECTED
-- All remaining async-only sites (lines 635–736)
+No `fire()` additions needed in `WorkItemService` — every method already calls `fire()`.
 
 **Other classes** — add `fireAsync()` where only `fire()` exists:
-- `ExpiryLifecycleService.fireLifecycleEvent()` — expiry events
+- `ExpiryLifecycleService.fireLifecycleEvent()` — expiry events (EXPIRED, ESCALATED)
 - `WorkItemSpawnService.spawn()` — SPAWNED
 - `QueueStateResource.pickup()` — ASSIGNED
 
 **WorkItemGroupLifecycleEvent** — add `fire()` where only `fireAsync()` exists:
-- `MultiInstanceGroupPolicy` — group status events
+- `MultiInstanceGroupPolicy.fireEvent()` — group status events (IN_PROGRESS, COMPLETED, REJECTED)
+
+This is the only `fireAsync()`-only site in the codebase. Adding `fire()` enables future `@Observes` handlers for group events.
+
+### Alternative considered: `@Observes(during = TransactionPhase.AFTER_SUCCESS)`
+
+Four existing observers in casehub-work use this pattern: `NotificationDispatcher`, `IssueLinkService`, `PostgresWorkItemEventBroadcaster`, `PostgresWorkItemQueueEventBroadcaster`.
+
+If the adapter used `@Observes(during = AFTER_SUCCESS)` for `WorkItemLifecycleEvent`, it would catch all events via `fire()` (which every method already calls) and run after the transaction commits. This would eliminate Change 1 for `WorkItemLifecycleEvent`.
+
+**Why `@ObservesAsync` is preferred despite this:**
+1. **Normalization is needed anyway** — `QueueDashboard` (`@ObservesAsync`) is broken without it. The normalization fixes an existing bug independent of the adapter.
+2. **Full decoupling** — `@ObservesAsync` runs on a managed executor thread, adding zero latency to the caller. `AFTER_SUCCESS` runs on the caller's thread after commit.
+3. **Symmetric adapter** — both `onWorkItemLifecycle()` and `onGroupLifecycle()` use `@ObservesAsync`. The `AFTER_SUCCESS` approach would be asymmetric (`AFTER_SUCCESS` for one, `@ObservesAsync` for the other) because `WorkItemGroupLifecycleEvent` is `fireAsync()`-only.
+4. **Canonical pattern consistency** — the GE-20260621-629712 pattern uses `@ObservesAsync`. All three existing adapters (IoT, Qhorus, Connectors) use `@ObservesAsync`. The garden entry was derived from repos that are async-only, but the principle (decoupled, post-commit CloudEvent emission) applies regardless of the source repo's firing pattern.
 
 ### Why dual-channel (not async-only)
 
 casehub-work has sync observers with legitimate transactional consistency requirements:
-- `FilterEvaluationObserver` — queue membership updates must be atomic with the WorkItem mutation
-- `LocalWorkItemEventBroadcaster` — ordered SSE delivery within transaction boundary
-- `WorkItemMetrics` — counters incremented within transaction boundary
+- `FilterEvaluationObserver` (`@Observes`) — queue membership updates atomic with the WorkItem mutation
+- `LocalWorkItemEventBroadcaster` (`@Observes`) — ordered SSE delivery within transaction boundary
+- `WorkItemMetrics` (`@Observes`) — counters incremented within transaction boundary
 
-Migrating these to `@ObservesAsync` would change the consistency model. Dual-channel preserves existing transactional guarantees while enabling async observers (CloudEvent adapter, MultiInstanceCoordinator).
+Plus four `@Observes(during = AFTER_SUCCESS)` observers that depend on the sync channel:
+- `NotificationDispatcher`, `IssueLinkService`, `PostgresWorkItemEventBroadcaster`, `PostgresWorkItemQueueEventBroadcaster`
+
+Eliminating `fire()` would break all of these. The correct approach is to populate both channels so each observer can choose the delivery semantics it needs.
 
 ## Change 2: WorkCloudEventAdapter
 
@@ -111,8 +140,10 @@ WorkCloudEventAdapter
 | `subject` | `event.subject()` — WorkItem UUID string |
 | `time` | `event.occurredAt().atOffset(ZoneOffset.UTC)` |
 | `datacontenttype` | `application/json` |
-| `data` | `objectMapper.writeValueAsBytes(event)` — scalar fields only (`workItem` is `@JsonIgnore`) |
+| `data` | `objectMapper.writeValueAsBytes(event)` — 11 JSON-visible fields (see below) |
 | `tenancyid` ext | `event.tenancyId()` — null-safe |
+
+**Data payload fields (11):** `type`, `sourceUri`, `subject`, `workItemId`, `status`, `occurredAt`, `actor`, `detail`, `rationale`, `planRef`, `outcome`. Five accessors are `@JsonIgnore` and excluded: `workItem` (entity), `tenancyId` (carried as CloudEvent extension instead), `eventType()`, `context()`, `source()`.
 
 **WorkItemGroupLifecycleEvent → CloudEvent:**
 
@@ -127,19 +158,27 @@ WorkCloudEventAdapter
 | `data` | `objectMapper.writeValueAsBytes(event)` — all fields serializable |
 | `tenancyid` ext | `event.tenancyId()` — null-safe |
 
+**Note:** `WorkItemGroupLifecycleEvent` has no `@JsonIgnore` annotations, so `tenancyId` appears in both the data payload and the CloudEvent extension. This is redundant but not harmful — the extension is the canonical location for routing; the data payload provides it for consumers that parse the data without inspecting extensions. This differs from `WorkItemLifecycleEvent` where `tenancyId` is `@JsonIgnore` and only appears in the extension.
+
+### Event types emitted
+
+WorkItem lifecycle — 12 statuses (PENDING, ASSIGNED, IN_PROGRESS, COMPLETED, REJECTED, FAULTED, DELEGATED, SUSPENDED, CANCELLED, EXPIRED, ESCALATED, OBSOLETE) plus operational events (SPAWNED, PROGRESS_UPDATE, DEADLINE_EXTENDED, LABEL_ADDED, LABEL_REMOVED, DELEGATION_ACCEPTED, DELEGATION_DECLINED, RELEASED, RESUMED). All use the `io.casehub.work.workitem.<event>` prefix already built by `WorkItemLifecycleEvent.type()`.
+
+Group lifecycle — 3 values: `io.casehub.work.group.in_progress`, `io.casehub.work.group.completed`, `io.casehub.work.group.rejected`.
+
 ### Dependencies
 
-No new Maven dependencies. `cloudevents-core` 4.0.1 is already on the classpath transitively via `casehub-platform-api` → `casehub-work-api` → `casehub-work` (runtime).
+No new Maven dependencies. `cloudevents-core` 4.0.1 is already on the classpath transitively via `casehub-platform-api` → `casehub-work-api` → `casehub-work` (runtime). Note: the canonical pattern garden entry (GE-20260621-629712) was verified against `cloudevents-core` 4.1.2; the API surface used by the adapter is stable across both versions.
 
 ## Change 3: Platform evaluation issue
 
 File on `casehubio/parent`: **"evaluate: dual-channel CDI event firing as platform standard"**
 
 Content:
-- casehub-work normalized to dual-channel (fire + fireAsync) in work#273 because it has sync observers needing transactional consistency
+- casehub-work normalized to dual-channel (`fire()` + `fireAsync()`) in work#273 because it has sync observers needing transactional consistency
 - All other repos currently fire async-only — this works because they have no sync observers
-- The evaluation question for each repo: "does any current or foreseeable observer need to run inside the producer's transaction?"
-- Specific patterns to look for: observers that update derived views (like queue membership), observers that aggregate state (like metrics), observers that need ordering guarantees (like SSE broadcasting)
+- casehub-work's sync observers exist because: `FilterEvaluationObserver` needs queue membership updates atomic with the WorkItem mutation; `LocalWorkItemEventBroadcaster` needs ordered SSE delivery; `WorkItemMetrics` needs counters within transaction boundary; four `AFTER_SUCCESS` observers need post-commit-but-same-thread delivery
+- The evaluation question for each repo: "does any current or foreseeable observer need to run inside the producer's transaction?" — look for observers that update derived views, aggregate state, need ordering guarantees, or use `@Observes(during = TransactionPhase.AFTER_SUCCESS)`
 - Firing both costs nothing when a channel has no observers — CDI no-ops the empty channel
 - This is an evaluation, not an adoption mandate
 
@@ -156,12 +195,12 @@ Content:
 
 ### Firing normalization tests
 
-- Verify sync observer receives events that were previously async-only (COMPLETED, REJECTED)
-- Verify async observer receives events that were previously sync-only (CREATED, ASSIGNED)
+- Verify `@ObservesAsync` observer receives events that were previously fire()-only (CREATED, ASSIGNED, STARTED, DELEGATED, DELEGATION_ACCEPTED, DELEGATION_DECLINED, RELEASED, SUSPENDED, RESUMED, PROGRESS_UPDATE, DEADLINE_EXTENDED, LABEL_ADDED, LABEL_REMOVED)
+- Verify `QueueDashboard` (`@ObservesAsync`) now receives non-terminal events
 
 ### Integration test
 
-- End-to-end: create → complete a WorkItem, verify `@ObservesAsync CloudEvent` observer receives both events with correct type, source, subject, tenancyId
+- End-to-end: create → assign → complete a WorkItem, verify `@ObservesAsync CloudEvent` observer receives all three events with correct type, source, subject, tenancyId
 
 ## Platform doc updates
 
