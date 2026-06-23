@@ -33,6 +33,7 @@ Extract a `WorkItemLifecycleEmitter` bean that makes dual-channel delivery struc
 ```java
 @ApplicationScoped
 public class WorkItemLifecycleEmitter {
+    private static final Logger LOG = Logger.getLogger(WorkItemLifecycleEmitter.class);
     @Inject Event<WorkItemLifecycleEvent> delegate;
 
     public void emit(WorkItemLifecycleEvent event) {
