@@ -13,13 +13,85 @@ This gap also causes an existing bug: `QueueDashboard.onLifecycleEvent(@Observes
 
 ## Scope
 
-Three changes, one issue:
+Four changes, one issue:
 
-1. **Normalize event firing** — add `fireAsync()` to the 13 fire()-only sites so both CDI channels are populated for all lifecycle events
-2. **Add `WorkCloudEventAdapter`** — bridges `WorkItemLifecycleEvent` and `WorkItemGroupLifecycleEvent` to `CloudEvent` via `@ObservesAsync`
-3. **File parent evaluation issue** — evaluate dual-channel CDI firing as a platform-wide standard
+1. **Extract `WorkItemLifecycleEmitter`** — structural enforcement of dual-channel firing
+2. **Normalize event firing** — all lifecycle events populate both CDI channels via the emitter
+3. **Add `WorkCloudEventAdapter`** — bridges both event types to `CloudEvent` via `@ObservesAsync`
+4. **File parent evaluation issue** — evaluate dual-channel CDI firing as a platform-wide standard
 
-## Change 1: Event Firing Normalization
+## Change 1: WorkItemLifecycleEmitter
+
+### Problem with convention-based dual-channel
+
+Adding `fireAsync()` to the 13 fire()-only sites fixes the current gap but recreates the same fragility: the next developer who adds a lifecycle method must remember both calls. If they forget `fireAsync()`, the async channel silently loses events with no compile-time or test-time signal. This is exactly the class of bug we are fixing.
+
+### Design
+
+Extract a `WorkItemLifecycleEmitter` bean that makes dual-channel delivery structural:
+
+```java
+@ApplicationScoped
+public class WorkItemLifecycleEmitter {
+    @Inject Event<WorkItemLifecycleEvent> delegate;
+
+    public void emit(WorkItemLifecycleEvent event) {
+        delegate.fire(event);
+        delegate.fireAsync(event);
+    }
+}
+```
+
+A matching `WorkItemGroupLifecycleEmitter` wraps `Event<WorkItemGroupLifecycleEvent>`:
+
+```java
+@ApplicationScoped
+public class WorkItemGroupLifecycleEmitter {
+    @Inject Event<WorkItemGroupLifecycleEvent> delegate;
+
+    public void emit(WorkItemGroupLifecycleEvent event) {
+        delegate.fire(event);
+        delegate.fireAsync(event);
+    }
+}
+```
+
+**Location:** `runtime/src/main/java/io/casehub/work/runtime/event/` — alongside `WorkItemLifecycleEvent`.
+
+### Migration
+
+Four classes change their injection from `Event<WorkItemLifecycleEvent>` to `WorkItemLifecycleEmitter`:
+- `WorkItemService`
+- `ExpiryLifecycleService`
+- `WorkItemSpawnService`
+- `QueueStateResource`
+
+One class changes from `Event<WorkItemGroupLifecycleEvent>` to `WorkItemGroupLifecycleEmitter`:
+- `MultiInstanceGroupPolicy`
+
+Each call site simplifies from:
+
+```java
+lifecycleEvent.fire(evt);
+lifecycleEvent.fireAsync(evt);
+```
+
+to:
+
+```java
+lifecycleEmitter.emit(evt);
+```
+
+This also eliminates the defensive `if (lifecycleEvent != null)` checks scattered across 16+ sites. CDI-injected beans are never null; the null check was defensive against test scenarios where CDI is absent. The emitter handles this cleanly — tests inject a mock emitter.
+
+### Why this is the right design
+
+- Makes dual-channel delivery structural, not conventional — impossible to fire one without the other
+- Single place to evolve firing behaviour (e.g. add `.exceptionally()` logging)
+- The migration is mechanical — 5 injection changes, ~20 call sites updated
+- Breaking callers is the point — it forces every site through the emitter
+
+## Change 2: Event Firing Normalization
 
 ### Current state
 
@@ -42,9 +114,11 @@ Zero methods are `fireAsync()`-only in `WorkItemService`. Every method that call
 
 `MultiInstanceCoordinator` (`@ObservesAsync`) is safe — it filters on `child.status.isTerminal()`, and all terminal transitions already have `fireAsync()`.
 
-### Sites to change
+### Sites migrated to emitter
 
-**WorkItemService** — add `fireAsync()` to the 13 methods that currently call `fire()` only:
+All sites listed below migrate from direct `Event` injection to `WorkItemLifecycleEmitter.emit()`. The emitter handles both channels.
+
+**WorkItemService** — 13 methods that currently call `fire()` only (gain `fireAsync()` via emitter):
 - `create()` — CREATED
 - `claim()` — ASSIGNED
 - `start()` — STARTED
@@ -59,23 +133,24 @@ Zero methods are `fireAsync()`-only in `WorkItemService`. Every method that call
 - `addLabel()` — LABEL_ADDED
 - `removeLabel()` — LABEL_REMOVED
 
-No `fire()` additions needed in `WorkItemService` — every method already calls `fire()`.
+**WorkItemService** — 12 methods that already call both `fire()` and `fireAsync()` (simplified to single `emit()` call):
+- `complete()` (both variants), `reject()` (both variants), `completeFromSystem()`, `rejectFromSystem()`, `cancel()`, `cancelFromSystem()`, `fault()`, `faultFromSystem()`, `obsolete()`, `obsoleteFromSystem()`
 
-**Other classes** — add `fireAsync()` where only `fire()` exists:
-- `ExpiryLifecycleService.fireLifecycleEvent()` — expiry events (EXPIRED, ESCALATED)
+**Other classes** — currently call `fire()` only (gain `fireAsync()` via emitter):
+- `ExpiryLifecycleService.fireLifecycleEvent()` — expiry/SLA events (EXPIRED, ESCALATED, CLAIM_EXPIRED, SLA_REASSIGNED, SLA_EXTENDED)
 - `WorkItemSpawnService.spawn()` — SPAWNED
 - `QueueStateResource.pickup()` — ASSIGNED
 
-**WorkItemGroupLifecycleEvent** — add `fire()` where only `fireAsync()` exists:
+**WorkItemGroupLifecycleEvent** — currently calls `fireAsync()` only (gains `fire()` via emitter):
 - `MultiInstanceGroupPolicy.fireEvent()` — group status events (IN_PROGRESS, COMPLETED, REJECTED)
 
-This is the only `fireAsync()`-only site in the codebase. Adding `fire()` enables future `@Observes` handlers for group events.
+This is the only `fireAsync()`-only site in the codebase. Adding `fire()` via the emitter enables future `@Observes` handlers for group events. No existing `@Observes WorkItemGroupLifecycleEvent` handlers exist today, so this is a capability expansion with no behaviour change.
 
 ### Alternative considered: `@Observes(during = TransactionPhase.AFTER_SUCCESS)`
 
 Four existing observers in casehub-work use this pattern: `NotificationDispatcher`, `IssueLinkService`, `PostgresWorkItemEventBroadcaster`, `PostgresWorkItemQueueEventBroadcaster`.
 
-If the adapter used `@Observes(during = AFTER_SUCCESS)` for `WorkItemLifecycleEvent`, it would catch all events via `fire()` (which every method already calls) and run after the transaction commits. This would eliminate Change 1 for `WorkItemLifecycleEvent`.
+If the adapter used `@Observes(during = AFTER_SUCCESS)` for `WorkItemLifecycleEvent`, it would catch all events via `fire()` (which every method already calls) and run after the transaction commits. This would eliminate the normalization for `WorkItemLifecycleEvent`.
 
 **Why `@ObservesAsync` is preferred despite this:**
 1. **Normalization is needed anyway** — `QueueDashboard` (`@ObservesAsync`) is broken without it. The normalization fixes an existing bug independent of the adapter.
@@ -95,7 +170,7 @@ Plus four `@Observes(during = AFTER_SUCCESS)` observers that depend on the sync 
 
 Eliminating `fire()` would break all of these. The correct approach is to populate both channels so each observer can choose the delivery semantics it needs.
 
-## Change 2: WorkCloudEventAdapter
+## Change 3: WorkCloudEventAdapter
 
 ### Location
 
@@ -134,6 +209,7 @@ WorkCloudEventAdapter
 
 | CloudEvent field | Source |
 |-----------------|--------|
+| `specversion` | `1.0` (via `CloudEventBuilder.v1()`) |
 | `id` | `UUID.randomUUID().toString()` |
 | `type` | `event.type()` — already `io.casehub.work.workitem.<event>` |
 | `source` | `URI.create(event.sourceUri())` — already `/workitems/{id}` |
@@ -143,12 +219,15 @@ WorkCloudEventAdapter
 | `data` | `objectMapper.writeValueAsBytes(event)` — 11 JSON-visible fields (see below) |
 | `tenancyid` ext | `event.tenancyId()` — null-safe |
 
+**`time` uses the event's semantic timestamp** (`event.occurredAt()`, set at event construction during the service method), not the adapter's processing time. This differs from the Qhorus reference adapter which uses `OffsetDateTime.now(ZoneOffset.UTC)`. The event timestamp is correct — it records when the transition occurred, not when the CloudEvent was built. Do not "fix" this to match the Qhorus adapter.
+
 **Data payload fields (11):** `type`, `sourceUri`, `subject`, `workItemId`, `status`, `occurredAt`, `actor`, `detail`, `rationale`, `planRef`, `outcome`. Five accessors are `@JsonIgnore` and excluded: `workItem` (entity), `tenancyId` (carried as CloudEvent extension instead), `eventType()`, `context()`, `source()`.
 
 **WorkItemGroupLifecycleEvent → CloudEvent:**
 
 | CloudEvent field | Source |
 |-----------------|--------|
+| `specversion` | `1.0` (via `CloudEventBuilder.v1()`) |
 | `id` | `UUID.randomUUID().toString()` |
 | `type` | `"io.casehub.work.group." + event.groupStatus().name().toLowerCase(Locale.ROOT)` |
 | `source` | `URI.create("/workitems/groups/" + event.groupId())` |
@@ -160,9 +239,13 @@ WorkCloudEventAdapter
 
 **Note:** `WorkItemGroupLifecycleEvent` has no `@JsonIgnore` annotations, so `tenancyId` appears in both the data payload and the CloudEvent extension. This is redundant but not harmful — the extension is the canonical location for routing; the data payload provides it for consumers that parse the data without inspecting extensions. This differs from `WorkItemLifecycleEvent` where `tenancyId` is `@JsonIgnore` and only appears in the extension.
 
+### Rolled-back transaction semantics
+
+`@ObservesAsync` dispatches to the managed executor before the transaction commits. A rolled-back transaction may still produce a CloudEvent. This is inherent to `@ObservesAsync` and shared with `MultiInstanceCoordinator` and `QueueDashboard`. CloudEvent consumers (casehub-ras) must be idempotent and tolerate spurious events from rolled-back transactions.
+
 ### Event types emitted
 
-WorkItem lifecycle — 12 statuses (PENDING, ASSIGNED, IN_PROGRESS, COMPLETED, REJECTED, FAULTED, DELEGATED, SUSPENDED, CANCELLED, EXPIRED, ESCALATED, OBSOLETE) plus operational events (SPAWNED, PROGRESS_UPDATE, DEADLINE_EXTENDED, LABEL_ADDED, LABEL_REMOVED, DELEGATION_ACCEPTED, DELEGATION_DECLINED, RELEASED, RESUMED). All use the `io.casehub.work.workitem.<event>` prefix already built by `WorkItemLifecycleEvent.type()`.
+WorkItem lifecycle — 12 statuses (PENDING, ASSIGNED, IN_PROGRESS, COMPLETED, REJECTED, FAULTED, DELEGATED, SUSPENDED, CANCELLED, EXPIRED, ESCALATED, OBSOLETE) plus operational events (CREATED, SPAWNED, STARTED, PROGRESS_UPDATE, DEADLINE_EXTENDED, LABEL_ADDED, LABEL_REMOVED, DELEGATION_ACCEPTED, DELEGATION_DECLINED, RELEASED, RESUMED, CLAIM_EXPIRED, SLA_REASSIGNED, SLA_EXTENDED). All use the `io.casehub.work.workitem.<event>` prefix already built by `WorkItemLifecycleEvent.type()`.
 
 Group lifecycle — 3 values: `io.casehub.work.group.in_progress`, `io.casehub.work.group.completed`, `io.casehub.work.group.rejected`.
 
@@ -170,12 +253,12 @@ Group lifecycle — 3 values: `io.casehub.work.group.in_progress`, `io.casehub.w
 
 No new Maven dependencies. `cloudevents-core` 4.0.1 is already on the classpath transitively via `casehub-platform-api` → `casehub-work-api` → `casehub-work` (runtime). Note: the canonical pattern garden entry (GE-20260621-629712) was verified against `cloudevents-core` 4.1.2; the API surface used by the adapter is stable across both versions.
 
-## Change 3: Platform evaluation issue
+## Change 4: Platform evaluation issue
 
 File on `casehubio/parent`: **"evaluate: dual-channel CDI event firing as platform standard"**
 
 Content:
-- casehub-work normalized to dual-channel (`fire()` + `fireAsync()`) in work#273 because it has sync observers needing transactional consistency
+- casehub-work normalized to dual-channel (`fire()` + `fireAsync()`) in work#273 via a `WorkItemLifecycleEmitter` bean that structurally enforces both calls
 - All other repos currently fire async-only — this works because they have no sync observers
 - casehub-work's sync observers exist because: `FilterEvaluationObserver` needs queue membership updates atomic with the WorkItem mutation; `LocalWorkItemEventBroadcaster` needs ordered SSE delivery; `WorkItemMetrics` needs counters within transaction boundary; four `AFTER_SUCCESS` observers need post-commit-but-same-thread delivery
 - The evaluation question for each repo: "does any current or foreseeable observer need to run inside the producer's transaction?" — look for observers that update derived views, aggregate state, need ordering guarantees, or use `@Observes(during = TransactionPhase.AFTER_SUCCESS)`
@@ -184,14 +267,20 @@ Content:
 
 ## Testing
 
+### Emitter unit tests (pure JUnit 5)
+
+- `WorkItemLifecycleEmitter.emit()` calls both `fire()` and `fireAsync()` on the delegate
+- `WorkItemGroupLifecycleEmitter.emit()` calls both `fire()` and `fireAsync()` on the delegate
+
 ### Adapter unit tests (pure JUnit 5, no container)
 
-- `onWorkItemLifecycle` builds correct CloudEvent fields from a `WorkItemLifecycleEvent`
+- `onWorkItemLifecycle` builds correct CloudEvent fields from a `WorkItemLifecycleEvent` (specversion, id, type, source, subject, time, datacontenttype, data)
 - `onGroupLifecycle` builds correct CloudEvent fields from a `WorkItemGroupLifecycleEvent`
 - tenancyId null → extension omitted (not serialised as literal `"null"`)
 - tenancyId present → extension set
 - Serialisation failure → WARN logged, CloudEvent fired with empty data
 - CloudEvent type derivation: WorkItem uses `event.type()`, Group uses `groupStatus().name().toLowerCase()`
+- CloudEvent `time` uses `event.occurredAt()`, not adapter processing time
 
 ### Firing normalization tests
 
