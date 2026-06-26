@@ -2,7 +2,7 @@
 
 **Issue:** casehubio/work#275
 **Date:** 2026-06-26
-**Status:** Approved
+**Status:** Approved — revision 2 after review
 
 ---
 
@@ -22,12 +22,12 @@ Four types move from `io.casehub.work.runtime.model` to `io.casehub.work.api`:
 |------|------|-------------|-------|
 | `WorkItemPriority` | enum | none | 4 values: LOW, MEDIUM, HIGH, URGENT |
 | `WorkItemLabelRequest` | record | `LabelPersistence` (already in api) | |
-| `WorkItemCreateRequest` | builder class | `WorkItemPriority`, `WorkItemLabelRequest`, `Outcome` (already in api) | ~220 lines. Add `tenancyId` (String) field to support multi-tenant callers outside a CDI tenant context |
+| `WorkItemCreateRequest` | builder class | `WorkItemPriority`, `WorkItemLabelRequest`, `Outcome` (already in api) | 223 lines. Add `tenancyId` (String) field to support multi-tenant callers outside a CDI tenant context |
 | `WorkItemStatus` | enum | `java.util.Arrays`, `java.util.List` | 12 statuses, `isTerminal()`, `isActive()`, `TERMINAL_STATUSES` constant. Domain vocabulary — same category as `WorkEventType` already in api |
 
 All four are pure Java with zero JPA/Quarkus dependencies.
 
-`tenancyId` on `WorkItemCreateRequest`: the engine's template mode explicitly sets `tenancyId` on the entity because event-bus handlers run outside a CDI tenant context. Adding it to the builder makes multi-tenant creation available through the SPI. When null, the runtime resolves from the session tenant.
+`tenancyId` on `WorkItemCreateRequest`: the engine's template mode explicitly sets `tenancyId` on the entity because event-bus handlers run outside a CDI tenant context. Adding it to the builder makes multi-tenant creation available through the SPI. When null, the runtime resolves from the session tenant. **Plumbing note:** `WorkItemService.create()` must explicitly map `request.tenancyId → item.tenancyId` alongside the existing per-field mappings — otherwise `JpaWorkItemStore.put()` stamps over the caller-provided value with the session tenant's null-check fallback.
 
 ---
 
@@ -66,22 +66,25 @@ Every field is justified by a verified call site in the engine work-adapter:
 
 ### `WorkItemEvent`
 
-API-level interface for CDI event observation. Eliminates entity downcasting.
+API-level interface for CDI event observation. Eliminates entity downcasting. Composes over `WorkItemRef` — one projection, one source of truth. When a field is added to `WorkItemRef`, the default methods propagate automatically.
 
 ```java
 public interface WorkItemEvent {
-    UUID workItemId();
-    WorkItemStatus status();
-    String callerRef();
-    String assigneeId();
-    String resolution();
-    String candidateGroups();
-    String outcome();
-    String tenancyId();
+    WorkItemRef ref();
+    default UUID workItemId() { return ref().id(); }
+    default WorkItemStatus status() { return ref().status(); }
+    default String callerRef() { return ref().callerRef(); }
+    default String assigneeId() { return ref().assigneeId(); }
+    default String resolution() { return ref().resolution(); }
+    default String candidateGroups() { return ref().candidateGroups(); }
+    default String outcome() { return ref().outcome(); }
+    default String tenancyId() { return ref().tenancyId(); }
 }
 ```
 
-The runtime `WorkItemLifecycleEvent` implements `WorkItemEvent`, reading each field from its embedded entity. The engine adapter changes from `@ObservesAsync WorkItemLifecycleEvent` (runtime) to `@ObservesAsync WorkItemEvent` (api). CDI delivers the same instances — the runtime type is still `WorkItemLifecycleEvent`, which is assignable to `WorkItemEvent`.
+The runtime `WorkItemLifecycleEvent` implements `WorkItemEvent`. For locally-fired events, `ref()` builds a `WorkItemRef` from the embedded entity. For wire-reconstructed events (`fromWire()`), `ref()` builds from the independently-stored fields — `fromWire()` is extended to accept `callerRef`, `assigneeId`, `resolution`, `candidateGroups` and store them as independent fields, making the event self-contained regardless of origin.
+
+The engine adapter changes from `@ObservesAsync WorkItemLifecycleEvent` (runtime) to `@ObservesAsync WorkItemEvent` (api). CDI delivers the same instances — the runtime type is still `WorkItemLifecycleEvent`, which is assignable to `WorkItemEvent`.
 
 ---
 
@@ -112,15 +115,23 @@ Lifecycle control. For orchestrators that need to cancel or complete WorkItems.
 ```java
 public interface WorkItemLifecycle {
     void cancel(UUID id, String actorId, String reason);
-    void complete(UUID id, String actorId, String resolution, String outcome);
+    void complete(UUID id, String actorId, String resolution, String outcome,
+                  String rationale, String planRef);
+    default void complete(UUID id, String actorId, String resolution, String outcome) {
+        complete(id, actorId, resolution, outcome, null, null);
+    }
 }
 ```
 
-Both return `void` — callers don't need post-mutation state. The lifecycle event fires internally and reaches observers through `WorkItemEvent`.
+All methods return `void` — callers don't need post-mutation state. The lifecycle event fires internally and reaches observers through `WorkItemEvent`. The richer `complete()` overload carries `rationale` and `planRef` for GDPR Art. 22 compliance traceability — the basic overload is a convenience default.
 
 ### Implementation
 
-`WorkItemService implements WorkItemCreator, WorkItemLifecycle`. One class, two interfaces. No `@DefaultBean` — CDI enforces that a runtime is on the classpath (same pattern as `CaseHubRuntime` in engine-api).
+Two classes — **`WorkItemService`** (internal, returns `WorkItem` entities for REST resources, template service, spawn service) and **`WorkItemSpiAdapter`** (external, returns `WorkItemRef` for SPI consumers).
+
+`WorkItemSpiAdapter` is an `@ApplicationScoped` bean that implements `WorkItemCreator` + `WorkItemLifecycle`. It injects `WorkItemService`, delegates to existing methods, and converts `WorkItem` → `WorkItemRef`. This is the adapter in hexagonal architecture — the SPI interfaces are the port, the adapter translates between the external contract (pure-Java `WorkItemRef`) and the internal domain model (JPA `WorkItem`). Internal code injects `WorkItemService` directly; external modules inject the SPI interfaces.
+
+No `@DefaultBean` — CDI enforces that a runtime is on the classpath (same pattern as `CaseHubRuntime` in engine-api). Template resolution when `templateId` is non-null requires `WorkItemService` to inject `WorkItemTemplateStore` (the repository, not `WorkItemTemplateService` — avoids circular dependency since `WorkItemTemplateService` already injects `WorkItemService`).
 
 ### Consumer dependency matrix
 
@@ -141,9 +152,9 @@ Both return `void` — callers don't need post-mutation state. The lifecycle eve
 Currently two divergent creation paths:
 
 - **Inline** (`WorkItemService.create()`): full lifecycle — validates, assigns, audits, schedules timers, fires events.
-- **Template** (`WorkItemTemplateService.instantiate()` + direct entity mutation + `persist()`): bypasses assignment, timer scheduling, audit, and events.
+- **Template** (`WorkItemTemplateService.instantiate()` → `WorkItemService.create()` → then `HumanTaskScheduleHandler` mutates entity fields directly + calls `persist()` again): the full lifecycle runs first with template defaults, then the handler **overwrites** scope, candidateGroups, candidateUsers, payload, and permittedOutcomes on the already-persisted entity.
 
-The template path in `HumanTaskScheduleHandler` reimplements creation outside the validated path. This is a design defect that becomes visible when extracting the SPI.
+This is **post-mutation corruption**, not lifecycle bypass. The CREATED event fires with stale values. Assignment ran against the template's candidate groups, not the engine's resolved groups. Timer deadlines were set from the template, not from the engine's effective deadline. The second `persist()` silently fixes the database row but the event record is permanently wrong.
 
 **Fix:** When `WorkItemCreateRequest.templateId` is non-null, `WorkItemService.create()` resolves the template internally:
 
@@ -209,7 +220,7 @@ POM:
 Add database index on `caller_ref`:
 
 ```sql
--- V32 migration
+-- V38 migration
 CREATE INDEX idx_work_item_caller_ref ON work_item (caller_ref);
 ```
 
