@@ -2,7 +2,7 @@
 
 **Issue:** casehubio/work#275
 **Date:** 2026-06-26
-**Status:** Approved — revision 3 after second review
+**Status:** Approved — revision 4 after third review
 
 ---
 
@@ -135,7 +135,11 @@ Two classes — **`WorkItemService`** (internal, returns `WorkItem` entities for
 - `request.templateId == null` → `workItemService.create(request)` — direct creation
 - `request.templateId != null` → `workItemTemplateService.createFromTemplate(request)` — template resolution with merge, multi-instance routing, label application, and excluded-groups expansion (see Template Creation Unification below)
 
-**Idempotent lifecycle semantics:** `cancel()` delegates to `WorkItemService.cancelFromSystem()` (no-op on already-terminal). `complete()` delegates to `WorkItemService.completeFromSystem()` (no-op on already-terminal). External callers crossing module boundaries are inherently racing with other state changes — idempotent is the resilient contract. Documented on the interface.
+**Idempotent lifecycle semantics:** The adapter delegates to the full `WorkItemService.cancel()` and `WorkItemService.complete(id, actorId, resolution, outcome, rationale, planRef)` — the 6-parameter variant that carries outcome, rationale, and planRef for compliance traceability. Outcome validation and schema validation are preserved for external callers.
+
+Idempotency is implemented via exception handling: the adapter catches `IllegalStateException`, checks if the WorkItem is terminal (no-op — race condition), and rethrows for active-but-non-completable statuses (real error — e.g., completing a PENDING WorkItem). This avoids adding new methods to `WorkItemService` and provides the correct semantics: **terminal = idempotent no-op; active-but-wrong-state = caller error**. Documented on the interface.
+
+Note: the adapter does NOT delegate to `cancelFromSystem()` / `completeFromSystem()` — those methods drop outcome, rationale, and planRef parameters, and skip validation. The full methods are the correct delegation targets.
 
 No `@DefaultBean` — CDI enforces that a runtime is on the classpath (same pattern as `CaseHubRuntime` in engine-api).
 
@@ -169,7 +173,7 @@ This is **post-mutation corruption**, not lifecycle bypass. The CREATED event fi
 1. Resolve template by `request.templateId` (throws `IllegalArgumentException` if not found)
 2. Merge template defaults with request overrides — **request wins for any non-null field**. Same merge-patch semantics as `PATCH /workitem-templates/{id}`
 3. Expand excluded groups via `TemplateExpander.expandExcludedUsers(template)` — resolves group names to actor IDs via `GroupMembershipProvider.membersOf()`
-4. Route to `MultiInstanceSpawnService.createGroup()` if `template.instanceCount` is non-null
+4. Route to `MultiInstanceSpawnService.createGroup(mergedRequest, template, expandedExcludedUsers)` if `template.instanceCount` is non-null — `createGroup()` signature changes to accept the merged request alongside the template (template still needed for multi-instance config: `instanceCount`, `requiredCount`, `onThresholdReached`, `allowSameAssignee`, `assignmentStrategy`, `parentRole`). Parent is created from the merged request. Children inherit scope, tenancyId, and permittedOutcomes from the merged request; `InstanceAssignmentStrategy` may reassign candidateGroups/candidateUsers per child.
 5. Call `workItemService.create(mergedRequest)` for simple templates
 6. Apply template labels post-creation via `workItemService.addLabel()`
 7. Return the created WorkItem (or parent WorkItem for multi-instance)
