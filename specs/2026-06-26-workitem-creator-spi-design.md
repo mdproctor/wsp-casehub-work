@@ -2,7 +2,7 @@
 
 **Issue:** casehubio/work#275
 **Date:** 2026-06-26
-**Status:** Approved — revision 2 after review
+**Status:** Approved — revision 3 after second review
 
 ---
 
@@ -129,9 +129,17 @@ All methods return `void` — callers don't need post-mutation state. The lifecy
 
 Two classes — **`WorkItemService`** (internal, returns `WorkItem` entities for REST resources, template service, spawn service) and **`WorkItemSpiAdapter`** (external, returns `WorkItemRef` for SPI consumers).
 
-`WorkItemSpiAdapter` is an `@ApplicationScoped` bean that implements `WorkItemCreator` + `WorkItemLifecycle`. It injects `WorkItemService`, delegates to existing methods, and converts `WorkItem` → `WorkItemRef`. This is the adapter in hexagonal architecture — the SPI interfaces are the port, the adapter translates between the external contract (pure-Java `WorkItemRef`) and the internal domain model (JPA `WorkItem`). Internal code injects `WorkItemService` directly; external modules inject the SPI interfaces.
+`WorkItemSpiAdapter` is an `@ApplicationScoped` bean that implements `WorkItemCreator` + `WorkItemLifecycle`. It injects `WorkItemService` and `WorkItemTemplateService`, routes based on `templateId`, delegates to existing methods, and converts `WorkItem` → `WorkItemRef`. This is the adapter in hexagonal architecture — the SPI interfaces are the port, the adapter translates between the external contract (pure-Java `WorkItemRef`) and the internal domain model (JPA `WorkItem`). Internal code injects `WorkItemService` directly; external modules inject the SPI interfaces.
 
-No `@DefaultBean` — CDI enforces that a runtime is on the classpath (same pattern as `CaseHubRuntime` in engine-api). Template resolution when `templateId` is non-null requires `WorkItemService` to inject `WorkItemTemplateStore` (the repository, not `WorkItemTemplateService` — avoids circular dependency since `WorkItemTemplateService` already injects `WorkItemService`).
+**Routing logic in `WorkItemSpiAdapter.create()`:**
+- `request.templateId == null` → `workItemService.create(request)` — direct creation
+- `request.templateId != null` → `workItemTemplateService.createFromTemplate(request)` — template resolution with merge, multi-instance routing, label application, and excluded-groups expansion (see Template Creation Unification below)
+
+**Idempotent lifecycle semantics:** `cancel()` delegates to `WorkItemService.cancelFromSystem()` (no-op on already-terminal). `complete()` delegates to `WorkItemService.completeFromSystem()` (no-op on already-terminal). External callers crossing module boundaries are inherently racing with other state changes — idempotent is the resilient contract. Documented on the interface.
+
+No `@DefaultBean` — CDI enforces that a runtime is on the classpath (same pattern as `CaseHubRuntime` in engine-api).
+
+**`findActiveByCallerRef` on `WorkItemStore`:** Added as a new `default` method with linear-scan fallback (same pattern as existing `findByCallerRef`). `JpaWorkItemStore`, `InMemoryWorkItemStore`, and `MongoWorkItemStore` override with indexed implementations.
 
 ### Consumer dependency matrix
 
@@ -156,14 +164,19 @@ Currently two divergent creation paths:
 
 This is **post-mutation corruption**, not lifecycle bypass. The CREATED event fires with stale values. Assignment ran against the template's candidate groups, not the engine's resolved groups. Timer deadlines were set from the template, not from the engine's effective deadline. The second `persist()` silently fixes the database row but the event record is permanently wrong.
 
-**Fix:** When `WorkItemCreateRequest.templateId` is non-null, `WorkItemService.create()` resolves the template internally:
+**Fix:** `WorkItemTemplateService` gains a new method — `createFromTemplate(WorkItemCreateRequest request)` — that handles the full template resolution:
 
-1. Look up template by `templateId`
-2. Start with template field values as defaults
-3. For each non-null field on the request, override the template default
-4. Proceed through the normal `create()` path (validation, assignment, audit, timers, events)
+1. Resolve template by `request.templateId` (throws `IllegalArgumentException` if not found)
+2. Merge template defaults with request overrides — **request wins for any non-null field**. Same merge-patch semantics as `PATCH /workitem-templates/{id}`
+3. Expand excluded groups via `TemplateExpander.expandExcludedUsers(template)` — resolves group names to actor IDs via `GroupMembershipProvider.membersOf()`
+4. Route to `MultiInstanceSpawnService.createGroup()` if `template.instanceCount` is non-null
+5. Call `workItemService.create(mergedRequest)` for simple templates
+6. Apply template labels post-creation via `workItemService.addLabel()`
+7. Return the created WorkItem (or parent WorkItem for multi-instance)
 
-Merge rule: **request wins over template for any non-null field**. Same merge-patch semantics as `PATCH /workitem-templates/{id}`.
+The engine's overrides are merged BEFORE `create()` runs — the CREATED event, assignment, and timers all use the correct values. No post-mutation.
+
+`WorkItemService.create()` gains no new complexity. Template orchestration (multi-instance, labels, group expansion) stays in `WorkItemTemplateService`. `WorkItemSpiAdapter` routes between the two based on `templateId`.
 
 The engine's `HumanTaskScheduleHandler` collapses both modes into one call:
 
@@ -201,6 +214,12 @@ The compile dependency changes from `casehub-work` to `casehub-work-api`.
 | `ActionGateCompletionApplier` | `WorkItem` param | `WorkItemRef` param |
 | `PlanItemCompletionApplier` | `WorkItem` param | `WorkItemRef` param |
 | `HumanTaskRecoveryService` | `WorkItemService`, `WorkItem` | `WorkItemCreator.findByCallerRef()` |
+
+**casehub-work postgres-broadcaster (cross-module impact):**
+
+| File | Change |
+|------|--------|
+| `WorkItemEventPayload` | Add 4 fields: `callerRef`, `assigneeId`, `resolution`, `candidateGroups`. `from()` reads from event. `toEvent()` passes to extended `fromWire()`. |
 
 POM:
 ```xml
