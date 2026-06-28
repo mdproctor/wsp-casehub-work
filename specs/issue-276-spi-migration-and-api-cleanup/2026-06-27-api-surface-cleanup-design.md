@@ -54,10 +54,11 @@ public interface WorkItemEvent {
 - Remove `extends WorkLifecycleEvent`
 - Keep `implements WorkItemEvent`
 - Replace `source(): Object` with `workItem(): WorkItem` — returns null for wire-reconstructed events (via `fromWire()` factory); non-null for local events (via `of()` factories)
-- `context()` stays as concrete method — throws or returns empty map when `workItem` is null (wire events)
+- `context()` stays as a concrete method. When `workItem` is null (wire events), `WorkItemContextBuilder.toMap()` will NPE — this matches the existing contract documented on `fromWire()`: "Callers must not invoke workItem() or context() on wire-reconstructed events." No behavioral change needed; only update the Javadoc to reference `workItem()` instead of `source()`.
 
 **Update `NotificationPayload`** (api/):
 - Field type: `WorkLifecycleEvent event` → `WorkItemEvent event`
+- Notification channel implementations that need entity access cast to `WorkItemLifecycleEvent` and call `workItem()`. This downcast is structurally unavoidable: `NotificationPayload` is in api/ and cannot reference `WorkItemLifecycleEvent` (which is in runtime/). The notification channels (Slack, Teams, HTTP) are in notifications/ which depends on runtime/, so the downcast is legitimate at that module boundary. The new cast is strictly narrower than the old one (`WorkItemEvent → WorkItemLifecycleEvent` vs `Object → WorkItem`).
 
 **Observer migration:**
 
@@ -65,24 +66,23 @@ public interface WorkItemEvent {
 |----------|--------|--------|
 | `FilterRegistryEngine` | runtime/ | `@Observes WorkLifecycleEvent` → `@Observes WorkItemLifecycleEvent` |
 | `EscalationSummaryObserver` | ai/ | Same — observe concrete type, use `event.workItem()` |
+| `WorkCloudEventAdapter` | runtime/ | **Not affected** — already observes `WorkItemLifecycleEvent` and uses typed field accessors (`type()`, `sourceUri()`, `subject()`, `occurredAt()`, `tenancyId()`). Never calls `source()`. |
 
-**Notification channels** (Slack, Teams, HTTP):
-- Currently: `(WorkItem) payload.event().source()`
-- After: `((WorkItemLifecycleEvent) payload.event()).workItem()`
-- All in notifications/ module (depends on runtime) — cast is legitimate
-
-**FilterAction SPI:** stays `apply(Object workUnit, ...)`. Callers pass `event.workItem()` instead of `event.source()`. Runtime-internal, not in api/spi/.
+**FilterAction SPI:** stays `apply(Object workUnit, ...)` in runtime/filter/. Intentionally NOT moved to api/spi/ — it is a runtime-internal SPI whose parameter type (`Object`) reflects the filter engine's domain-agnostic design. No external consumer implements it. Callers pass `event.workItem()` instead of `event.source()`.
 
 **`WorkItemGroupLifecycleEvent`:** stays as-is. Tracked in #279 for future evaluation.
 
-**Cross-repo:** engine#579 — `WorkItemLifecycleAdapter` migrates `event.source()` → `event.workItem()`.
+**Cross-repo:** engine#579 — `WorkItemLifecycleAdapter` migrates `event.source()` → `event.workItem()`. 4 call sites (lines 93, 182, 235, 258), all using `instanceof WorkItem workItem` pattern matching. All inside `@ObservesAsync` observer methods — local CDI events guarantee non-null `workItem()`, so the `instanceof` guard becomes a simple null check (defensive, not structurally necessary).
 
 ### Test impact
 
-- `WorkEventTypeTest`: anonymous `WorkLifecycleEvent` → anonymous `WorkItemEvent` implementation
-- `WorkItemLifecycleEventTest`: update assertions for `workItem()` instead of `source()`
-- `FilterRegistryEngineTest`: anonymous `WorkLifecycleEvent` → supply concrete `WorkItemLifecycleEvent`
-- `WorkItemLifecycleEventOutcomeTest`: update if it uses `source()`
+- **`WorkEventTypeTest.concreteEvent_implementsAbstractMethods`**: Creates an anonymous `WorkLifecycleEvent` providing 3 methods (`eventType`, `context`, `source`). After deletion, becomes an anonymous `WorkItemEvent` requiring 5 methods (`ref`, `eventType`, `occurredAt`, `actor`, `detail`). The `context()` and `source()` assertions are removed; `ref()` requires constructing a `WorkItemRef` record.
+
+- **`FilterRegistryEngineTest`**: Structural rewrite. Currently creates anonymous `WorkLifecycleEvent` subclasses with arbitrary `source()` values (strings like `"WORK_UNIT_1"`, `"UNIT"`) — synthetic, not real WorkItem entities. After the change, `FilterRegistryEngine` observes `WorkItemLifecycleEvent` (final class, no anonymous subclass possible). The test helper `event()` must be rewritten to use `WorkItemLifecycleEvent.of()`, which requires constructing actual `WorkItem` entities. The test's simplicity was enabled by the abstract class design; with the concrete class, every test needs a WorkItem fixture.
+
+- **`WorkItemLifecycleEventTest`**: Update assertions for `workItem()` instead of `source()`.
+
+- **`WorkItemLifecycleEventOutcomeTest`**: Update if it uses `source()`.
 
 ---
 
@@ -115,6 +115,9 @@ Move 14 interfaces from `io.casehub.work.api` to `io.casehub.work.api.spi`:
 
 **What stays in `io.casehub.work.api`:** value types (19 records/enums), events (WorkItemEvent, WorkItemGroupLifecycleEvent), exceptions (2), utilities (WorkCapabilities, WorkItemCallerRef, WorkItemCreateRequest).
 
+**Intentionally NOT moved — runtime-internal SPIs:**
+- `FilterAction` (runtime/filter/) — takes `Object workUnit`, runtime-internal, no external consumers. Stays in `io.casehub.work.runtime.filter` per the `consumer-spi-placement` protocol: its parameter type is `Object` (not an api/ type), and the SPI exists to be implemented within the extension's own modules only.
+
 ---
 
 ## #277 — Template Consolidation
@@ -134,11 +137,13 @@ Two template creation paths: `instantiate()` (3 positional-arg overloads, templa
 | `WorkItemTemplateResource.instantiate()` | runtime/ | Build `WorkItemCreateRequest` with templateId + overrides → `createFromTemplate()` |
 | `WorkItemScheduleService.fireSchedule()` | runtime/ | Build request with templateId + createdBy → `createFromTemplate()` |
 | `FormSchemaScenario` (2 calls) | examples/ | Build requests with templateId + overrides |
-| ~15 test classes | runtime/test | Build `WorkItemCreateRequest` instead of positional args |
+| 8 test classes (~17 call sites) | runtime/test | Build `WorkItemCreateRequest` instead of positional args |
 
-**Fix audit gap:** `createFromTemplate()` must add `auditDetail` for excludedGroups expansion (currently only in `instantiate()`). Add the `buildExpansionAuditDetail()` call after `mergeRequestWithTemplate()` when expanded users differ from the request's excludedUsers.
+Test classes: WorkItemInstancesResourceTest, MultiInstanceInboxTest, MultiInstanceCoordinatorTest, WorkItemGroupLifecycleEventTest, MultiInstanceCreateTest, WorkItemTemplateInstantiateTest, WorkItemTemplateServiceResolutionTest, MultiInstanceClaimGuardTest.
 
-**Behavioral equivalence:** `mergeRequestWithTemplate()` (request-wins) is a superset of `toCreateRequest()` (template-first). For the fields callers currently override (title, assigneeId, createdBy, callerRef, payload), both produce identical results. Verified by analysis of both merge functions.
+**Fix audit gap:** `createFromTemplate()` must add `auditDetail` for excludedGroups expansion. Insertion point: after `mergeRequestWithTemplate()` (line 205), before the multi-instance branch (line 207). When `expandedExcludedUsers != null` and differs from the template's `excludedUsers`, rebuild `merged` with `buildExpansionAuditDetail()`. This mirrors the `instantiate()` pattern at lines 159–167.
+
+**Behavioral equivalence:** `mergeRequestWithTemplate()` (request-wins) is a superset of `toCreateRequest()` (template-first). Equivalence holds for the current callers because they don't set fields exclusive to the request-wins path (`tenancyId`, `formKey`, absolute deadlines, `confidenceScore`). For the fields they do override — `title`, `assigneeId`, `createdBy`, `callerRef`, `payload` — both merge functions produce identical results. New callers using `createFromTemplate()` gain access to the full field set.
 
 ---
 
