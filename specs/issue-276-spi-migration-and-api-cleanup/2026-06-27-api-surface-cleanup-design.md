@@ -2,7 +2,7 @@
 
 **Issues:** #276, #277, #278 (single branch)
 **Order:** #278 → #276 → #277
-**Cross-repo:** engine#579 (source() → workItem() migration)
+**Cross-repo:** engine#585 (observer type migration, prerequisite for WorkLifecycleEvent deletion)
 
 ---
 
@@ -62,19 +62,23 @@ public interface WorkItemEvent {
 
 **Observer migration:**
 
-| Observer | Module | Change |
+| Observer / Method | Module | Change |
 |----------|--------|--------|
-| `FilterRegistryEngine` | runtime/ | `@Observes WorkLifecycleEvent` → `@Observes WorkItemLifecycleEvent` |
-| `EscalationSummaryObserver` | ai/ | Same — observe concrete type, use `event.workItem()` |
+| `FilterRegistryEngine.onLifecycleEvent()` | runtime/ | `@Observes WorkLifecycleEvent` → `@Observes WorkItemLifecycleEvent` |
+| `FilterRegistryEngine.processEvent()` | runtime/ | Parameter `WorkLifecycleEvent` → `WorkItemLifecycleEvent` (package-private, used by tests) |
+| `FilterRegistryEngine.applyFilters()` | runtime/ | Parameter `WorkLifecycleEvent` → `WorkItemLifecycleEvent`; body changes `event.source()` → `event.workItem()` to pass typed `WorkItem` to `FilterAction.apply()` |
+| `EscalationSummaryObserver` | ai/ | `@Observes WorkLifecycleEvent` → `@Observes WorkItemLifecycleEvent`, use `event.workItem()` |
 | `WorkCloudEventAdapter` | runtime/ | **Not affected** — already observes `WorkItemLifecycleEvent` and uses typed field accessors (`type()`, `sourceUri()`, `subject()`, `occurredAt()`, `tenancyId()`). Never calls `source()`. |
 
-**FilterAction SPI:** stays `apply(Object workUnit, ...)` in runtime/filter/. Intentionally NOT moved to api/spi/ — it is a runtime-internal SPI whose parameter type (`Object`) reflects the filter engine's domain-agnostic design. No external consumer implements it. Callers pass `event.workItem()` instead of `event.source()`.
+**FilterAction SPI:** parameter type changes from `apply(Object workUnit, ...)` to `apply(WorkItem workItem, ...)` in runtime/filter/. The `Object` parameter was stranded generality — every implementation (`ApplyLabelAction`, `SetPriorityAction`, `OverrideCandidateGroupsAction`) already casts to `WorkItem`, there is no other domain type in the filter engine, and no external consumer implements it. Typing to `WorkItem` eliminates three unchecked casts and adds compile-time safety. Intentionally NOT moved to api/spi/ — the `WorkItem` parameter is a runtime type, which reinforces the placement in runtime/filter/.
 
 **`WorkItemGroupLifecycleEvent`:** stays as-is. Tracked in #279 for future evaluation.
 
-**Cross-repo:** engine#579 — `WorkItemLifecycleAdapter` migrates `event.source()` → `event.workItem()`. 4 call sites (lines 93, 182, 235, 258), all using `instanceof WorkItem workItem` pattern matching. All inside `@ObservesAsync` observer methods — local CDI events guarantee non-null `workItem()`, so the `instanceof` guard becomes a simple null check (defensive, not structurally necessary).
+**Cross-repo:** engine#585 — `WorkItemLifecycleAdapter.onWorkItemLifecycle()` (line 76) observes `@ObservesAsync WorkLifecycleEvent event`. This must change to `@ObservesAsync WorkItemEvent event` before `WorkLifecycleEvent` can be deleted. The method body already casts to `WorkItemEvent` at line 77 (`if (!(event instanceof WorkItemEvent wie)) return;`), so the instanceof guard becomes redundant and can be removed. The `source()` → `workItem()` migration was completed in engine#579 (closed) — no `source()` calls remain in the engine adapter.
 
 ### Test impact
+
+- **`WorkItemEventTest`** (api/ module): Uses `WorkItemEvent` as a functional interface via lambda (`() -> ref`). Adding 4 new abstract methods (`eventType()`, `occurredAt()`, `actor()`, `detail()`) makes it non-functional. Both tests (`defaultMethods_delegateToRef`, `defaultMethods_handleNullRefFields`) must be rewritten to use anonymous implementations providing all 5 abstract methods.
 
 - **`WorkEventTypeTest.concreteEvent_implementsAbstractMethods`**: Creates an anonymous `WorkLifecycleEvent` providing 3 methods (`eventType`, `context`, `source`). After deletion, becomes an anonymous `WorkItemEvent` requiring 5 methods (`ref`, `eventType`, `occurredAt`, `actor`, `detail`). The `context()` and `source()` assertions are removed; `ref()` requires constructing a `WorkItemRef` record.
 
@@ -116,7 +120,7 @@ Move 14 interfaces from `io.casehub.work.api` to `io.casehub.work.api.spi`:
 **What stays in `io.casehub.work.api`:** value types (19 records/enums), events (WorkItemEvent, WorkItemGroupLifecycleEvent), exceptions (2), utilities (WorkCapabilities, WorkItemCallerRef, WorkItemCreateRequest).
 
 **Intentionally NOT moved — runtime-internal SPIs:**
-- `FilterAction` (runtime/filter/) — takes `Object workUnit`, runtime-internal, no external consumers. Stays in `io.casehub.work.runtime.filter` per the `consumer-spi-placement` protocol: its parameter type is `Object` (not an api/ type), and the SPI exists to be implemented within the extension's own modules only.
+- `FilterAction` (runtime/filter/) — takes `WorkItem workItem` (typed in #278, was `Object`), runtime-internal, no external consumers. Stays in `io.casehub.work.runtime.filter` per the `consumer-spi-placement` protocol: its parameter type is a runtime class (`WorkItem`), and the SPI exists to be implemented within the extension's own modules only.
 
 ---
 
@@ -152,7 +156,7 @@ Test classes: WorkItemInstancesResourceTest, MultiInstanceInboxTest, MultiInstan
 | Check | Result |
 |-------|--------|
 | consumer-spi-placement | Aligned — all consumer-facing SPIs move to api/spi/ |
-| spi-evolution-default-methods | N/A — new methods on `WorkItemEvent` are abstract (required, not optional) |
+| spi-evolution-default-methods | N/A — `WorkItemEvent` is a CDI event interface with a single runtime implementation (`WorkItemLifecycleEvent`), not a consumer-implemented SPI. Abstract methods are safe because no external class implements it. |
 | work-event-type-enum-coverage | No new event types added |
 | lifecycle-enum-classification-on-enum | No changes to lifecycle enums |
 | bridge-module-spi-placement | N/A — no bridge SPIs affected |
@@ -161,5 +165,5 @@ Test classes: WorkItemInstancesResourceTest, MultiInstanceInboxTest, MultiInstan
 
 ## Out-of-scope (tracked)
 
-- engine#579: migrate `WorkItemLifecycleAdapter` from `source()` to `workItem()`
+- engine#585: migrate `WorkItemLifecycleAdapter` observer from `WorkLifecycleEvent` to `WorkItemEvent` (prerequisite for deleting `WorkLifecycleEvent`)
 - #279: evaluate `WorkItemGroupLifecycleEvent` hierarchy integration
