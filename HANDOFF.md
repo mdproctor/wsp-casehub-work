@@ -1,3 +1,5 @@
+*Updated: casehub-desiredstate#43, parent#314 closed — removed from backlog.*
+
 # HANDOFF — 2026-06-29
 
 ## Last Session
@@ -21,14 +23,12 @@ consuming the updated casehub-work.
 
 **We're unblocking:**
 - `engine#585` — observer type migration (WorkLifecycleEvent deleted)
-- `casehub-desiredstate#43` — WorkItemCreator SPI for requiresHuman=true nodes
 
 ## What's Next
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
 | engine#585 | Migrate work-adapter observer from WorkLifecycleEvent to WorkItemEvent | S | Low | engine session — mechanical |
-| parent#314 | Update casehub-work deep-dive for SPI restructuring | S | Low | doc sync |
 | #279 | Evaluate WorkItemGroupLifecycleEvent hierarchy integration | S | Med | design evaluation |
 | #152 | Split casehub-work-examples into core and full variants | M | Low | standalone |
 
