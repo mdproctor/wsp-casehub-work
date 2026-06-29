@@ -1,38 +1,38 @@
-# HANDOFF — 2026-06-27
+# HANDOFF — 2026-06-29
 
 ## Last Session
 
-Closed #275 — extracted complete WorkItemCreator SPI into casehub-work-api.
-Four value types moved to api (WorkItemPriority, WorkItemLabelRequest, WorkItemStatus,
-WorkItemCreateRequest + tenancyId). Two SPI interfaces (WorkItemCreator, WorkItemLifecycle)
-with hexagonal WorkItemSpiAdapter. Template creation unified via createFromTemplate() —
-fixes post-mutation corruption where lifecycle events fired with stale values.
-WorkItemLifecycleEvent implements WorkItemEvent for entity-free CDI observation.
-Indexed findActiveByCallerRef + V38 caller_ref index. Garden entry GE-20260627-8d321f.
+Closed #276, #277, #278 — full api surface cleanup. Event hierarchy aligned:
+WorkItemEvent promoted as primary typed interface, WorkLifecycleEvent deleted,
+source():Object replaced with typed workItem():WorkItem. FilterAction typed
+from Object to WorkItem. 14 SPI interfaces moved to api/spi/. Template creation
+unified through createFromTemplate() — instantiate() and toCreateRequest() deleted.
+3 missed source() calls found during full build verification (issue-tracker,
+queues-dashboard, postgres-broadcaster) — fixed post-squash. Garden entries:
+GE-20260521-3e030b revised (variant), GE-20260629-d6deca (new).
 
 ## Immediate Next Step
 
-Engine work-adapter migration: engine#578 — shift compile dep from casehub-work to
-casehub-work-api. All API types and SPIs are published. Run from the engine session.
+engine#585 — migrate WorkItemLifecycleAdapter from @ObservesAsync WorkLifecycleEvent
+to @ObservesAsync WorkItemEvent. Run from the engine session. Prerequisite for
+consuming the updated casehub-work.
 
 ## Cross-Module
 
 **We're unblocking:**
-- `casehub-desiredstate#43` — SimpleTransitionExecutor can now create WorkItems for requiresHuman=true nodes via WorkItemCreator SPI
-- `engine#578` — work-adapter compile dep can shift to casehub-work-api
+- `engine#585` — observer type migration (WorkLifecycleEvent deleted)
+- `casehub-desiredstate#43` — WorkItemCreator SPI for requiresHuman=true nodes
 
 ## What's Next
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| engine#578 | Migrate work-adapter from casehub-work to casehub-work-api | M | Low | all types/SPIs ready, mechanical migration |
-| #276 | Migrate existing SPIs to api/spi/ subpackage | S | Low | mechanical move |
-| #277 | Consolidate WorkItemTemplateService.instantiate() through create() | M | Med | REST path alignment |
-| #278 | Align WorkLifecycleEvent with WorkItemEvent interface | M | Med | filter engine impact |
-| parent#314 | Update casehub-work deep-dive for SPI | S | Low | doc sync |
+| engine#585 | Migrate work-adapter observer from WorkLifecycleEvent to WorkItemEvent | S | Low | engine session — mechanical |
+| parent#314 | Update casehub-work deep-dive for SPI restructuring | S | Low | doc sync |
+| #279 | Evaluate WorkItemGroupLifecycleEvent hierarchy integration | S | Med | design evaluation |
 | #152 | Split casehub-work-examples into core and full variants | M | Low | standalone |
 
 ## Key References
 
-- Spec: `docs/specs/2026-06-26-workitem-creator-spi-design.md` (revision 4)
+- Spec: `docs/specs/2026-06-27-api-surface-cleanup-design.md`
 - Previous refs: `git show HEAD~1:HANDOFF.md`
