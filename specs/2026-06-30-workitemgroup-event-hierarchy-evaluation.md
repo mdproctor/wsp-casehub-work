@@ -72,11 +72,23 @@ GroupStatus has been in production since Chapter C23 (multi-instance, delivered 
    - `isActive()` → true for IN_PROGRESS
 
 2. **Persist `groupStatus` on `WorkItemSpawnGroup`**
-   - Add `GroupStatus groupStatus` field (default `IN_PROGRESS`)
-   - Set authoritatively in `MultiInstanceGroupPolicy.process()`
-   - Flyway migration: add `group_status VARCHAR` column to `work_item_spawn_group` with default `'IN_PROGRESS'`
+   - Add nullable `GroupStatus groupStatus` field (no default — null for non-multi-instance groups)
+   - Set to `IN_PROGRESS` at multi-instance group creation (where `requiredCount != null`)
+   - Set authoritatively to `COMPLETED`/`REJECTED` in `MultiInstanceGroupPolicy.process()`
+   - Flyway migration with conditional backfill:
+     ```sql
+     ALTER TABLE work_item_spawn_group ADD COLUMN group_status VARCHAR(15);
+
+     UPDATE work_item_spawn_group SET group_status = CASE
+         WHEN policy_triggered = true AND completed_count >= required_count THEN 'COMPLETED'
+         WHEN policy_triggered = true AND completed_count < required_count THEN 'REJECTED'
+         WHEN required_count IS NOT NULL THEN 'IN_PROGRESS'
+         ELSE NULL
+     END;
+     ```
+   - Non-multi-instance groups (`requiredCount IS NULL`) remain `groupStatus = null` — they have no lifecycle state machine
    - Eliminates scattered status derivation — `WorkItemInstancesResource` and `JpaWorkItemStore` read stored value instead of re-deriving from counts
-   - `policyTriggered` becomes derivable from `groupStatus.isTerminal()` — cleanup tracked separately
+   - `policyTriggered` becomes derivable from `groupStatus != null && groupStatus.isTerminal()` — cleanup tracked separately
 
 3. **Register GroupStatus in `parent/docs/LIFECYCLE.md`**
    - `GroupStatus` | `casehub-work` | `IN_PROGRESS`, `COMPLETED`, `REJECTED` (3) | `isTerminal()`, `isActive()`
