@@ -1,38 +1,32 @@
-*Updated: casehub-desiredstate#43, parent#314 closed — removed from backlog.*
-
-# HANDOFF — 2026-06-29
+# HANDOFF — 2026-07-01
 
 ## Last Session
 
-Closed #276, #277, #278 — full api surface cleanup. Event hierarchy aligned:
-WorkItemEvent promoted as primary typed interface, WorkLifecycleEvent deleted,
-source():Object replaced with typed workItem():WorkItem. FilterAction typed
-from Object to WorkItem. 14 SPI interfaces moved to api/spi/. Template creation
-unified through createFromTemplate() — instantiate() and toCreateRequest() deleted.
-3 missed source() calls found during full build verification (issue-tracker,
-queues-dashboard, postgres-broadcaster) — fixed post-squash. Garden entries:
-GE-20260521-3e030b revised (variant), GE-20260629-d6deca (new).
+Closed #279 — GroupStatus lifecycle protocol compliance. Evaluation confirmed
+WorkItemGroupLifecycleEvent standalone (no hierarchy integration). Added
+isTerminal()/isActive() to GroupStatus, persisted groupStatus on
+WorkItemSpawnGroup (V39 migration with conditional backfill), eliminated 3
+scattered derivation sites. Registered in LIFECYCLE.md and PLATFORM.md.
+Garden entry: GE-20260701-5b2584 (MongoDB findOneAndUpdate silent field loss).
 
 ## Immediate Next Step
 
-engine#585 — migrate WorkItemLifecycleAdapter from @ObservesAsync WorkLifecycleEvent
-to @ObservesAsync WorkItemEvent. Run from the engine session. Prerequisite for
-consuming the updated casehub-work.
+engine#624 — use GroupStatus.isTerminal() in WorkItemLifecycleAdapter. Run
+from the engine session.
 
 ## Cross-Module
 
 **We're unblocking:**
-- `engine#585` — observer type migration (WorkLifecycleEvent deleted)
+- `engine#624` — GroupStatus.isTerminal() consumer migration · XS · Low
 
 ## What's Next
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| engine#585 | Migrate work-adapter observer from WorkLifecycleEvent to WorkItemEvent | S | Low | engine session — mechanical |
-| #279 | Evaluate WorkItemGroupLifecycleEvent hierarchy integration | S | Med | design evaluation |
+| engine#624 | Use GroupStatus.isTerminal() in WorkItemLifecycleAdapter | XS | Low | engine session — mechanical |
 | #152 | Split casehub-work-examples into core and full variants | M | Low | standalone |
 
 ## Key References
 
-- Spec: `docs/specs/2026-06-27-api-surface-cleanup-design.md`
+- Spec: `specs/2026-06-30-workitemgroup-event-hierarchy-evaluation.md`
 - Previous refs: `git show HEAD~1:HANDOFF.md`
