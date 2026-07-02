@@ -40,3 +40,6 @@
 | [2026-06-17-mdp01-the-producer-that-forgot.md](2026-06-17-mdp01-the-producer-that-forgot.md) | 2026-06-17 | CrossTenantProducer hardcoded JPA types — silent no-op with MongoDB; fix via interface injection + three Mongo cross-tenant stores |
 | [2026-06-18-mdp01-the-lifecycle-that-grew-up.md](2026-06-18-mdp01-the-lifecycle-that-grew-up.md) | 2026-06-18 | Human task lifecycle alignment — FAULTED, OBSOLETE, progress reporting, 12 statuses, 25 event types |
 | [2026-06-21-mdp01-thirteen-fields-that-werent-there.md](2026-06-21-mdp01-thirteen-fields-that-werent-there.md) | 2026-06-21 | MongoWorkItemDocument missing 13 fields; OCC via replaceOne; outcome filter gap; 5 query method overrides |
+| [2026-06-23-mdp01-the-channel-nobody-was-listening-on.md](2026-06-23-mdp01-the-channel-nobody-was-listening-on.md) | 2026-06-23 | SSE queue events; WorkItemQueueEventBroadcaster; filter-then-broadcast |
+| [2026-07-02-mdp01-batch-that-widened-the-api.md](2026-07-02-mdp01-batch-that-widened-the-api.md) | 2026-07-02 | Seven SPI issues on one branch; callerRef ordering; WorkItemObserver; MANUALLY_ESCALATED |
+| [2026-07-02-mdp02-the-map-that-was-already-there.md](2026-07-02-mdp02-the-map-that-was-already-there.md) | 2026-07-02 | Normative alignment — mapping WorkItem lifecycle to Qhorus speech acts and commitment states |
