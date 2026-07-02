@@ -17,11 +17,41 @@ Run `/work` to start.
 
 *Unchanged — `git show HEAD~1:HANDOFF.md`*
 
+## What's Left
+
+- Cross-repo briefing for Qhorus `work-and-workitems.md` — written but not committed to qhorus repo · XS · Low
+
 ## What's Next
+
+**Ready to pick up:**
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
 | #152 | Split casehub-work-examples into core and full variants | M | Low | standalone |
+| #172 | emit+listen SWF 1.0 bridge for casehub-work-flow | M | Med | idiomatic SWF async pattern |
+| #180 | Template versioning — immutable snapshots for reproducibility | L | Med | deferred from #170 |
+
+**Epics (active):**
+
+| # | Description | Scale | Complexity | Notes |
+|---|-------------|-------|------------|-------|
+| #92 | Distributed WorkItems — clustering + federation | XL | High | #93 ✅ #155 ✅; #95 #97 remain |
+| #95 | Cross-service WorkItem federation | XL | High | under #92; create in A, resolve in B |
+| #97 | WorkItem event mesh — lifecycle events across services | L | High | under #92; depends on Qhorus event mesh |
+
+**Epics (blocked):**
+
+| # | Description | Scale | Complexity | Blocked by |
+|---|-------------|-------|------------|------------|
+| #79 | External System Integrations | XL | Med | CaseHub/Qhorus not stable |
+| #39 | ProvenanceLink — PROV-O causal graph | L | High | #79 (needs upstream integrations) |
+
+**Ideas (captured, not specced):**
+
+| # | Description | Scale | Complexity | Notes |
+|---|-------------|-------|------------|-------|
+| #237 | Structured progress — schema-validated, hierarchical | L | High | ideas-capture |
+| #238 | Saga compensation support across platform | XL | High | ideas-capture; platform-wide |
 
 ## Key References
 
