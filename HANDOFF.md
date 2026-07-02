@@ -1,23 +1,26 @@
-# HANDOFF — 2026-07-01
+# HANDOFF — 2026-07-02
 
 ## Last Session
 
-Closed #279 — GroupStatus lifecycle protocol compliance. Evaluation confirmed
-WorkItemGroupLifecycleEvent standalone (no hierarchy integration). Added
-isTerminal()/isActive() to GroupStatus, persisted groupStatus on
-WorkItemSpawnGroup (V39 migration with conditional backfill), eliminated 3
-scattered derivation sites. Registered in LIFECYCLE.md and PLATFORM.md.
-Garden entry: GE-20260701-5b2584 (MongoDB findOneAndUpdate silent field loss).
+Closed 7 S/XS issues on branch `issue-274-spi-api-enhancements`: #274
+(findByCallerRef delegation), #280 (ordering semantics), #281 (WorkItemRef
+payload), #282 (obsoleteByCallerRef), #283 (CI blocks dispatch), #284
+(escalate endpoint), #285 (WorkItemObserver SPI). All pushed to
+origin/main, all issues closed. Code review caught missing expiry timer
+reschedule on manual escalation — fixed. MongoDB Panache sort API needed
+`find(filter, sort)` not `.sort()` — fixed at build verification time.
 
 ## Immediate Next Step
 
 engine#624 — use GroupStatus.isTerminal() in WorkItemLifecycleAdapter. Run
-from the engine session.
+from the engine session. This was the next step from the previous handover
+and is still open.
 
 ## Cross-Module
 
 **We're unblocking:**
-- `engine#624` — GroupStatus.isTerminal() consumer migration · XS · Low
+- `engine blocks#14` — WorkItemObserver SPI now available for HumanAgent dispatch · XS · Low
+- `casehub-desiredstate` — payload round-trip + obsoleteByCallerRef for PendingApprovalHandler · S · Low
 
 ## What's Next
 
@@ -28,5 +31,5 @@ from the engine session.
 
 ## Key References
 
-- Spec: `specs/2026-06-30-workitemgroup-event-hierarchy-evaluation.md`
+- Blog: `blog/2026-07-02-mdp01-batch-that-widened-the-api.md`
 - Previous refs: `git show HEAD~1:HANDOFF.md`
