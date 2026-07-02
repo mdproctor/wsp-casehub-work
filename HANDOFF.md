@@ -1,3 +1,5 @@
+*Updated: engine#624 closed — removed from backlog.*
+
 # HANDOFF — 2026-07-02
 
 ## Last Session
@@ -12,9 +14,8 @@ reschedule on manual escalation — fixed. MongoDB Panache sort API needed
 
 ## Immediate Next Step
 
-engine#624 — use GroupStatus.isTerminal() in WorkItemLifecycleAdapter. Run
-from the engine session. This was the next step from the previous handover
-and is still open.
+Pick up #152 — split casehub-work-examples into core and full variants.
+Run `/work` to start.
 
 ## Cross-Module
 
@@ -26,7 +27,6 @@ and is still open.
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| engine#624 | Use GroupStatus.isTerminal() in WorkItemLifecycleAdapter | XS | Low | engine session — mechanical |
 | #152 | Split casehub-work-examples into core and full variants | M | Low | standalone |
 
 ## Key References
