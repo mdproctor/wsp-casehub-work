@@ -1,12 +1,13 @@
-# HANDOFF — 2026-07-02
+# HANDOFF — 2026-07-03
 
 ## Last Session
 
-Closed #159 (normative alignment) on branch `issue-159-normative-alignment`.
-Created `docs/NORMATIVE-ALIGNMENT.md` — complete mapping of all 12
-WorkItemStatus → CommitmentState and all 26 WorkEventType → MessageType.
-Updated LAYERING.md and ARC42STORIES.MD glossary with cross-references.
-Cross-repo briefing written for Qhorus `work-and-workitems.md` update.
+Backlog triage — grouped 10 open GitHub issues into 5 independent threads.
+First-principles analysis of #172 revealed it's mis-scoped: the CloudEvent
+contract is platform infrastructure (belongs in work-api), not a flow-specific
+enhancement. Engine's `HumanTaskScheduleHandler` uses the same two-direction
+pattern through different plumbing. Epic hygiene surfaced 11 unrecovered
+specs/blogs on closed branches and 10 unstamped project branches.
 
 ## Immediate Next Step
 
@@ -15,11 +16,12 @@ Run `/work` to start.
 
 ## Cross-Module
 
-*Unchanged — `git show HEAD~1:HANDOFF.md`*
+*Unchanged — `git show HEAD~2:HANDOFF.md`*
 
 ## What's Left
 
 - Cross-repo briefing for Qhorus `work-and-workitems.md` — written but not committed to qhorus repo · XS · Low
+- Branch hygiene — 11 unrecovered artifacts + 10 unstamped project branches on closed workspace branches · M · Low
 
 ## What's Next
 
@@ -62,6 +64,5 @@ Five independent threads — not phases of one initiative.
 
 ## Key References
 
-- Blog: `blog/2026-07-02-mdp02-the-map-that-was-already-there.md`
-- Normative alignment: `docs/NORMATIVE-ALIGNMENT.md`
+- Blog: `casehubio.github.io/_notes/2026-07-03-mdp01-five-threads-not-four-phases.md`
 - Previous refs: `git show HEAD~1:HANDOFF.md`
