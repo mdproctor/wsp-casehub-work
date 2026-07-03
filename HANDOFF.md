@@ -23,30 +23,37 @@ Run `/work` to start.
 
 ## What's Next
 
-**Ready to pick up:**
+Five independent threads — not phases of one initiative.
+
+**Distributed WorkItems (#92 epic)** — coherent chain: #172 → #97 → #95
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| #152 | Split casehub-work-examples into core and full variants | M | Low | standalone |
-| #172 | emit+listen SWF 1.0 bridge for casehub-work-flow | M | Med | idiomatic SWF async pattern |
-| #180 | Template versioning — immutable snapshots for reproducibility | L | Med | deferred from #170 |
+| #172 | CloudEvent contract + flow bridge (reframed from emit+listen) | M | Med | defines event types in work-api; flow bridge is first consumer |
+| #97 | WorkItem event mesh — lifecycle events across services | L | High | needs #172's contract + Qhorus transport |
+| #95 | Cross-service WorkItem federation | XL | High | needs #97; create in A, resolve in B |
+| #92 | Epic parent — clustering + federation | XL | High | #93 ✅ #155 ✅; #172 #97 #95 remain |
 
-**Epics (active):**
-
-| # | Description | Scale | Complexity | Notes |
-|---|-------------|-------|------------|-------|
-| #92 | Distributed WorkItems — clustering + federation | XL | High | #93 ✅ #155 ✅; #95 #97 remain |
-| #95 | Cross-service WorkItem federation | XL | High | under #92; create in A, resolve in B |
-| #97 | WorkItem event mesh — lifecycle events across services | L | High | under #92; depends on Qhorus event mesh |
-
-**Epics (blocked):**
+**External Integrations (#79 epic)** — blocked on upstream stability
 
 | # | Description | Scale | Complexity | Blocked by |
 |---|-------------|-------|------------|------------|
 | #79 | External System Integrations | XL | Med | CaseHub/Qhorus not stable |
-| #39 | ProvenanceLink — PROV-O causal graph | L | High | #79 (needs upstream integrations) |
+| #39 | ProvenanceLink — PROV-O causal graph | L | High | #79 |
 
-**Ideas (captured, not specced):**
+**Template evolution** — standalone
+
+| # | Description | Scale | Complexity | Notes |
+|---|-------------|-------|------------|-------|
+| #180 | Template versioning — immutable snapshots for reproducibility | L | Med | deferred from #170 |
+
+**Project hygiene** — standalone
+
+| # | Description | Scale | Complexity | Notes |
+|---|-------------|-------|------------|-------|
+| #152 | Split casehub-work-examples into core and full variants | M | Low | — |
+
+**Ideas (captured, not specced)** — unrelated to each other
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
