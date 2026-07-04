@@ -13,7 +13,7 @@ work#273 shipped the outbound direction — `WorkCloudEventAdapter` fires CDI `C
 ## Design Principles
 
 1. **CloudEvents are the inter-system boundary.** Within casehub, internal consumers use POJOs (`WorkItemLifecycleEvent`, `WorkItemCreateRequest`). CloudEvents are the wire format at the edge.
-2. **Domain data flows through opaquely.** casehub-work never forces a schema on the caller's payload. Raw JSON passes from CloudEvent data to WorkItem `payload` untouched. Zero deserialization of domain content.
+2. **Domain data flows through opaquely.** casehub-work never forces a schema on the caller's payload. The adapter passes raw JSON to the template merge pipeline — no domain-object (POJO) deserialization. When a template has a `defaultPayload`, the pipeline deep-merges both JSON trees via `readTree()`; otherwise the CloudEvent data passes through untouched.
 3. **Optional schema validation via template.** When a `WorkItemTemplate` declares an `inputDataSchema` (JSON Schema draft-07), casehub-work validates the payload at creation time. This is end-user configurable via the template API. No Java class coupling — validation is language-agnostic.
 
 ## CloudEvent Contract
@@ -79,7 +79,7 @@ Location: `runtime` (`io.casehub.work.runtime.event`), alongside the outbound `W
 2. Extracts `tenancyid` and `templateid` from CloudEvent extensions
 3. **Validates required extensions:** missing `tenancyid` or `templateid` → log at ERROR with CloudEvent `id` and `source`, return without processing
 4. Wraps execution in `TenantContextRunner.runInTenantContext()` (per protocol `async-event-tenant-context-propagation`)
-5. **Idempotency check:** `workItemStore.findActiveByCallerRef(ce.getId())` — if an active WorkItem with this `callerRef` already exists, skip creation (log at DEBUG)
+5. **Idempotency check:** `workItemStore.findByCallerRef(ce.getId())` — if any WorkItem (active or terminal) with this `callerRef` already exists, skip creation (log at DEBUG). Idempotency is permanent per CloudEvent identity: same `id` = same event redelivered, not a new request. A caller wanting a new WorkItem for the same logical purpose issues a new CloudEvent with a new `id`.
 6. Builds `WorkItemCreateRequest`:
    - `.templateId(resolvedId).payload(rawDataAsString).callerRef(ce.getId()).createdBy("cloudevent:" + ce.getSource())`
    - → `WorkItemTemplateService.createFromTemplate()`
@@ -93,10 +93,25 @@ All inbound creation goes through the template path. There is no direct (templat
 **Infrastructure errors** (database, transaction, CDI runtime) propagate to the caller. This allows transport-level retry — e.g., Kafka does not commit the offset, HTTP returns 500.
 
 **System-level at-least-once delivery** is achieved by combining:
-- **Idempotency guard** (`findActiveByCallerRef`) — makes reprocessing safe
+- **Idempotency guard** (`findByCallerRef`) — makes reprocessing safe (permanent per event identity)
 - **Transport-level retry** — redelivers events that failed due to transient infrastructure errors
+- **Database-level guard** — a partial unique index closes the TOCTOU race window (see below)
 
 This mirrors the `InboundWorkItemBridge` pattern in casehub-engine: policy exceptions are caught and logged; infrastructure exceptions propagate to the transport's safety net.
+
+### TOCTOU Mitigation
+
+The application-level `findByCallerRef` → `createFromTemplate` sequence has a race window in clustered deployments: two nodes processing the same redelivered event can both pass the check before either inserts. A database-level guard closes this:
+
+```sql
+CREATE UNIQUE INDEX uq_workitem_cloudevent_idempotency
+ON work_item (caller_ref, tenancy_id)
+WHERE created_by LIKE 'cloudevent:%';
+```
+
+This partial unique index is scoped to CloudEvent-created WorkItems only — it does not affect `callerRef` usage from other integration points (engine bridge, flow bridge) where different WorkItems may legitimately share a `callerRef` pattern.
+
+On constraint violation, the adapter catches the unique constraint exception and treats it as idempotent success (log at DEBUG). The Flyway migration for this index is part of this spec's implementation.
 
 ### Observability
 
