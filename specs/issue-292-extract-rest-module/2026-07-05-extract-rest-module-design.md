@@ -135,26 +135,57 @@ This is mechanical (IDE rename-package refactoring) but the spec acknowledges th
 
 All 32 test files move from `runtime/src/test/java/io/casehub/work/runtime/api/` to `rest/src/test/java/io/casehub/work/rest/`:
 
-**@QuarkusTest classes (28):**
+**@QuarkusTest classes (31):**
 - AsyncApiTest, AuditQueryTest, AuditResourceTest, InboxFilterTest, InboxSummaryTest
 - LabelEndpointTest, MetricsEndpointTest, OpenApiTest
+- MultiTenancyIT, WorkerSelectionStrategyIT, WorkItemCapabilityIT
 - WorkItemBulkTest, WorkItemCloneTest, WorkItemDelegationTest
 - WorkItemExcludedUsersTest, WorkItemExtendTest, WorkItemInstancesResourceTest
-- WorkItemLabelMapperTest, WorkItemLinkTest, WorkItemNoteTest
+- WorkItemLinkTest, WorkItemNoteTest
 - WorkItemOptimisticLockTest, WorkItemOutcomeValidationTest, WorkItemRelationTest
 - WorkItemResourceTest, WorkItemScheduleClusterTest, WorkItemScheduleTest
 - WorkItemSchemaValidationTest, WorkItemSSETest, WorkItemTemplatePatchTest
 - WorkItemTemplateOutcomeTest, WorkItemTemplateSchemaTest, WorkItemTemplateTest
 
-**@QuarkusIntegrationTest classes (3):**
-- MultiTenancyIT, WorkerSelectionStrategyIT, WorkItemCapabilityIT
+The 3 `*IT.java` files (MultiTenancyIT, WorkerSelectionStrategyIT, WorkItemCapabilityIT) use `@QuarkusTest` despite their suffix — the `IT` naming is a codebase convention, not an annotation indicator. Maven Failsafe is still required to run `*IT.java` files (Surefire skips them by default).
+
+**Plain JUnit test (1):**
+- WorkItemLabelMapperTest — no `@QuarkusTest` annotation; tests `WorkItemMapper` label mapping logic directly without CDI
 
 **Service-level tests remaining in runtime/ (1):**
 - WorkItemSmokeTest (in `runtime/src/test/.../runtime/`, not in `api/` — stays)
 
+### Test Resource Files
+
+The following test resources must be copied from `runtime/src/test/resources/` to `rest/src/test/resources/`:
+
+1. **`application.properties`** — essential for @QuarkusTest boot:
+   - `quarkus.http.test-port=0` (random port allocation)
+   - `quarkus.datasource.db-kind=h2` + JDBC URL (H2 datasource)
+   - `quarkus.hibernate-orm.database.generation=none` + `quarkus.flyway.migrate-at-start=true` (schema setup)
+   - `quarkus.scheduler.start-mode=halted` (prevents @Scheduled auto-fire)
+   - `casehub.work.*` config properties (default expiry/claim hours)
+   - `quarkus.arc.exclude-types=io.casehub.platform.mock.MockGroupMembershipProvider` (CDI exclusion)
+
+2. **`META-INF/services/io.quarkus.test.junit.callback.QuarkusTestBeforeEachCallback`** — registers `MutablePrincipalResetCallback` to reset the mutable principal between tests
+
+Note: `rls-init.sql` stays in `runtime/src/test/resources/` — it is only used by `RlsEnforcementTest` (in `runtime/rls/`), not by any of the 32 API test files.
+
+### Cross-Module Test Utilities
+
+`MultiTenancyIT` imports `io.casehub.work.runtime.test.MutableCurrentPrincipal`, a test utility in `runtime/src/test/java/` — Maven does not share test sources transitively. The `QuarkusTestBeforeEachCallback` service file also references `MutablePrincipalResetCallback` from the same test package.
+
+**Resolution:** Duplicate both classes to `rest/src/test/java/io/casehub/work/rest/test/`:
+- `MutableCurrentPrincipal`
+- `MutablePrincipalResetCallback`
+
+This follows the established codebase pattern — `MutableCurrentPrincipal` is already independently duplicated in `queues/src/test/` and `persistence-mongodb/src/test/` for the same reason. Each module owns its copy.
+
+Leaving MultiTenancyIT in `runtime/` is not viable: after extraction, the REST endpoints it tests are no longer in runtime/, and adding `casehub-work-rest` as a test dependency on runtime/ would create a Maven reactor cycle (rest/ → runtime/ at compile scope).
+
 ### @QuarkusTest Infrastructure (rest/pom.xml)
 
-The `rest/` module needs the following test infrastructure to run @QuarkusTest and @QuarkusIntegrationTest classes. Configuration mirrors `integration-tests-memory/pom.xml`:
+The `rest/` module needs the following test infrastructure. Configuration mirrors `integration-tests-memory/pom.xml`:
 
 **Test dependencies:**
 ```xml
@@ -183,7 +214,26 @@ The `rest/` module needs the following test infrastructure to run @QuarkusTest a
     <artifactId>quarkus-jdbc-h2</artifactId>
     <scope>test</scope>
 </dependency>
+
+<!-- Assertions -->
+<dependency>
+    <groupId>org.assertj</groupId>
+    <artifactId>assertj-core</artifactId>
+    <scope>test</scope>
+</dependency>
+
+<!-- Prometheus registry — enables /q/metrics endpoint for MetricsEndpointTest -->
+<dependency>
+    <groupId>io.quarkus</groupId>
+    <artifactId>quarkus-micrometer-registry-prometheus</artifactId>
+    <scope>test</scope>
+</dependency>
 ```
+
+**Not needed** (verified: none of the 32 API test files import these):
+- `mockito-junit-jupiter` — only used by runtime/service/, runtime/rls/, runtime/event/ tests (all stay in runtime/)
+- `awaitility` — only used by runtime/multiinstance/ tests (stays in runtime/)
+- `testcontainers-postgresql` — only used by runtime/rls/RlsEnforcementTest (stays in runtime/)
 
 **Build plugins:**
 ```xml
@@ -202,7 +252,7 @@ The `rest/` module needs the following test infrastructure to run @QuarkusTest a
     </executions>
 </plugin>
 
-<!-- Required for @QuarkusIntegrationTest (IT files) -->
+<!-- Required for *IT.java files (Maven Surefire skips them by default) -->
 <plugin>
     <artifactId>maven-failsafe-plugin</artifactId>
     <executions>
