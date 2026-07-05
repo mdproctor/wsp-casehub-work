@@ -1,13 +1,15 @@
-# HANDOFF — 2026-07-03
+# HANDOFF — 2026-07-05
 
 ## Last Session
 
-Backlog triage — grouped 10 open GitHub issues into 5 independent threads.
-First-principles analysis of #172 revealed it's mis-scoped: the CloudEvent
-contract is platform infrastructure (belongs in work-api), not a flow-specific
-enhancement. Engine's `HumanTaskScheduleHandler` uses the same two-direction
-pattern through different plumbing. Epic hygiene surfaced 11 unrecovered
-specs/blogs on closed branches and 10 unstamped project branches.
+Designed, reviewed, and implemented #172 — CloudEvent WorkItem Bridge.
+casehub-work is now CloudEvent-addressable: external systems fire a
+`io.casehub.work.workitem.requested` CloudEvent to create WorkItems,
+lifecycle events flow back as CloudEvents for correlation. Design review
+(5 rounds, $14.58) drove significant improvements — dropped payloadType,
+added TOCTOU mitigation, nuanced error handling. Filed #290 for HumanTask
+adapter relocation from engine to work. Filed parent#345 for PLATFORM.md
+doc sync.
 
 ## Immediate Next Step
 
@@ -22,19 +24,19 @@ Run `/work` to start.
 
 - Cross-repo briefing for Qhorus `work-and-workitems.md` — written but not committed to qhorus repo · XS · Low
 - Branch hygiene — 11 unrecovered artifacts + 10 unstamped project branches on closed workspace branches · M · Low
+- parent#345 — sync PLATFORM.md and casehub-work deep dive for CloudEvent inbound adapter · XS · Low
 
 ## What's Next
 
 Five independent threads — not phases of one initiative.
 
-**Distributed WorkItems (#92 epic)** — coherent chain: #172 → #97 → #95
+**Distributed WorkItems (#92 epic)** — coherent chain: #172 ✅ → #290 → #97 → #95
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| #172 | CloudEvent contract + flow bridge (reframed from emit+listen) | M | Med | defines event types in work-api; flow bridge is first consumer |
-| #97 | WorkItem event mesh — lifecycle events across services | L | High | needs #172's contract + Qhorus transport |
-| #95 | Cross-service WorkItem federation | XL | High | needs #97; create in A, resolve in B |
-| #92 | Epic parent — clustering + federation | XL | High | #93 ✅ #155 ✅; #172 #97 #95 remain |
+| #290 | Relocate HumanTask adapter from engine to work | L | Med | new — filed this session |
+| #97 | WorkItem event mesh — lifecycle events across services | L | High | needs #290 + Qhorus transport |
+| #95 | Cross-service WorkItem federation | XL | High | needs #97 |
 
 **External Integrations (#79 epic)** — blocked on upstream stability
 
@@ -43,26 +45,17 @@ Five independent threads — not phases of one initiative.
 | #79 | External System Integrations | XL | Med | CaseHub/Qhorus not stable |
 | #39 | ProvenanceLink — PROV-O causal graph | L | High | #79 |
 
-**Template evolution** — standalone
+**Standalone**
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| #180 | Template versioning — immutable snapshots for reproducibility | L | Med | deferred from #170 |
-
-**Project hygiene** — standalone
-
-| # | Description | Scale | Complexity | Notes |
-|---|-------------|-------|------------|-------|
-| #152 | Split casehub-work-examples into core and full variants | M | Low | — |
-
-**Ideas (captured, not specced)** — unrelated to each other
-
-| # | Description | Scale | Complexity | Notes |
-|---|-------------|-------|------------|-------|
-| #237 | Structured progress — schema-validated, hierarchical | L | High | ideas-capture |
-| #238 | Saga compensation support across platform | XL | High | ideas-capture; platform-wide |
+| #180 | Template versioning — immutable snapshots | L | Med | deferred from #170 |
+| #152 | Split casehub-work-examples into core and full | M | Low | recommended next |
+| #237 | Structured progress — schema-validated | L | High | ideas-capture |
+| #238 | Saga compensation support | XL | High | ideas-capture; platform-wide |
 
 ## Key References
 
-- Blog: `casehubio.github.io/_notes/2026-07-03-mdp01-five-threads-not-four-phases.md`
+- Spec: `docs/specs/2026-07-04-cloudevent-workitem-bridge-design.md`
+- Blog: `casehubio.github.io/_notes/2026-07-05-mdp01-where-does-the-cloudevent-stop.md`
 - Previous refs: `git show HEAD~1:HANDOFF.md`
