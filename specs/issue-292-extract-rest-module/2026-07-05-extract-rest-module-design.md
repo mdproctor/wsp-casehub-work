@@ -90,7 +90,22 @@ Moving it to `api/` keeps the dependency graph honest: `examples/` depends on `a
 </dependencies>
 ```
 
-Jandex plugin configured in build to generate the index.
+**Build plugins (production):**
+```xml
+<!-- Jandex index — Quarkus scans this to discover JAX-RS resources at build time.
+     Without this plugin, the rest/ JAR has no index and all endpoints return 404. -->
+<plugin>
+    <groupId>io.smallrye</groupId>
+    <artifactId>jandex-maven-plugin</artifactId>
+    <executions>
+        <execution>
+            <id>make-index</id>
+            <goals><goal>jandex</goal></goals>
+        </execution>
+    </executions>
+</plugin>
+```
+Version inherited from parent `pluginManagement`.
 
 ## Downstream Impact
 
@@ -167,7 +182,11 @@ The following test resources must be copied from `runtime/src/test/resources/` t
    - `casehub.work.*` config properties (default expiry/claim hours)
    - `quarkus.arc.exclude-types=io.casehub.platform.mock.MockGroupMembershipProvider` (CDI exclusion)
 
-2. **`META-INF/services/io.quarkus.test.junit.callback.QuarkusTestBeforeEachCallback`** — registers `MutablePrincipalResetCallback` to reset the mutable principal between tests
+2. **`META-INF/services/io.quarkus.test.junit.callback.QuarkusTestBeforeEachCallback`** — registers `MutablePrincipalResetCallback` to reset the mutable principal between tests. The file content must reference the duplicated class's local package:
+   ```
+   io.casehub.work.rest.test.MutablePrincipalResetCallback
+   ```
+   A verbatim copy of runtime's service file (which references `io.casehub.work.runtime.test.MutablePrincipalResetCallback`) would silently fail — the SPI loader skips unresolvable entries, and tests would suffer from tenant state leakage between methods. This matches the established pattern: `queues/` has its own service file referencing `io.casehub.work.queues.test.MutablePrincipalResetCallback`.
 
 Note: `rls-init.sql` stays in `runtime/src/test/resources/` — it is only used by `RlsEnforcementTest` (in `runtime/rls/`), not by any of the 32 API test files.
 
