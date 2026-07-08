@@ -1,5 +1,5 @@
-# Branch Closed: issue-291-workitem-types
+# Branch Closed: issue-289-queue-trend-data
 
-**Date:** 2026-07-07
-**Issues:** 291
+**Date:** 2026-07-08
+**Issues:** 289
 **Status:** merged to main
