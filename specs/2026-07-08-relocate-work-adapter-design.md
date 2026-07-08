@@ -120,9 +120,40 @@ Engine dependency versions are managed by `casehub-parent` BOM (already imported
 - Remove `<module>work-adapter</module>` from engine's parent `pom.xml`
 - Delete `engine/work-adapter/` directory entirely
 - Update `engine/docs/DESIGN.md`: amend the "HumanTaskBinding (casehub-engine-work-adapter)" section title and description to note relocation to `casehub-work-engine-adapter` in the work repo
+- Update `engine/CLAUDE.md`:
+  - Remove the `## casehub-work-adapter Module` section (lines 423–452) — replace with a one-line pointer: "Relocated to `casehub-work-engine-adapter` in the work repo. See work's CLAUDE.md for module documentation."
+  - Line 135: remove `casehub-work-adapter` from the `NoOpLedgerEntryRepository` applied-to list
+  - Line 287: update `ActionGateDeploymentHealthCheck` description to reference `casehub-work-engine-adapter` (new artifact name)
+  - Lines 276, 278: update gate mechanism narrative references from `work-adapter` to `engine-adapter` (work repo)
 - Historical specs (e.g. `docs/specs/2026-05-17-plan-item-store-atomicity-design.md`) — leave file paths as written; they were correct when authored
 
-#### 2d. Verification
+#### 2d. Update casehub-parent BOM
+
+Update `casehub-parent/pom.xml` `<dependencyManagement>`:
+- Replace `casehub-engine-work-adapter` entry with `casehub-work-engine-adapter` under the casehub-work section
+- Version managed by `${casehub.version}` — no version change needed
+
+#### 2e. Consumer migration (ripple effect)
+
+The artifact ID changes from `casehub-engine-work-adapter` → `casehub-work-engine-adapter`. Six consumer applications have Maven dependencies on the old artifact:
+
+| Consumer | POM file(s) |
+|----------|------------|
+| casehub-aml | `app/pom.xml` |
+| casehub-clinical | `pom.xml`, `runtime/pom.xml` |
+| casehub-devtown | `app/pom.xml` |
+| casehub-life | `app/pom.xml` |
+| casehub-fsitrading | `app/pom.xml` |
+| casehub-soc | `app/pom.xml` |
+
+Consumer migration checklist (per consumer):
+1. Update `<artifactId>casehub-engine-work-adapter</artifactId>` → `casehub-work-engine-adapter` in POM
+2. Grep test `application.properties` for `io.casehub.workadapter` — update any `quarkus.arc.exclude-types` or `quarkus.arc.selected-alternatives` entries to use `io.casehub.work.engine`
+3. Update consumer CLAUDE.md references to the old module/artifact name
+
+Consumer builds will fail until they update — this is intentional. The breakage forces explicit acknowledgment of the new artifact coordinates. Consumer updates are out of scope for this spec; each consumer repo handles its own dependency bump.
+
+#### 2f. Verification
 
 - `mvn test -pl engine-adapter` passes in work
 - `mvn install` in engine succeeds without work-adapter module
@@ -140,9 +171,9 @@ No external consumers — only its own test in work-api. Zero usages outside the
 
 #### 3b. Update project documentation
 
-**CLAUDE.md:**
+**CLAUDE.md (work):**
 - Remove the `WorkItemCallerRef.parseCaseId` paragraph from `## casehub-work-api Utilities` — the class is being deleted (see §3a); the paragraph also incorrectly claims `casehub-engine-actor-state` uses it (verified false) and describes the wrong callerRef format
-- Add a brief note about the new `engine-adapter` module under the module listing
+- Add a `## engine-adapter Module` section — migrate the detailed module documentation from engine's CLAUDE.md (removed in Phase 2c): activation, dependency structure, YAML DSL integration, inbound/outbound bridge behavior, transactional semantics, test setup guidance, callerRef format. Adapt package names and artifact references to the new locations.
 
 **ARC42STORIES.MD:**
 - §3 Boundary Rules: fix the callerRef convention from `"caseId:planItemId"` to the actual formats: `case:{caseId}/pi:{planItemId}` for HumanTask bindings and `case:{caseId}/gate:{gateId}` for ActionGate bindings
@@ -181,6 +212,7 @@ All 22 files from `engine/work-adapter/src/` (12 source + 10 test) plus `applica
 | Jandex index configuration breaks | Copy test `application.properties` and verify CDI discovery |
 | `plan_item` table DDL/entity conflicts | `PlanItemEntity` in `casehub-engine-persistence-hibernate` owns the `plan_item` DDL (Hibernate `drop-and-create` in dev/test, engine Flyway in production). `WorkAdapterPlanItemEntity` is a read/write mapping only — no schema ownership, no Flyway migrations for this table. The two entities never co-exist on the same classpath: the adapter's integration tests use H2 with Hibernate `drop-and-create` independently of engine-persistence-hibernate. This is unchanged by relocation — the entities remain in separate modules with separate test classpaths. |
 | Cross-repo build order | work already depends on engine-api; adding engine-blackboard/engine deps is the same pattern |
+| Consumer build breakage | Intentional — 6 consumers must update artifact ID in POMs. Parent BOM update (Phase 2d) unblocks consumers; consumer POM updates are each repo's responsibility. See Phase 2e. |
 
 ## Not in Scope
 
