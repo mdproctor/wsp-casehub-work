@@ -26,6 +26,7 @@ Periodic snapshots of queue membership counts, stored as a JPA entity, queryable
 
 **Index:** `(tenancy_id, queue_view_id, snapshot_at)` — covers the trend query.
 **Unique constraint:** `(tenancy_id, queue_view_id, snapshot_at)` — prevents duplicate snapshots.
+**Foreign key:** `queue_view_id REFERENCES queue_view(id) ON DELETE CASCADE` — deleting a QueueView automatically removes its snapshot history.
 
 ### Flyway Migration (V2004)
 
@@ -37,33 +38,75 @@ Internal store SPI in the queues module (not a cross-module SPI):
 
 - `put(QueueSnapshot)` — persist a snapshot; stamps `tenancyId` on insert per `store-tenancy-stamping-on-insert` protocol
 - `findByQueueAndPeriod(UUID queueViewId, Instant from, Instant to)` — returns snapshots ordered by `snapshotAt` ascending
-- `deleteOlderThan(Instant cutoff)` — bulk delete for retention cleanup
+- `findLatestSnapshotTimes(Collection<UUID> queueViewIds)` — returns `Map<UUID, Instant>` mapping each queue view ID to its most recent `snapshot_at`. Maps to `SELECT queue_view_id, MAX(snapshot_at) FROM queue_snapshot WHERE queue_view_id IN (?1) AND tenancy_id = ?2 GROUP BY queue_view_id`. Batch query eliminates per-queue N+1.
+- `deleteOlderThan(Instant cutoff)` — bulk delete for retention cleanup (tenant-scoped via `TenantAwareStore`)
 
 JPA implementation: `JpaQueueSnapshotStore` extending `TenantAwareStore`.
 
-In-memory implementation: `InMemoryQueueSnapshotStore` in `persistence-memory` module for testing.
+In-memory implementation: `InMemoryQueueSnapshotStore` in `persistence-memory` module. Requires adding `casehub-work-queues` as a dependency of `persistence-memory` — this maintains the existing pattern where `persistence-memory` provides in-memory alternatives for all store SPIs.
+
+### CrossTenantQueueViewStore
+
+Cross-tenant store interface in the queues module, following the `cross-tenant-store-minimal-surface` protocol (PP-20260609-2144e0). Single-method interface bounded to the snapshot job's use case:
+
+- `List<String> findDistinctTenancyIds()` — returns all distinct `tenancy_id` values from `queue_view`. Maps to `SELECT DISTINCT tenancy_id FROM queue_view`.
+
+JPA implementation: `JpaCrossTenantQueueViewStore` extending `TenantAwareStore`, using `withCrossTenantQuery()` and `@Transactional(REQUIRES_NEW)`. Lives in `queues/src/main/java/io/casehub/work/queues/repository/jpa/`.
+
+CDI producer: `QueueCrossTenantProducer` in the queues module — validates `@WorkSystem CurrentPrincipal.isCrossTenantAdmin()` before producing the `@CrossTenant`-qualified instance, following the `CrossTenantProducer` pattern in the runtime module.
+
+### QueueMembershipService
+
+Shared service in the queues module that evaluates queue membership. Extracts the evaluation logic currently in `QueueResource.query()`:
+
+```java
+@ApplicationScoped
+public class QueueMembershipService {
+    @Inject WorkItemStore workItemStore;
+    @Inject FilterEvaluatorRegistry evaluatorRegistry;
+
+    public List<WorkItem> evaluateMembers(QueueView queue) {
+        var candidates = workItemStore.scan(
+            WorkItemQuery.byLabelPattern(queue.labelPattern));
+        if (queue.additionalConditions != null
+                && !queue.additionalConditions.isBlank()) {
+            var jexl = evaluatorRegistry.find("jexl");
+            if (jexl != null) {
+                candidates = candidates.stream()
+                    .filter(wi -> jexl.evaluate(wi,
+                        ExpressionDescriptor.of("jexl",
+                            queue.additionalConditions)))
+                    .toList();
+            }
+        }
+        return candidates;
+    }
+}
+```
+
+Both `QueueResource.query()` and `QueueSnapshotJob` call `queueMembershipService.evaluateMembers(queue)` — prevents drift if evaluation logic changes.
 
 ## Preferences
 
-Two typed `PreferenceKey<T>` records in `casehub-work-api`, following the `DeclineTarget` precedent and the `typed-preference-keys` protocol.
+Two `PreferenceKey<DurationPreference>` constants in `casehub-work-api`, using the platform's existing `DurationPreference` record (which implements `MultiValuePreference extends Preference`). Follows the same pattern as `DeclineTarget.KEY`.
 
 ### QueueSnapshotInterval
 
 - **Namespace:** `casehub.work.queues`
 - **Name:** `snapshot-interval`
-- **Type:** `Duration`
-- **Default:** `PT1H` (1 hour)
-- **Parser:** `Duration.parse(s)`
+- **Type:** `DurationPreference` (wraps `java.time.Duration`)
+- **Default:** `new DurationPreference(Duration.ofHours(1))`
+- **Parser:** `s -> new DurationPreference(Duration.parse(s))`
 
-Controls how frequently queue membership is sampled. The Quartz heartbeat ticks every 5 minutes; the preference determines whether a snapshot is actually taken at each tick.
+Controls how frequently queue membership is sampled. The Quartz heartbeat ticks every 5 minutes; the preference determines whether a snapshot is actually taken at each tick. Callers access the underlying duration via `preferenceProvider.get(QueueSnapshotInterval.KEY).duration()`.
 
 ### QueueTrendRetention
 
 - **Namespace:** `casehub.work.queues`
 - **Name:** `trend-retention`
-- **Type:** `Duration`
-- **Default:** `P7D` (7 days)
-- **Parser:** `Duration.parse(s)`
+- **Type:** `DurationPreference` (wraps `java.time.Duration`)
+- **Default:** `new DurationPreference(Duration.ofDays(7))`
+- **Parser:** `s -> new DurationPreference(Duration.parse(s))`
 
 Controls how long snapshots are retained before pruning. At default (7 days, hourly snapshots), that's 168 rows per queue.
 
@@ -71,31 +114,42 @@ Controls how long snapshots are retained before pruning. At default (7 days, hou
 
 ### QueueSnapshotJob
 
-`@ApplicationScoped` bean with `@Scheduled(every = "5m")` heartbeat.
+`@ApplicationScoped` bean with `@Scheduled(identity = "queue-snapshot-heartbeat", every = "5m")` heartbeat.
+
+#### Transaction boundaries
+
+The outer `tick()` method is annotated `@Transactional(TxType.NOT_SUPPORTED)` — no encompassing transaction. This follows the `WorkItemScheduleService.processSchedules()` precedent. Each discrete unit of work runs in its own `REQUIRES_NEW` transaction:
+
+- **Cross-tenant query:** `CrossTenantQueueViewStore.findDistinctTenancyIds()` runs in `REQUIRES_NEW` (on the JPA implementation method, following `JpaCrossTenantWorkItemStore.findActiveWithDeadlines()`)
+- **Per-queue snapshot:** `snapshotQueue(tenancyId, queueViewId)` runs in `REQUIRES_NEW` — one failure does not roll back other snapshots
+
+#### Job flow
 
 At each tick:
 
-1. Query distinct `tenancyId` values from `QueueView` (single cross-tenant query)
+1. Query distinct `tenancyId` values from `CrossTenantQueueViewStore.findDistinctTenancyIds()` (`REQUIRES_NEW`)
 2. For each tenant, wrap in `TenantContextRunner.runInTenantContext(tenancyId, ...)`:
    a. Read `QueueSnapshotInterval` preference via `PreferenceProvider`
    b. Load all `QueueView` definitions via `QueueViewStore.scanAll()`
-   c. For each queue, check last snapshot time from `QueueSnapshotStore`
-   d. Skip if last snapshot is within the configured interval
-   e. Evaluate membership using the same path as `GET /queues/{id}`:
-      - `workItemStore.scan(WorkItemQuery.byLabelPattern(q.labelPattern))`
-      - Apply `additionalConditions` via `FilterEvaluatorRegistry` if set
-   f. Persist `QueueSnapshot(queueViewId, count, Instant.now())`
-3. Run retention cleanup: read `QueueTrendRetention` preference, call `deleteOlderThan(now - retention)`
+   c. Batch-check last snapshot times via `QueueSnapshotStore.findLatestSnapshotTimes(queueViewIds)`
+   d. For each queue where last snapshot is outside the configured interval:
+      - Evaluate membership via `QueueMembershipService.evaluateMembers(queue)`
+      - Persist `QueueSnapshot(queueViewId, count, Instant.now())` (`REQUIRES_NEW`)
+   e. Run retention cleanup: read `QueueTrendRetention` preference, call `deleteOlderThan(now - retention)` (`REQUIRES_NEW`)
+
+Retention cleanup is per-tenant (inside the loop) so each tenant's own retention preference applies and `deleteOlderThan` is tenant-scoped via `TenantAwareStore`.
 
 ### Failure Handling
 
-- If a single queue's evaluation fails, log the error and continue to the next queue
+- If a single queue's snapshot fails, log the error and continue to the next queue (the `REQUIRES_NEW` transaction for that queue rolls back independently)
 - Missing snapshots create gaps — the trend endpoint returns whatever data points exist
 - No retry logic — the next heartbeat tick will attempt again
 
 ### Clustering
 
-Quartz clustered mode (`quarkus.quartz.clustered=true`) prevents duplicate execution across nodes. This is the existing pattern used by `ExpiryTimerJob`.
+Quartz clustered mode (`quarkus.quartz.clustered=true`) with the explicit `identity = "queue-snapshot-heartbeat"` ensures only one node fires the trigger per interval. This is the standard `@Scheduled` dedup mechanism — every existing `@Scheduled` job specifies an identity (e.g., `WorkItemScheduleService`: `identity = "work-item-schedule-check"`).
+
+The unique constraint on `(tenancy_id, queue_view_id, snapshot_at)` provides a secondary safety net — if two snapshots for the same queue arrive with the same timestamp, the constraint violation is caught and logged.
 
 ## REST Endpoint
 
@@ -123,7 +177,7 @@ Added to existing `QueueResource`.
 }
 ```
 
-No server-side bucket aggregation — data points are returned at snapshot granularity. Client decides rendering (sparkline, bar chart, interpolation).
+No server-side bucket aggregation. Issue #289 mentioned `bucket=1h` for server-side aggregation, but this is unnecessary: snapshots are already taken at a configured interval (default hourly), so data points naturally align with bucket boundaries. The client receives raw snapshot-granularity data and decides rendering (sparkline, bar chart, interpolation).
 
 **Error cases:**
 - `404` — queue not found
@@ -164,16 +218,21 @@ No server-side bucket aggregation — data points are returned at snapshot granu
 
 | Module | File | Change |
 |--------|------|--------|
-| `api` | `QueueSnapshotInterval.java` | New preference record |
-| `api` | `QueueTrendRetention.java` | New preference record |
+| `api` | `QueueSnapshotInterval.java` | New preference constant (`PreferenceKey<DurationPreference>`) |
+| `api` | `QueueTrendRetention.java` | New preference constant (`PreferenceKey<DurationPreference>`) |
 | `queues` | `QueueSnapshot.java` | New JPA entity |
 | `queues` | `QueueSnapshotStore.java` | New store interface |
 | `queues` | `JpaQueueSnapshotStore.java` | JPA store implementation |
+| `queues` | `CrossTenantQueueViewStore.java` | New cross-tenant store interface (single method: `findDistinctTenancyIds()`) |
+| `queues` | `JpaCrossTenantQueueViewStore.java` | JPA cross-tenant implementation using `withCrossTenantQuery()` |
+| `queues` | `QueueCrossTenantProducer.java` | CDI producer for `@CrossTenant` queue stores |
+| `queues` | `QueueMembershipService.java` | Extracted membership evaluation (shared by `QueueResource` and `QueueSnapshotJob`) |
 | `queues` | `QueueSnapshotJob.java` | Scheduled snapshot + cleanup job |
-| `queues` | `QueueResource.java` | Add `GET /queues/{id}/trend` |
+| `queues` | `QueueResource.java` | Add `GET /queues/{id}/trend`; refactor `query()` to use `QueueMembershipService` |
 | `queues` | `QueueTrendResponse.java` | Response DTO |
-| `queues` | `V2004__queue_snapshot.sql` | Flyway migration |
+| `queues` | `V2004__queue_snapshot.sql` | Flyway migration (includes FK to `queue_view` with `ON DELETE CASCADE`) |
 | `queues` | `QueueSnapshotJobTest.java` | Unit tests |
 | `queues` | `QueueTrendIntegrationTest.java` | Integration tests |
 | `persistence-memory` | `InMemoryQueueSnapshotStore.java` | In-memory store for testing |
+| `persistence-memory` | `pom.xml` | Add `casehub-work-queues` dependency |
 | `docs` | `api-reference.md` | Document new endpoint |
