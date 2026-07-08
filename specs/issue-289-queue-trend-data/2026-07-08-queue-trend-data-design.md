@@ -65,6 +65,7 @@ public class QueueMembershipService {
     @Inject WorkItemStore workItemStore;
     @Inject FilterEvaluatorRegistry evaluatorRegistry;
 
+    /** Returns all matching WorkItems — used by QueueResource to build the response. */
     public List<WorkItem> evaluateMembers(QueueView queue) {
         var candidates = workItemStore.scan(
             WorkItemQuery.byLabelPattern(queue.labelPattern));
@@ -81,14 +82,28 @@ public class QueueMembershipService {
         }
         return candidates;
     }
+
+    /** Returns the member count without hydrating entities — used by QueueSnapshotJob. */
+    public int countMembers(QueueView queue) {
+        if (queue.additionalConditions == null
+                || queue.additionalConditions.isBlank()) {
+            return (int) workItemStore.countByQuery(
+                WorkItemQuery.byLabelPattern(queue.labelPattern));
+        }
+        return evaluateMembers(queue).size();
+    }
 }
 ```
 
-Both `QueueResource.query()` and `QueueSnapshotJob` call `queueMembershipService.evaluateMembers(queue)` — prevents drift if evaluation logic changes.
+`QueueResource.query()` calls `evaluateMembers()` (needs full entities for the response). `QueueSnapshotJob` calls `countMembers()` (needs only the integer count — avoids hydrating all matching WorkItem entities into memory).
+
+The `countMembers` fast path (no `additionalConditions`) uses `WorkItemStore.countByQuery(WorkItemQuery)` — a new method on the store SPI that maps to SQL `SELECT COUNT(*) ... WHERE label_pattern = ?`. When JEXL filters are present, the full-entity path is unavoidable since the in-memory filter needs entity fields. The fast path covers the common case.
+
+`countByQuery(WorkItemQuery)` is a natural addition to `WorkItemStore` alongside the existing `scan(WorkItemQuery)` — the count pattern already exists (`countByParentAndAssignee`). All three store implementations (JPA, MongoDB, in-memory) need the new method.
 
 ## Preferences
 
-Two `PreferenceKey<DurationPreference>` constants in `casehub-work-api`, using the platform's existing `DurationPreference` record (which implements `MultiValuePreference extends Preference`). Follows the same pattern as `DeclineTarget.KEY`.
+Two `PreferenceKey<DurationPreference>` constants in the queues module (`queues/src/main/java/io/casehub/work/queues/config/`), using the platform's existing `DurationPreference` record (which implements `MultiValuePreference extends Preference`). Follows the same pattern as `DeclineTarget.KEY`. These are queues-specific preferences consumed only by `QueueSnapshotJob` — they belong in the queues module (L4 Label System), not in `casehub-work-api` (L1 Domain Baseline). `PreferenceKey` and `DurationPreference` are transitively available via queues → runtime → api → casehub-platform-api.
 
 ### QueueSnapshotInterval
 
@@ -121,7 +136,9 @@ Controls how long snapshots are retained before pruning. At default (7 days, hou
 The outer `tick()` method is annotated `@Transactional(TxType.NOT_SUPPORTED)` — no encompassing transaction. This follows the `WorkItemScheduleService.processSchedules()` precedent. Each discrete unit of work runs in its own `REQUIRES_NEW` transaction:
 
 - **Cross-tenant query:** `CrossTenantQueueViewStore.findDistinctTenancyIds()` runs in `REQUIRES_NEW` (on the JPA implementation method, following `JpaCrossTenantWorkItemStore.findActiveWithDeadlines()`)
+- **Per-tenant preparation:** `prepareSnapshot(tenancyId)` runs in `REQUIRES_NEW` — reads preferences, scans queues, batch-checks snapshot times, and returns a `SnapshotPlan` listing which queues need snapshotting. Follows the `WorkItemScheduleService.findDueSchedules()` pattern — a short-lived read transaction separate from the write transactions.
 - **Per-queue snapshot:** `snapshotQueue(tenancyId, queueViewId)` runs in `REQUIRES_NEW` — one failure does not roll back other snapshots
+- **Per-tenant retention cleanup:** `cleanupRetention(tenancyId)` runs in `REQUIRES_NEW` — independent of snapshot transactions
 
 #### Job flow
 
@@ -129,13 +146,10 @@ At each tick:
 
 1. Query distinct `tenancyId` values from `CrossTenantQueueViewStore.findDistinctTenancyIds()` (`REQUIRES_NEW`)
 2. For each tenant, wrap in `TenantContextRunner.runInTenantContext(tenancyId, ...)`:
-   a. Read `QueueSnapshotInterval` preference via `PreferenceProvider`
-   b. Load all `QueueView` definitions via `QueueViewStore.scanAll()`
-   c. Batch-check last snapshot times via `QueueSnapshotStore.findLatestSnapshotTimes(queueViewIds)`
-   d. For each queue where last snapshot is outside the configured interval:
-      - Evaluate membership via `QueueMembershipService.evaluateMembers(queue)`
-      - Persist `QueueSnapshot(queueViewId, count, Instant.now())` (`REQUIRES_NEW`)
-   e. Run retention cleanup: read `QueueTrendRetention` preference, call `deleteOlderThan(now - retention)` (`REQUIRES_NEW`)
+   a. `prepareSnapshot(tenancyId)` (`REQUIRES_NEW`) — reads `QueueSnapshotInterval` preference, loads all `QueueView` definitions via `QueueViewStore.scanAll()`, batch-checks last snapshot times via `QueueSnapshotStore.findLatestSnapshotTimes(queueViewIds)`. Returns a `SnapshotPlan`: the list of queues due for snapshotting plus the tenant's retention duration.
+   b. For each queue in the plan:
+      - `snapshotQueue(queue)` (`REQUIRES_NEW`) — evaluates membership via `QueueMembershipService.countMembers(queue)`, persists `QueueSnapshot(queueViewId, count, Instant.now())`
+   c. `cleanupRetention(retentionDuration)` (`REQUIRES_NEW`) — calls `deleteOlderThan(now - retention)`
 
 Retention cleanup is per-tenant (inside the loop) so each tenant's own retention preference applies and `deleteOlderThan` is tenant-scoped via `TenantAwareStore`.
 
@@ -218,15 +232,17 @@ No server-side bucket aggregation. Issue #289 mentioned `bucket=1h` for server-s
 
 | Module | File | Change |
 |--------|------|--------|
-| `api` | `QueueSnapshotInterval.java` | New preference constant (`PreferenceKey<DurationPreference>`) |
-| `api` | `QueueTrendRetention.java` | New preference constant (`PreferenceKey<DurationPreference>`) |
+| `runtime` | `WorkItemStore.java` | Add `countByQuery(WorkItemQuery)` method to store SPI |
+| `runtime` | `JpaWorkItemStore.java` | Implement `countByQuery` via Panache count query |
+| `queues` | `QueueSnapshotInterval.java` | New preference constant (`PreferenceKey<DurationPreference>`) |
+| `queues` | `QueueTrendRetention.java` | New preference constant (`PreferenceKey<DurationPreference>`) |
 | `queues` | `QueueSnapshot.java` | New JPA entity |
 | `queues` | `QueueSnapshotStore.java` | New store interface |
 | `queues` | `JpaQueueSnapshotStore.java` | JPA store implementation |
 | `queues` | `CrossTenantQueueViewStore.java` | New cross-tenant store interface (single method: `findDistinctTenancyIds()`) |
 | `queues` | `JpaCrossTenantQueueViewStore.java` | JPA cross-tenant implementation using `withCrossTenantQuery()` |
 | `queues` | `QueueCrossTenantProducer.java` | CDI producer for `@CrossTenant` queue stores |
-| `queues` | `QueueMembershipService.java` | Extracted membership evaluation (shared by `QueueResource` and `QueueSnapshotJob`) |
+| `queues` | `QueueMembershipService.java` | Extracted membership evaluation with `evaluateMembers()` and `countMembers()` |
 | `queues` | `QueueSnapshotJob.java` | Scheduled snapshot + cleanup job |
 | `queues` | `QueueResource.java` | Add `GET /queues/{id}/trend`; refactor `query()` to use `QueueMembershipService` |
 | `queues` | `QueueTrendResponse.java` | Response DTO |
@@ -234,5 +250,7 @@ No server-side bucket aggregation. Issue #289 mentioned `bucket=1h` for server-s
 | `queues` | `QueueSnapshotJobTest.java` | Unit tests |
 | `queues` | `QueueTrendIntegrationTest.java` | Integration tests |
 | `persistence-memory` | `InMemoryQueueSnapshotStore.java` | In-memory store for testing |
+| `persistence-memory` | `InMemoryWorkItemStore.java` | Implement `countByQuery` |
 | `persistence-memory` | `pom.xml` | Add `casehub-work-queues` dependency |
+| `persistence-mongodb` | `MongoWorkItemStore.java` | Implement `countByQuery` |
 | `docs` | `api-reference.md` | Document new endpoint |
