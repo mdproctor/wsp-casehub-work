@@ -55,9 +55,11 @@ Test (10 files in `io.casehub.workadapter`):
 Config reference:
 - `application.properties`: `io.casehub.workadapter.NoOpPreferenceProvider` → `io.casehub.work.engine.NoOpPreferenceProvider`
 
-**Verification:** `mvn test -pl work-adapter` passes in engine.
+**Cross-module reference:** `ActionGateDeploymentHealthCheck` in engine runtime uses `Class.forName("io.casehub.workadapter.ActionGateWorkItemHandler", ...)` to detect work-adapter presence. Update to `io.casehub.work.engine.ActionGateWorkItemHandler`.
 
-**No dependents:** Nothing in engine or any other casehub repo imports from `io.casehub.workadapter`. Verified via IntelliJ find-references and grep.
+**Verification:** `mvn test -pl work-adapter` passes in engine. Additionally, grep engine for any remaining `io.casehub.workadapter` references (catches cross-module string literals like `ActionGateDeploymentHealthCheck`).
+
+**No dependents:** Nothing in engine or any other casehub repo imports from `io.casehub.workadapter`. Verified via IntelliJ find-references and grep. The sole cross-module reference (`ActionGateDeploymentHealthCheck.Class.forName`) is a string literal, not an import — covered by the grep verification above.
 
 ### Phase 2 — Module Relocation (engine → work)
 
@@ -128,21 +130,22 @@ Engine dependency versions are managed by `casehub-parent` BOM (already imported
 
 ### Phase 3 — Architecture Alignment
 
-#### 3a. Fix WorkItemCallerRef (broken format)
+#### 3a. Delete WorkItemCallerRef (broken, redundant, boundary-violating)
 
-`WorkItemCallerRef.parseCaseId()` splits on `:` and takes `[0]`. For `case:{uuid}/pi:{id}`, `[0]` = `"case"` → not a UUID → returns null.
+Delete `WorkItemCallerRef` and `WorkItemCallerRefTest` from work-api entirely.
 
-Fix: parse the `case:{caseId}/...` format correctly. Handle both `case:{uuid}/pi:{planItemId}` and `case:{uuid}/gate:{gateId}` forms. Update tests.
+Rationale: `CallerRef` — the sealed interface in the adapter with `PlanItemCallerRef` and `GateCallerRef` — already provides correct, type-safe callerRef parsing with regex patterns and encode/decode symmetry. After relocation, both parsers would be in the same repo. Fixing `WorkItemCallerRef` would create two parallel callerRef parsers — one well-designed sealed interface, one utility method returning a nullable UUID. Worse, a callerRef parser in work-api violates the ARC42STORIES §3 boundary rule: callerRef is "stored and echoed opaquely" by work. The adapter's `CallerRef` is the canonical parser; any future code needing callerRef parsing should use it directly.
 
-No external consumers — only its own test in work-api.
+No external consumers — only its own test in work-api. Zero usages outside the test class (verified via IntelliJ find-references across both repos).
 
 #### 3b. Update project documentation
 
 **CLAUDE.md:**
-- Remove the `WorkItemCallerRef.parseCaseId` paragraph from `## casehub-work-api Utilities` — incorrectly claims `casehub-engine-actor-state` uses it (verified false) and describes the wrong callerRef format
+- Remove the `WorkItemCallerRef.parseCaseId` paragraph from `## casehub-work-api Utilities` — the class is being deleted (see §3a); the paragraph also incorrectly claims `casehub-engine-actor-state` uses it (verified false) and describes the wrong callerRef format
 - Add a brief note about the new `engine-adapter` module under the module listing
 
 **ARC42STORIES.MD:**
+- §3 Boundary Rules: fix the callerRef convention from `"caseId:planItemId"` to the actual formats: `case:{caseId}/pi:{planItemId}` for HumanTask bindings and `case:{caseId}/gate:{gateId}` for ActionGate bindings
 - Add the engine-adapter module to the Building Block View (§5) if module listings exist
 - Add a layer/chapter entry if the module warrants one (likely a brief entry under Integration Modules)
 
@@ -150,7 +153,7 @@ No external consumers — only its own test in work-api.
 
 The `HumanTaskScheduleEvent` consumed via `@ConsumeEvent` is architecturally reasonable. The handler does substantial work: PlanItem lookup, status validation, template vs inline routing, DELEGATED persistence. The Vert.x event bus decoupling is appropriate.
 
-The deeper refactoring (replacing the event contract with CloudEvents or direct calls) is tracked by #172. The relocation achieves the primary goal — domain coherence. Architectural refactoring of the event contract is a separate concern.
+The deeper refactoring (replacing the event contract with direct calls) is tracked by #298; the CloudEvent bridge for cross-service creation is tracked by #299. The relocation achieves the primary goal — domain coherence. Architectural refactoring of the event contract is a separate concern.
 
 ## What Stays in Engine
 
@@ -176,11 +179,10 @@ All 22 files from `engine/work-adapter/src/` (12 source + 10 test) plus `applica
 |------|-----------|
 | Engine dependency versions drift | `casehub-parent` BOM manages all versions centrally |
 | Jandex index configuration breaks | Copy test `application.properties` and verify CDI discovery |
-| `plan_item` table DDL/entity conflicts | Entity stays identical; Flyway migration is elsewhere |
+| `plan_item` table DDL/entity conflicts | `PlanItemEntity` in `casehub-engine-persistence-hibernate` owns the `plan_item` DDL (Hibernate `drop-and-create` in dev/test, engine Flyway in production). `WorkAdapterPlanItemEntity` is a read/write mapping only — no schema ownership, no Flyway migrations for this table. The two entities never co-exist on the same classpath: the adapter's integration tests use H2 with Hibernate `drop-and-create` independently of engine-persistence-hibernate. This is unchanged by relocation — the entities remain in separate modules with separate test classpaths. |
 | Cross-repo build order | work already depends on engine-api; adding engine-blackboard/engine deps is the same pattern |
 
 ## Not in Scope
 
-- Event contract refactoring (tracked by #172)
-- CloudEvent bridge for cross-service HumanTask creation (#172)
-- CallerRef promotion to work-api (CallerRef encodes engine-domain concepts — plan items and gates — and belongs with the adapter)
+- Event contract refactoring — replace the `@ConsumeEvent` event-as-request pattern with a direct call (#298)
+- CloudEvent bridge for cross-service HumanTask creation (#299)
