@@ -86,7 +86,7 @@ private WorkerSelectionStrategy activeStrategy() {
 }
 ```
 
-The `fixedStrategy` / dual-constructor pattern for unit tests is replaced by injecting a `StrategyResolver` — tests construct `DefaultStrategyResolver` from a list of strategy instances (it has a package-private list constructor for exactly this purpose).
+The `fixedStrategy` / dual-constructor pattern for unit tests is replaced by injecting a `StrategyResolver`. Unit tests mock the `StrategyResolver` interface (Mockito is already used throughout) or create a test helper in package `io.casehub.platform.routing` to access `DefaultStrategyResolver`'s package-private list constructor.
 
 **`RoundRobinAssignmentStrategy`** (InstanceAssignmentStrategy in runtime/multiinstance/) — currently duplicates the config switch to select a WorkerSelectionStrategy internally:
 
@@ -177,7 +177,7 @@ public WorkItemService(final WorkItemStore workItemStore,
 }
 ```
 
-Tests that construct `WorkItemService` directly (e.g. `WorkItemServiceTest`) pass a `StrategyResolver` instead of a `ClaimSlaPolicy` — construct `DefaultStrategyResolver` from a list containing the test policy.
+Tests that construct `WorkItemService` directly (e.g. `WorkItemServiceTest`) pass a mock `StrategyResolver` instead of a `ClaimSlaPolicy`.
 
 **`ExpiryLifecycleService`** — currently injects both `ClaimSlaPolicy` and `SlaBreachPolicy` via field injection:
 
@@ -204,7 +204,7 @@ void init() {
 }
 ```
 
-Policy resolution happens once at startup. The four methods that call `slaBreachPolicy.onBreach()` — `checkExpired()`, `checkClaimDeadlines()`, `expireItem()`, `processClaimDeadline()` — continue to use the resolved field with no behavioral change. `ExpiryLifecycleServiceTest` updates to provide a `DefaultStrategyResolver` containing both test policies.
+Policy resolution happens once at startup. The four methods that call `slaBreachPolicy.onBreach()` — `checkExpired()`, `checkClaimDeadlines()`, `expireItem()`, `processClaimDeadline()` — continue to use the resolved field with no behavioral change. `ExpiryLifecycleServiceTest` updates to provide a mock or test `StrategyResolver` returning both test policies.
 
 ### Config Changes
 
@@ -251,7 +251,7 @@ No dependency changes needed:
 
 ### Test Strategy
 
-- **Unit tests** that construct services with raw strategy instances: refactor to construct a `DefaultStrategyResolver` from a list of strategies, then pass that to the service
+- **Unit tests** that construct services with raw strategy instances: mock `StrategyResolver` (e.g., `when(resolver.resolve(WorkerSelectionStrategy.class, "least-loaded")).thenReturn(strategy)`) and pass the mock to the service. `DefaultStrategyResolver`'s list constructor is package-private in `io.casehub.platform.routing` — a test helper in that package can access it for tests needing real resolution validation, but mocking is preferred for standard unit tests
 - **Integration tests** that set `casehub.work.routing.strategy`: no change needed — config property name is the same, values are the same
 - **Tests relying on @Alternative auto-activation** of SemanticWorkerSelectionStrategy: update to set config explicitly
 - **ClaimSlaPolicy tests** (e.g., `ClaimSlaPolicyTest`): no change — they test policy logic directly, not resolution
