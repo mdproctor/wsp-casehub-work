@@ -190,10 +190,9 @@ SlaBreachPolicy slaBreachPolicy;
 ClaimSlaPolicy claimSlaPolicy;
 ```
 
-After:
+After (`WorkItemsConfig config` is already injected — only `StrategyResolver` is new):
 ```java
 @Inject StrategyResolver strategyResolver;
-@Inject WorkItemsConfig config;
 
 SlaBreachPolicy slaBreachPolicy;
 ClaimSlaPolicy claimSlaPolicy;
@@ -233,6 +232,8 @@ Existing `casehub.work.routing.strategy=least-loaded` is unchanged.
 ### Behavioral Change
 
 `SemanticWorkerSelectionStrategy` currently auto-activates when `quarkus-work-ai` is on the classpath (via `@Alternative @Priority(1)`). After this change, it requires explicit config: `casehub.work.routing.strategy=semantic`. This is the right design — implicit classpath activation is surprising; explicit config selection is the platform convention.
+
+Invalid strategy config values now fail fast. The current `activeStrategy()` switch has `default -> leastLoaded` — a typo in `casehub.work.routing.strategy` silently falls back to least-loaded. After this change, `StrategyResolver.resolve()` throws `IllegalArgumentException` for unknown ids with the message `"No strategy with id 'X' for type WorkerSelectionStrategy. Available: [...]"`. This applies to all four SPIs, not just WorkerSelectionStrategy. The same fail-fast applies to `MultiInstanceSpawnService` (InstanceAssignmentStrategy) — the current code falls back to pool on unknown names; the new code throws.
 
 ### Dependencies
 
