@@ -15,7 +15,7 @@ casehub-work has 4 SPIs that use three different ad-hoc resolution mechanisms:
 | `WorkerSelectionStrategy` | CDI `Instance<>` scan filtering out built-ins + config string switch | Manual bean filtering, duplicated switch in RoundRobinAssignmentStrategy |
 | `InstanceAssignmentStrategy` | CDI `@Named` qualifier + `Instance<>` iteration | Relies on annotation reflection at runtime |
 | `ClaimSlaPolicy` | Pure CDI `@Alternative @Priority` | No config-based selection; requires CDI wiring knowledge |
-| `SlaBreachPolicy` | Direct `@Inject` (single impl) | No pluggable selection mechanism at all |
+| `SlaBreachPolicy` | `@DefaultBean` override (classpath-based) | No config-based selection; `@DefaultBean` is the override mechanism |
 
 All four should adopt `NamedStrategy` + `StrategyResolver` — the platform convention.
 
@@ -54,9 +54,11 @@ Each implementation adds `id()` and removes CDI selection annotations:
 | `RoundRobinAssignmentStrategy` | runtime/ | `"round-robin"` | `@Named("roundRobin")` |
 | `ExplicitListAssignmentStrategy` | runtime/ | `"explicit"` | `@Named("explicit")` |
 | `CompositeInstanceAssignmentStrategy` | runtime/ | `"composite"` | `@Named("composite")` |
-| `NoOpSlaBreachPolicy` | runtime/ | `"no-op"` | — |
+| `NoOpSlaBreachPolicy` | runtime/ | `"no-op"` | `@DefaultBean` |
 
 All implementations keep `@ApplicationScoped`.
+
+`NoOpSlaBreachPolicy` drops `@DefaultBean` because it conflicts with `StrategyResolver` discovery. When an application provides a custom `SlaBreachPolicy` bean, Quarkus Arc suppresses the `@DefaultBean` bean entirely — it never appears in `DefaultStrategyResolver`'s `@Any Instance<NamedStrategy>`, making the `"no-op"` id unresolvable even though config defaults to it. Without `@DefaultBean`, both implementations coexist in the resolver and config selects between them. This is the intended NamedStrategy model: classpath-based override (`@DefaultBean`, `@Alternative`) is replaced by config-based selection.
 
 ### Resolution Site Changes
 
@@ -131,20 +133,79 @@ After:
 
 private InstanceAssignmentStrategy resolveStrategy(String name) {
     if (name == null || name.isBlank()) {
-        return strategyResolver.defaultStrategy(InstanceAssignmentStrategy.class);
+        return strategyResolver.resolve(InstanceAssignmentStrategy.class, "pool");
     }
     return strategyResolver.resolve(InstanceAssignmentStrategy.class, name);
 }
 ```
 
-**`WorkItemService`** and **`ExpiryLifecycleService`** — currently inject `ClaimSlaPolicy` directly:
+**`WorkItemService`** — currently injects `ClaimSlaPolicy` via constructor:
 
-After: inject `StrategyResolver` + resolve via config:
+Before:
 ```java
-this.claimSlaPolicy = strategyResolver.resolve(ClaimSlaPolicy.class, config.sla().claimPolicy());
+@Inject
+public WorkItemService(final WorkItemStore workItemStore,
+        final AuditEntryStore auditStore,
+        final WorkItemsConfig config,
+        final WorkItemAssignmentService assignmentService,
+        final ClaimSlaPolicy claimSlaPolicy,
+        final ExclusionPolicy exclusionPolicy,
+        final BlockedAttemptAuditService blockedAuditService,
+        final CapabilityValidator capabilityValidator,
+        final WorkItemTimerService timerService) {
+    ...
+    this.claimSlaPolicy = claimSlaPolicy;
+    ...
+}
 ```
 
-**SlaBreachPolicy injection site(s)** — same pattern: resolve via config.
+After:
+```java
+@Inject
+public WorkItemService(final WorkItemStore workItemStore,
+        final AuditEntryStore auditStore,
+        final WorkItemsConfig config,
+        final WorkItemAssignmentService assignmentService,
+        final StrategyResolver strategyResolver,
+        final ExclusionPolicy exclusionPolicy,
+        final BlockedAttemptAuditService blockedAuditService,
+        final CapabilityValidator capabilityValidator,
+        final WorkItemTimerService timerService) {
+    ...
+    this.claimSlaPolicy = strategyResolver.resolve(ClaimSlaPolicy.class, config.sla().claimPolicy());
+    ...
+}
+```
+
+Tests that construct `WorkItemService` directly (e.g. `WorkItemServiceTest`) pass a `StrategyResolver` instead of a `ClaimSlaPolicy` — construct `DefaultStrategyResolver` from a list containing the test policy.
+
+**`ExpiryLifecycleService`** — currently injects both `ClaimSlaPolicy` and `SlaBreachPolicy` via field injection:
+
+Before:
+```java
+@Inject
+SlaBreachPolicy slaBreachPolicy;
+
+@Inject
+ClaimSlaPolicy claimSlaPolicy;
+```
+
+After:
+```java
+@Inject StrategyResolver strategyResolver;
+@Inject WorkItemsConfig config;
+
+SlaBreachPolicy slaBreachPolicy;
+ClaimSlaPolicy claimSlaPolicy;
+
+@PostConstruct
+void init() {
+    this.slaBreachPolicy = strategyResolver.resolve(SlaBreachPolicy.class, config.sla().breachPolicy());
+    this.claimSlaPolicy = strategyResolver.resolve(ClaimSlaPolicy.class, config.sla().claimPolicy());
+}
+```
+
+Policy resolution happens once at startup. The four methods that call `slaBreachPolicy.onBreach()` — `checkExpired()`, `checkClaimDeadlines()`, `expireItem()`, `processClaimDeadline()` — continue to use the resolved field with no behavioral change. `ExpiryLifecycleServiceTest` updates to provide a `DefaultStrategyResolver` containing both test policies.
 
 ### Config Changes
 
