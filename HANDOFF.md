@@ -2,24 +2,28 @@
 
 ## Last Session
 
-Closed #287 — retrofitted 4 work SPIs (WorkerSelectionStrategy, InstanceAssignmentStrategy, ClaimSlaPolicy, SlaBreachPolicy) to extend platform `NamedStrategy` and resolve via `StrategyResolver` instead of 3 ad-hoc CDI mechanisms (Instance scanning + config switch, @Named iteration, @Alternative/@Priority). 13 implementations add `id()`, 5 resolution sites simplified. Design-reviewed adversarially (5 rounds, 15 issues, $17.04). 892+ unit tests, 38 integration tests green. Landed as `dcc0699` on main.
+Closed #287 — retrofitted 4 work SPIs to extend NamedStrategy + StrategyResolver. Design-reviewed (5 rounds, $17.04). 892+ unit tests, 38 ITs green. Landed as `dcc0699`.
 
-Also landed `4f7825f` (engine-adapter tenancyId in ActionGate completion events) — pre-existing commit from prior session.
+Closed #303 — synced engine-adapter compilation against current engine SNAPSHOTs (PlanItemSaveRequest fields, TaskStatus split, ExecutorRef, HumanTaskScheduleEvent param reorder). Landed as `cadedfd`.
 
-Garden entry GE-20260713-cecee5: `@Singleton` StrategyResolver causes StackOverflowError when NamedStrategy bean injects StrategyResolver — fix: `Provider<StrategyResolver>`.
+Engine: added catch-all `@Any Instance<NamedStrategy>` to `EngineStrategyResolver` (`a3f9a7fc` on engine main). Needed for cross-module NamedStrategy discovery.
+
+Filed #304 — engine-adapter Quarkus test failures. ARC prunes ClaimSlaPolicy beans after #287 removed direct injection points. Investigated 5 approaches (catch-all, @Unremovable, UnremovableBeanBuildItem, AdditionalBeanBuildItem, index-dependency). Root cause: ARC bean discovery doesn't find core/ beans in engine-adapter test context. Try `quarkus.arc.remove-unused-beans=false` in test properties.
+
+Garden: GE-20260713-cecee5 — @Singleton StrategyResolver StackOverflowError with Provider<> fix.
 
 ## Immediate Next Step
 
-Engine-adapter has unstaged changes in the working tree (casehub-engine API update: `PlanItemStatus → TaskStatus`, `String → ExecutorRef`, `PlanItemSaveRequest` constructor change). These need a separate issue and branch to resolve.
+Fix #304 — engine-adapter test failures. Start with `quarkus.arc.remove-unused-beans=false` in engine-adapter test properties to confirm the diagnosis. If that works, find the minimal unremovable configuration.
 
 ## What's Left
 
-- Engine-adapter unstaged changes — casehub-engine API update (PlanItemStatus → TaskStatus, ExecutorRef) · S · Med
+- casehubio/work#304 — engine-adapter Quarkus test failures (ARC bean pruning) · S · Med
+- casehubio/work#300 — update #287 issue body to include SlaBreachPolicy scope · XS · Low
 - casehubio/garden#4 — create `definable-entity-types-labels.md` protocol file · S · Low
 - casehubio/parent#354 — PLATFORM.md protocol cross-reference · XS · Low
 - casehubio/engine#653 — engine work-adapter update for types (source-breaking) · S · Med
 - 6 consumer apps need POM update: `casehub-engine-work-adapter` → `casehub-work-engine-adapter` · XS each · Low
-- casehubio/work#300 — update #287 issue body to include SlaBreachPolicy scope · XS · Low
 
 ## What's Next
 
@@ -33,6 +37,6 @@ Engine-adapter has unstaged changes in the working tree (casehub-engine API upda
 ## References
 
 - Spec: `docs/specs/2026-07-12-retrofit-work-spis-namedstrategy-design.md` (project)
-- Plan: `plans/2026-07-13-retrofit-work-spis-namedstrategy.md` (workspace)
 - Design review: `~/adr/casehub-work/retrofit-work-spis-namedstrategy-20260713-000423/`
 - Garden: GE-20260713-cecee5 (CDI circular dependency with @Singleton StrategyResolver)
+- Engine commit: `a3f9a7fc` (EngineStrategyResolver catch-all)
