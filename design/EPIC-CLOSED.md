@@ -1,5 +1,5 @@
-# Branch Closed: issue-291-workitem-types
+# Branch Closed: issue-303-engine-adapter-api-sync
 
-**Date:** 2026-07-07
-**Issues:** 291
+**Date:** 2026-07-13
+**Issues:** 303
 **Status:** merged to main
