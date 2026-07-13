@@ -1,5 +1,5 @@
-# Branch Closed: issue-291-workitem-types
+# Branch Closed: issue-287-retrofit-work-spis-namedstrategy
 
-**Date:** 2026-07-07
-**Issues:** 291
+**Date:** 2026-07-13
+**Issues:** 287
 **Status:** merged to main
