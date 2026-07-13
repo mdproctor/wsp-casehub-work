@@ -1,0 +1,9 @@
+branch: issue-303-engine-adapter-api-sync
+project-sha: dcc06999d73753be12c3d803c5d62c698ca39e0e
+date: 2026-07-13
+issue: 303
+issue-repo: casehubio/work
+covers: 303
+flyway-next-v: none
+design-repo: project
+design-section-hashes: 
