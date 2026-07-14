@@ -1,20 +1,14 @@
-# HANDOFF — 2026-07-13
+# HANDOFF — 2026-07-14
 
 ## Last Session
 
-Closed #287 — retrofitted 4 work SPIs to extend NamedStrategy + StrategyResolver. Design-reviewed (5 rounds, $17.04). Landed as `dcc0699`.
+Closed #288 — queue summary REST endpoint. Renamed `InboxSummaryBuilder` → `WorkItemSummaryBuilder` (inner record `InboxSummary` → `Summary`) to reflect general-purpose scope. Added `oldestCreatedAt` field. New `GET /queues/{id}/summary` endpoint. Design-reviewed (3 rounds, $9.10). Landed as `e955f77`.
 
-Closed #303 — synced engine-adapter compilation against current engine SNAPSHOTs. Landed as `21f0436`.
-
-Closed #304 — fixed engine-adapter Quarkus test failures. Root cause: ARC's `Instance<NamedStrategy>` doesn't resolve beans whose NamedStrategy relationship is transitive through sub-interfaces. Fix: `WorkStrategyContributor` in engine-adapter registers work SPI beans with `EngineStrategyResolver` at startup via per-SPI-type `Instance<T>` injection. 79 engine-adapter tests green.
-
-Engine: `EngineStrategyResolver.registerEntry()` made public + catch-all `@Any Instance<NamedStrategy>` added (`814078ce`).
-
-Garden: GE-20260713-cecee5 — @Singleton StrategyResolver StackOverflowError with Provider<> fix.
+Filed #305 (SQL push-down aggregation) and #306 (caching/materialised views) as out-of-scope follow-ons.
 
 ## Immediate Next Step
 
-Pick from What's Next — all blockers from this session are resolved.
+Pick from What's Next — no blockers outstanding.
 
 ## What's Left
 
@@ -23,6 +17,8 @@ Pick from What's Next — all blockers from this session are resolved.
 - casehubio/parent#354 — PLATFORM.md protocol cross-reference · XS · Low
 - casehubio/engine#653 — engine work-adapter update for types (source-breaking) · S · Med
 - 6 consumer apps need POM update: `casehub-engine-work-adapter` → `casehub-work-engine-adapter` · XS each · Low
+- casehubio/work#305 — SQL push-down aggregation for queue/inbox summary · M · Med
+- casehubio/work#306 — caching or materialised views for summary endpoints · M · Med
 
 ## What's Next
 
@@ -30,12 +26,11 @@ Pick from What's Next — all blockers from this session are resolved.
 |---|-------------|-------|------------|-------|
 | #298 | Event contract refactoring — replace @ConsumeEvent with direct calls | M | Med | Deferred from #290 |
 | #299 | CloudEvent bridge for cross-service HumanTask creation | M | Med | Deferred from #290 |
-| #288 | Queue summary REST endpoint for dashboard cards | M | Med | Enhancement |
 | #152 | Split examples into core and full variants | M | Low | |
+| #305 | SQL push-down aggregation for queue/inbox summary | M | Med | New — from #288 |
 
 ## References
 
-- Spec: `docs/specs/2026-07-12-retrofit-work-spis-namedstrategy-design.md`
-- Design review: `~/adr/casehub-work/retrofit-work-spis-namedstrategy-20260713-000423/`
-- Garden: GE-20260713-cecee5
-- Engine: `814078ce` (EngineStrategyResolver catch-all + public registerEntry)
+- Spec: `docs/specs/2026-07-14-queue-summary-endpoint-design.md`
+- Design review: `~/adr/casehub-work/queue-summary-endpoint-20260714-041643/`
+- Blog: `2026-07-14-mdp01-summary-that-was-already-there.md`
