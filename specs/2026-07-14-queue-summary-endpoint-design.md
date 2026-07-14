@@ -11,6 +11,15 @@ metrics client-side from the full item list returned by `GET /queues/{id}`. This
 works for typical queue sizes but won't scale past ~500 items. A dedicated summary
 endpoint returning pre-computed aggregates avoids sending the full list.
 
+### Requirements mapping (from #288)
+
+| Issue requirement | Summary field(s) | Notes |
+|---|---|---|
+| total items | `total` | Direct |
+| priority breakdown | `byPriority` | Direct |
+| SLA breach count | `overdue` + `claimDeadlineBreached` | Two distinct SLA metrics — expiry deadline and claim deadline. Provides strictly more information than a single combined count; the client can sum them if needed. |
+| oldest item age | `oldestCreatedAt` | Raw instant; client computes age. Follows `QueueHealthReport.oldestUnclaimedCreatedAt` convention. |
+
 ## Design
 
 ### 1. Rename InboxSummaryBuilder → WorkItemSummaryBuilder
@@ -20,14 +29,24 @@ endpoint returning pre-computed aggregates avoids sending the full list.
 not its actual scope. Rename:
 
 - `InboxSummaryBuilder` → `WorkItemSummaryBuilder`
-- `InboxSummary` → `WorkItemSummary`
+- `InboxSummary` → `Summary` (nested record)
+
+The nested record is renamed to `Summary` rather than `WorkItemSummary` to avoid
+a name collision with `ActorStateResponse.WorkItemSummary` in the `actor-state`
+module — a per-item projection with completely different semantics. Since the nested
+record is always accessed qualified as `WorkItemSummaryBuilder.Summary`, the name
+is unambiguous.
 
 Add `oldestCreatedAt` field — the `min(createdAt)` across non-terminal items.
 Nullable (null when no non-terminal items exist). Follows the
 `QueueHealthReport.oldestUnclaimedCreatedAt` convention of returning raw instants.
 
+The `createdAt` field is always non-null for persisted WorkItems (`@PrePersist`
+sets it to `Instant.now()`), but the min-computation filters nulls defensively —
+consistent with the existing null-priority handling in `byPriority`.
+
 ```java
-public record WorkItemSummary(
+public record Summary(
         long total,
         Map<String, Long> byStatus,
         Map<String, Long> byPriority,
@@ -49,8 +68,8 @@ Location: `QueueResource.java` in the `queues` module, alongside the existing
 Implementation:
 1. Look up `QueueView` by id → 404 if not found
 2. `QueueMembershipService.evaluateMembers(queue)` → `List<WorkItem>`
-3. `WorkItemSummaryBuilder.build(items, Instant.now())` → `WorkItemSummary`
-4. Return `WorkItemSummary` as 200 response body
+3. `WorkItemSummaryBuilder.build(items, Instant.now())` → `Summary`
+4. Return `Summary` as 200 response body
 
 Annotations: `@GET @Path("/{id}/summary") @Transactional`
 
@@ -68,6 +87,20 @@ Response example:
 }
 ```
 
+#### Performance characteristics
+
+This endpoint eliminates serialization and network transfer of the full item list
+(the bandwidth cost that makes client-side aggregation impractical above ~500 items).
+Server memory cost is unchanged — `evaluateMembers(queue)` loads all matching
+WorkItems into the JPA persistence context, iterates them for counts, and discards
+them. For a 5,000-item queue, 5,000 entities are loaded server-side.
+
+Database-level aggregation (SQL GROUP BY / COUNT) is the path to reducing server
+memory cost. The building blocks partially exist: `QueueMembershipService.countMembers()`
+already uses `workItemStore.countByQuery()` (SQL COUNT) for simple queues without
+`additionalConditions`. Extending this to status/priority breakdowns and deadline
+checks is tracked in #305.
+
 ### 3. Testing
 
 **Unit tests (runtime module):**
@@ -75,6 +108,7 @@ Response example:
 - New test: multiple items with different `createdAt` → oldest non-terminal selected
 - New test: all items terminal → `oldestCreatedAt` is null
 - New test: empty list → `oldestCreatedAt` is null
+- New test: item with null `createdAt` → excluded from min-computation (documents `@PrePersist` invariant)
 
 **REST test (queues module):**
 - New `QueueSummaryResourceTest` (follows `QueueResourceTest` pattern)
@@ -90,8 +124,13 @@ Response example:
 
 Add `GET /queues/{id}/summary` to the Queues section of `docs/api-reference.md`.
 
+Update the existing `GET /workitems/inbox/summary` documentation:
+- Change body type from `InboxSummary` to `WorkItemSummaryBuilder.Summary`
+- Add `oldestCreatedAt` field (`Instant`, nullable) to the response field table
+
 ## Out of Scope
 
-- Database-level aggregation (push-down optimisation for large queues) — future work
-- Caching or materialised views — premature until scale demands it
+- **Database-level aggregation** — SQL push-down for status/priority GROUP BY and
+  deadline COUNT to avoid loading all entities server-side. Tracked in #305.
+- **Caching or materialised views** — premature until scale demands it. Tracked in #306.
 - No Flyway migration needed — this is a read-only aggregation over existing data
