@@ -155,6 +155,7 @@ enum ProgressChangeType {
     CHILD_ATTACHED,   // new child added to this parent
     COMPLETED,        // terminal — success
     FAILED,           // terminal — failure
+    REACTIVATED,      // COMPLETED/FAILED → ACTIVE (retry)
     ROLLED_BACK       // state moved backward
 }
 ```
@@ -198,6 +199,7 @@ POST   /progress                              — create a new instance
 PUT    /progress/{id}/state                   — update state
 POST   /progress/{id}/complete                — mark completed
 POST   /progress/{id}/fail                    — mark failed
+POST   /progress/{id}/reactivate              — reactivate (COMPLETED/FAILED → ACTIVE)
 POST   /progress/{id}/children                — attach a new child instance
 ```
 
