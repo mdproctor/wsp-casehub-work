@@ -43,7 +43,7 @@ public record ProgressInstance(
     UUID parentProgressId,     // null for root instances
     String shapeType,          // discriminator for the typed union
     JsonNode state,            // current state conforming to the shape
-    ProgressStatus status,     // ACTIVE, COMPLETED, FAILED
+    ProgressStatus status,     // PENDING, ACTIVE, COMPLETED, FAILED
     String rollupStrategyId,   // null = no rollup (leaf), or NamedStrategy id
     Instant createdAt,
     Instant updatedAt
@@ -51,6 +51,26 @@ public record ProgressInstance(
 
 enum ProgressStatus { PENDING, ACTIVE, COMPLETED, FAILED }
 ```
+
+### Status Lifecycle
+
+New instances start in `PENDING`. Valid transitions:
+
+| From | To | Trigger |
+|------|-----|---------|
+| PENDING | ACTIVE | First state update (automatic) |
+| PENDING | COMPLETED | Direct completion — pre-resolved state |
+| PENDING | FAILED | Direct failure — known-broken before progress starts |
+| ACTIVE | COMPLETED | Normal completion via `/complete` |
+| ACTIVE | FAILED | Failure via `/fail` |
+| COMPLETED | ACTIVE | Reactivation — retry scenario |
+| FAILED | ACTIVE | Reactivation — retry scenario |
+
+**Not allowed:**
+- Any → PENDING — PENDING means "no activity yet"; once left, cannot be re-entered
+- COMPLETED ↔ FAILED — terminal-to-terminal must go through ACTIVE (reactivate, then transition)
+
+Invalid transitions produce HTTP 409 via REST, `IllegalStateException` via `ProgressService`.
 
 ### Typed Union Shapes
 
@@ -117,6 +137,7 @@ State changes emit CDI events. This is the integration surface — milestones, c
 ```java
 public record ProgressUpdatedEvent(
     UUID progressId,
+    String tenancyId,            // multi-tenancy scoping (matches WorkItemLifecycleEvent)
     String scopeType,
     String scopeId,
     UUID parentProgressId,       // null for roots
@@ -154,7 +175,9 @@ Rollup is **asynchronous**. When a child emits `STATE_UPDATED`, a CDI observer r
 - No transaction spanning multiple tree levels
 - Concurrent leaf updates don't contend at the parent — they enqueue separate rollup recomputations
 - Eventual consistency: a query immediately after a leaf update may return the previous rollup; the next rollup cycle corrects it
-- OCC (`@Version`) on the parent prevents lost updates when two rollup recomputations race
+- OCC (`@Version`) on the parent **detects** concurrent modifications — `OptimisticLockException` fires when two rollup recomputations race
+
+**Retry on OCC conflict:** the rollup observer retries on `OptimisticLockException` — re-reads the parent, re-reads all children, recomputes, and retries. Bounded at 3 attempts. Without retry, a conflicting rollup recomputation is silently dropped and the parent's state remains stale until the next child event. This is the same retry pattern used by `WorkItemSpawnGroup` for `completedCount` OCC contention.
 
 This matches the engine's milestone evaluation pattern — `MilestoneLifecycleManager` evaluates asynchronously via CDI event observation.
 
@@ -222,9 +245,11 @@ casehub-progress/
                           typed shapes
   core/                 — pure Java + Jandex: built-in rollup strategies,
                           rollup computation engine, shape validation
-  runtime/              — Quarkus extension: JPA entity, persistence,
-                          event emission, SSE broadcaster
-  rest/                 — JAX-RS: reporting + query endpoints (opt-in)
+  runtime/              — Quarkus extension: ProgressService, JPA entity,
+                          persistence, event emission, rollup observer,
+                          SSE broadcaster
+  rest/                 — JAX-RS: reporting + query endpoints (opt-in,
+                          thin delegate to ProgressService)
   deployment/           — @BuildStep
   persistence-memory/   — in-memory stores for tests
 ```
@@ -308,6 +333,29 @@ public interface ProgressEventStore {
 ```
 
 CDI backend activation follows the four-tier priority ladder per the persistence-backend-cdi-priority protocol.
+
+### ProgressService
+
+The high-level service coordinating all progress operations. Lives in the `runtime` module. Co-deployed consumers (casehub-work, casehub-engine) inject it via CDI. REST endpoints are thin delegates.
+
+```java
+@ApplicationScoped
+public class ProgressService {
+    ProgressInstance create(ProgressCreateRequest request);
+    ProgressInstance updateState(UUID id, JsonNode newState);
+    ProgressInstance complete(UUID id);
+    ProgressInstance fail(UUID id);
+    ProgressInstance reactivate(UUID id);
+    ProgressInstance attachChild(UUID parentId, ProgressCreateRequest childRequest);
+    Optional<ProgressInstance> findById(UUID id);
+    List<ProgressInstance> findByScope(String scopeType, String scopeId);
+    List<ProgressInstance> findChildren(UUID parentId);
+}
+```
+
+Each mutating method: validates shape conformance (delegates to core) → validates status transition → persists via `ProgressInstanceStore` → persists event via `ProgressEventStore` → emits `ProgressUpdatedEvent` CDI event. The rollup observer (separate CDI bean) listens for `ProgressUpdatedEvent` and re-invokes `ProgressService` to update the parent, with OCC retry.
+
+This is the equivalent of `WorkItemService` for casehub-work — the single coordination point that prevents consumers from bypassing validation, event emission, or rollup triggering.
 
 **Flyway migrations:** path `classpath:db/progress/migration/`, starting at V1.
 
@@ -476,6 +524,6 @@ Proves that engine-constructed hierarchy uses the same rollup path as explicitly
 **Out of scope:** control flow, retry decisions, failure handling, orchestration, structural validation. These capabilities exist in engine, Flow, and work — the progress model observes what they do.
 
 **Deferred:**
-- Arbitrary JSON schema shape type — work#307
-- Rollback control mechanism — work#308
-- Visualisation modes — work#309
+- Arbitrary JSON schema shape type — work#307 (migrate to `casehubio/progress` when repo is created)
+- Rollback control mechanism — work#308 (migrate to `casehubio/progress` when repo is created)
+- Visualisation modes — work#309 (migrate to `casehubio/progress` when repo is created)
