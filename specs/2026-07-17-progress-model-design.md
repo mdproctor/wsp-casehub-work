@@ -236,42 +236,42 @@ Real-time updates as any node in the subtree changes. Events carry enough contex
 
 Following casehub-work's pattern: pure Java core, Quarkus layered on top.
 
-**Repository:** `casehubio/progress` — new Git repo, foundation tier.
-**Build position:** after `casehub-platform-api`, before `casehub-work` and `casehub-engine`.
-**Artifact coordinates:** `io.casehub:casehub-progress-api:0.2-SNAPSHOT` (matching platform version scheme).
+**Location:** new modules within `casehubio/platform` — opt-in via classpath, not bundled into `platform-api`.
+**Artifact coordinates:** `io.casehub:platform-progress-api:0.2-SNAPSHOT` (matching platform version scheme).
 
 ```
-casehub-progress/
-  api/                  — pure Java: ProgressInstance, ProgressStatus,
-                          ProgressUpdatedEvent, RollupStrategy SPI,
-                          typed shapes
-  core/                 — pure Java + Jandex: built-in rollup strategies,
-                          rollup computation engine, shape validation
-  runtime/              — Quarkus extension: ProgressService, JPA entity,
-                          persistence, event emission, rollup observer,
-                          SSE broadcaster
-  rest/                 — JAX-RS: reporting + query endpoints (opt-in,
-                          thin delegate to ProgressService)
-  deployment/           — @BuildStep
-  persistence-memory/   — in-memory stores for tests
+casehub-platform/
+  platform-api/                    — existing: NamedStrategy, shared markers (unchanged)
+  platform-progress-api/           — pure Java: ProgressInstance, ProgressStatus,
+                                     ProgressUpdatedEvent, RollupStrategy SPI,
+                                     typed shapes
+  platform-progress-core/          — pure Java + Jandex: built-in rollup strategies,
+                                     rollup computation engine, shape validation
+  platform-progress/               — Quarkus extension: ProgressService, JPA entity,
+                                     persistence, event emission, rollup observer,
+                                     SSE broadcaster
+  platform-progress-rest/          — JAX-RS: reporting + query endpoints (opt-in,
+                                     thin delegate to ProgressService)
+  platform-progress-deployment/    — @BuildStep
+  platform-progress-memory/        — in-memory stores for tests
 ```
 
 ### Dependencies
 
 ```
-platform-api               ← NamedStrategy, shared markers
+platform-api                       ← NamedStrategy, shared markers (existing)
     ↑
-casehub-progress-api       ← progress types + SPIs (pure Java)
+platform-progress-api              ← progress types + SPIs (pure Java)
     ↑
-casehub-progress-core      ← built-in strategies, rollup engine (pure Java)
+platform-progress-core             ← built-in strategies, rollup engine (pure Java)
     ↑
-casehub-progress-runtime   ← Quarkus extension (persistence, events, SSE)
-casehub-progress-rest      ← JAX-RS endpoints (opt-in)
+platform-progress (runtime)        ← Quarkus extension (persistence, events, SSE)
+platform-progress-rest             ← JAX-RS endpoints (opt-in)
     ↑
-work / engine / blocks / qhorus  ← consumers
+work / engine / blocks / qhorus    ← consumers
 ```
 
-Consumers depend on `casehub-progress-api` for types and SPIs. Only the host deployment includes the runtime. Remote actors (agents, node installers) use the REST API with zero classpath dependency.
+Consumers depend on `platform-progress-api` for types and SPIs. Only the host deployment includes the runtime. Remote actors (agents, node installers) use the REST API with zero classpath dependency. You don't pay for progress unless you add the dependency.
 
 ### Persistence Design
 
@@ -526,6 +526,6 @@ Proves that engine-constructed hierarchy uses the same rollup path as explicitly
 **Out of scope:** control flow, retry decisions, failure handling, orchestration, structural validation. These capabilities exist in engine, Flow, and work — the progress model observes what they do.
 
 **Deferred:**
-- Arbitrary JSON schema shape type — work#307 (migrate to `casehubio/progress` when repo is created)
-- Rollback control mechanism — work#308 (migrate to `casehubio/progress` when repo is created)
-- Visualisation modes — work#309 (migrate to `casehubio/progress` when repo is created)
+- Arbitrary JSON schema shape type — work#307
+- Rollback control mechanism — work#308
+- Visualisation modes — work#309
