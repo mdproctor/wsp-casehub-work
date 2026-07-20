@@ -9,6 +9,7 @@ Also filed platform#188 (JPA tracker flush gap — fixed), platform#186 (cross-t
 ## Cross-Repo Commits (this session)
 
 - **casehubio/platform** — `a3c1d94` on main: `feat(#189): add triggerEvents to LabelRule for event-scoped evaluation`. Adds `Set<String> triggerEvents` to `LabelRule` record with backward-compatible 3-arg constructor and `evaluate(rules, context, event)` overload. Platform#189 created and closed.
+- **casehubio/platform** — `bb43338` on main: `feat(#191): add JexlExpressionEngine to platform expression module`. JEXL joins MVEL and JQ as a platform-level expression engine. Uses strict(false) but NOT silent(true). Platform#191 created and closed.
 
 ## Immediate Next Step
 
