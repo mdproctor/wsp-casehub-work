@@ -6,9 +6,17 @@ Migrated work-queues view infrastructure to platform-view toolkit (#312). QueueV
 
 Also filed platform#188 (JPA tracker flush gap — fixed), platform#186 (cross-tenant store + boolean delete — landed), and work#314 (FilterEngine → LabelRule migration).
 
+## Cross-Repo Commits (this session)
+
+- **casehubio/platform** — `a3c1d94` on main: `feat(#189): add triggerEvents to LabelRule for event-scoped evaluation`. Adds `Set<String> triggerEvents` to `LabelRule` record with backward-compatible 3-arg constructor and `evaluate(rules, context, event)` overload. Platform#189 created and closed.
+
 ## Immediate Next Step
 
-Start work on #314 — migrate FilterEngine/FilterEngineImpl to platform LabelRule. This is the labelling layer migration that completes the platform alignment (view layer done in #312, labelling layer next).
+Continue brainstorming #314 — migrate FilterEngine/FilterEngineImpl to platform LabelRule. Design decisions so far:
+- Unify both filter systems (queues FilterEngine + runtime FilterRegistryEngine) into one LabelRule-based engine
+- LabelRule for label mutations; non-label actions (OVERRIDE_CANDIDATE_GROUPS, SET_PRIORITY) become downstream observers
+- Single-pass evaluation (drop multi-pass — no production usage of chain propagation)
+- Event-type filtering via platform's new `triggerEvents` on LabelRule (platform#189, landed)
 
 ## Cross-Module
 
@@ -24,7 +32,7 @@ Start work on #314 — migrate FilterEngine/FilterEngineImpl to platform LabelRu
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| #314 | Migrate FilterEngine to platform LabelRule | M | Med | Immediate priority — completes platform alignment |
+| #314 | Migrate FilterEngine to platform LabelRule | M | Med | In progress — brainstorming |
 | #309 | Progress model: visualisation modes | M | Med | |
 | #308 | Progress model: rollback control mechanism | S | Med | |
 | #307 | Progress model: arbitrary JSON schema shape type | S | Low | |
