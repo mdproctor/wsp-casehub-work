@@ -1,5 +1,5 @@
-# Branch Closed: issue-291-workitem-types
+# Branch Closed: issue-318-fix-ci-labelrule-migration
 
-**Date:** 2026-07-07
-**Issues:** 291
+**Date:** 2026-07-21
+**Issues:** 318
 **Status:** merged to main
