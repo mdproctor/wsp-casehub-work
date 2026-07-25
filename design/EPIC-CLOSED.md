@@ -1,5 +1,5 @@
-# Branch Closed: issue-291-workitem-types
+# Branch Closed: issue-319-retire-reactive-tier
 
-**Date:** 2026-07-07
-**Issues:** 291
+**Date:** 2026-07-25
+**Issues:** 319
 **Status:** merged to main
