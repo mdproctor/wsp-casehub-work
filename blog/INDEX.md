@@ -44,3 +44,4 @@
 | [2026-07-02-mdp01-batch-that-widened-the-api.md](2026-07-02-mdp01-batch-that-widened-the-api.md) | 2026-07-02 | Seven SPI issues on one branch; callerRef ordering; WorkItemObserver; MANUALLY_ESCALATED |
 | [2026-07-02-mdp02-the-map-that-was-already-there.md](2026-07-02-mdp02-the-map-that-was-already-there.md) | 2026-07-02 | Normative alignment — mapping WorkItem lifecycle to Qhorus speech acts and commitment states |
 | [2026-07-14-mdp01-summary-that-was-already-there.md](2026-07-14-mdp01-summary-that-was-already-there.md) | 2026-07-14 | Queue summary endpoint — InboxSummaryBuilder renamed to WorkItemSummaryBuilder; oldestCreatedAt added; design review caught naming collision |
+| [2026-07-25-mdp01-already-blocking.md](2026-07-25-mdp01-already-blocking.md) | 2026-07-25 | casehub-work was already blocking — IntelliJ cross-project index bleed led to wrong scope; actual migration was 4 files in engine-adapter |
