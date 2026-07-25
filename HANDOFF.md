@@ -1,40 +1,28 @@
-# Handoff — 2026-07-21
+# Handoff — 2026-07-25
 
 ## What's Done
 
-**#314 — Migrated FilterEngine to platform LabelRule** (this session). Unified both filter systems (queues `FilterEngine` + runtime `FilterRegistryEngine`) into one `LabelRuleEngine` using platform primitives. 83 files changed, net -2,315 lines. Single-pass evaluation, per-rule error isolation, INFERRED/MANUAL label protection.
+**#319 — Retired reactive tier in casehub-work** (this session). Scope turned out to be 4 files in `engine-adapter/` — work was already blocking-first (`quarkus-hibernate-orm-panache`, zero reactive source files). Changed 3 handlers from `blocking=true` to `@RunOnVirtualThread`, switched `WorkItemLifecycleAdapter` from `ReactiveCrossTenantCaseInstanceRepository` to blocking `CrossTenantCaseInstanceRepository`.
 
-Platform changes landed on main:
-- platform#189 (`a3c1d94`) — `LabelRule.triggerEvents` for event-scoped evaluation
-- platform#191 (`bb43338`) — `JexlExpressionEngine` in platform expression module
-
-Follow-up issues filed:
-- work#316 — label-triggered CDI observer pattern for non-label side effects
-- work#317 — update ARC42STORIES.MD and api-reference.md for LabelRule migration
-
-Prior session: #312 migrated the VIEW layer (QueueView → SubjectViewSpec, membership tracking → ViewMembershipTracker).
-
-## Cross-Module
-
-**We're enabling:**
-- `casehub-engine#730` — engine case queues can now use the same `LabelRule` + `ExpressionEngineRegistry` for labelling
-- Platform expression engines (JEXL, JQ, MVEL) shared across all repos via `ExpressionEngineRegistry`
+Garden entry `GE-20260724-04bc63` — IntelliJ MCP `ide_search_text` returns cross-project results when multiple projects share an IDE instance.
 
 ## Known Issues
 
-- `queues-examples` and `queues-dashboard` example scenarios have remaining compilation issues from the migration (field name mismatches in demo filter creation code). Core modules compile clean.
-- `engine-adapter` has a pre-existing `ActionGateCompletionApplier` compilation error (unrelated to #314)
+- `api/DeclineTarget.java` — pre-existing build error: platform SNAPSHOT added `toSerializedValue()` to `Preference` interface. Not related to #319.
+- `engine-adapter` tests — pre-existing 21 CDI deployment failures (unsatisfied `WorkItemCreator` dependency).
 
 ## What's Left
 
-- work#317 — doc sync: update ARC42STORIES.MD and api-reference.md for LabelRule types · M · Low
-- work#316 — label-triggered CDI observer pattern for non-label side effects · S · Low
+- #317 — doc sync: update ARC42STORIES.MD and api-reference.md for LabelRule types · M · Low
+- #316 — label-triggered CDI observer pattern for non-label side effects · S · Low
 - Platform#185 (proactive membership cleanup on view deletion) — adopt when it lands · S · Low
+- Fix `DeclineTarget.toSerializedValue()` build error · XS · Low
 
 ## What's Next
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
+| — | Fix DeclineTarget build error (platform SNAPSHOT drift) | XS | Low | Blocking full build |
 | #317 | Docs: update ARC42 + api-reference for LabelRule | M | Low | |
 | #309 | Progress model: visualisation modes | M | Med | |
 | #308 | Progress model: rollback control mechanism | S | Med | |
