@@ -1,23 +1,23 @@
-# Handoff — 2026-07-26
+# Handoff — 2026-07-28
 
 ## What's Done
 
-**#319 — Retired reactive tier in casehub-work.** Scope was 5 files in `engine-adapter/` — work was already blocking-first. Switched `WorkItemLifecycleAdapter` and `PlanItemCompletionApplier` from `ReactiveCrossTenantCaseInstanceRepository` to blocking `CrossTenantCaseInstanceRepository`. Converted 3 handlers from `blocking=true` to `@RunOnVirtualThread`.
+**#319 — Retired reactive tier in casehub-work** (closed). 5 production files in `engine-adapter/`: `WorkItemLifecycleAdapter`, `PlanItemCompletionApplier` switched to blocking `CrossTenantCaseInstanceRepository`; 3 handlers switched from `blocking=true` to `@RunOnVirtualThread`.
 
-**#320 — Platform SNAPSHOT sync.** `DeclineTarget.toSerializedValue()` (new `Preference` method), `SettingsScope` constructor gained `tenancyId` (3 call sites + 2 test fixtures). `QueueDashboardTest` flaky test fixed with Awaitility polling replacing fixed 200ms sleeps.
+**#320 — Platform/engine SNAPSHOT sync** (closed). Multi-round CI fix session syncing with platform #384 (reactive retirement) and engine #381:
+- `DeclineTarget.toSerializedValue()`, `SettingsScope` tenancyId parameter (3 production + 2 test sites)
+- `GroupMembershipProvider.membersOf()` tenancyId parameter (production + 3 test files)
+- Engine-adapter tests: removed reactive alternatives, switched to blocking repository APIs, removed `.await().atMost()` and `.toCompletableFuture().join()` patterns
+- `QueueDashboardTest` flaky fix: Awaitility polling replacing fixed 200ms sleeps
 
-Garden entry `GE-20260724-04bc63` — IntelliJ MCP cross-project index bleed gotcha.
+CI green on `32ab607b`.
 
-## Known Issues
-
-- engine-adapter tests: pre-existing 21 CDI deployment failures (unsatisfied `WorkItemCreator`) + test compilation errors referencing engine `Reactive*` types (tracked by parent#381)
-- `QueueDashboardTest` flaky fix pushed — CI result pending
+Garden entry `GE-20260724-04bc63` — IntelliJ MCP cross-project index bleed.
 
 ## What's Left
 
 - #317 — doc sync: update ARC42STORIES.MD and api-reference.md for LabelRule types · M · Low
 - #316 — label-triggered CDI observer pattern for non-label side effects · S · Low
-- Platform#185 (proactive membership cleanup on view deletion) — adopt when it lands · S · Low
 
 ## What's Next
 
