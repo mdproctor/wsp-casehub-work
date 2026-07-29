@@ -14,7 +14,7 @@ engine#60 introduced `casehub-engine-planning` as the successor to `casehub-engi
 
 | Repo | Module | Files | Classes used |
 |------|--------|-------|-------------|
-| casehub-work | engine-adapter | 5 prod + 4 test | `CasePlanModel`, `PlanItem`, `BlackboardRegistry` |
+| casehub-work | engine-adapter | 3 prod + 4 test (7 files) | `CasePlanModel`, `PlanItem`, `BlackboardRegistry` |
 
 ### POM-only changes (no Java imports)
 
@@ -59,8 +59,8 @@ All changes made in a single worktree slot across all 11 repos, verified locally
 ### Execution steps
 
 1. **parent** — replace `casehub-engine-blackboard` with `casehub-engine-planning` in BOM → `mvn install -N`
-2. **casehub-work/engine-adapter** — swap pom dependency + swap imports in 9 files → `mvn install -pl engine-adapter`
-3. **app repos** (aml, life, soc, iot, ops, fsitrading, quarkmind) — swap artifact ID in pom.xml → `mvn compile` each
+2. **casehub-work/engine-adapter** — swap pom dependency, update `<description>` ("blackboard" → "planning"), swap imports in 7 files (3 prod + 4 test) → `mvn install -pl engine-adapter`
+3. **app repos** (aml, life, soc, iot, ops, fsitrading, quarkmind) — swap artifact ID in pom.xml; update stale XML comments referencing blackboard (quarkmind) → `mvn compile` each
 4. **scaffold** — swap artifact ID in template pom
 5. **engine** — delete `blackboard/` directory
 
