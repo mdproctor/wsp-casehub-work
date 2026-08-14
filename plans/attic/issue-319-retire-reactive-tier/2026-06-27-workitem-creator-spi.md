@@ -419,7 +419,7 @@ Refs #275"
 
 - [ ] **Step 1: Add default method to WorkItemStore**
 
-In `runtime/src/main/java/io/casehub/work/runtime/repository/WorkItemStore.java`, add after the `findByCallerRef` default method:
+In `../../../../api/src/main/java/io/casehub/work/api/spi/WorkItemStore.java`, add after the `findByCallerRef` default method:
 
 ```java
     default Optional<WorkItem> findActiveByCallerRef(String callerRef) {

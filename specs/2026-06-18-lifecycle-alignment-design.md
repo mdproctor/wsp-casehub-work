@@ -305,7 +305,7 @@ wi.statusNote = statusNote;
 
 Without this, progress data is silently lost for MongoDB-backed deployments.
 
-**Pre-existing gap (separate issue):** `MongoWorkItemDocument` is also missing 13+ fields present on the JPA `WorkItem` entity: `version`, `accumulatedUnclaimedSeconds`, `lastReturnedToPoolAt`, `confidenceScore`, `callerRef`, `parentId`, `scope`, `templateId`, `permittedOutcomes`, `excludedUsers`, `outcome`, `inputDataSchema`, `outputDataSchema`. MongoDB-backed deployments silently lose this data on round-trip. File as a separate casehub-work issue — not introduced by this spec.
+**Pre-existing gap (separate issue):** `MongoWorkItemDocument` is also missing 13+ fields present on the JPA `WorkItemEntity` entity: `version`, `accumulatedUnclaimedSeconds`, `lastReturnedToPoolAt`, `confidenceScore`, `callerRef`, `parentId`, `scope`, `templateId`, `permittedOutcomes`, `excludedUsers`, `outcome`, `inputDataSchema`, `outputDataSchema`. MongoDB-backed deployments silently lose this data on round-trip. File as a separate casehub-work issue — not introduced by this spec.
 
 ### 7. Response DTOs and context builder
 

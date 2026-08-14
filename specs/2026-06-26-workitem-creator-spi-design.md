@@ -127,9 +127,9 @@ All methods return `void` — callers don't need post-mutation state. The lifecy
 
 ### Implementation
 
-Two classes — **`WorkItemService`** (internal, returns `WorkItem` entities for REST resources, template service, spawn service) and **`WorkItemSpiAdapter`** (external, returns `WorkItemRef` for SPI consumers).
+Two classes — **`WorkItemService`** (internal, returns `WorkItemEntity` entities for REST resources, template service, spawn service) and **`WorkItemSpiAdapter`** (external, returns `WorkItemRef` for SPI consumers).
 
-`WorkItemSpiAdapter` is an `@ApplicationScoped` bean that implements `WorkItemCreator` + `WorkItemLifecycle`. It injects `WorkItemService` and `WorkItemTemplateService`, routes based on `templateId`, delegates to existing methods, and converts `WorkItem` → `WorkItemRef`. This is the adapter in hexagonal architecture — the SPI interfaces are the port, the adapter translates between the external contract (pure-Java `WorkItemRef`) and the internal domain model (JPA `WorkItem`). Internal code injects `WorkItemService` directly; external modules inject the SPI interfaces.
+`WorkItemSpiAdapter` is an `@ApplicationScoped` bean that implements `WorkItemCreator` + `WorkItemLifecycle`. It injects `WorkItemService` and `WorkItemTemplateService`, routes based on `templateId`, delegates to existing methods, and converts `WorkItemEntity` → `WorkItemRef`. This is the adapter in hexagonal architecture — the SPI interfaces are the port, the adapter translates between the external contract (pure-Java `WorkItemRef`) and the internal domain model (JPA `WorkItemEntity`). Internal code injects `WorkItemService` directly; external modules inject the SPI interfaces.
 
 **Routing logic in `WorkItemSpiAdapter.create()`:**
 - `request.templateId == null` → `workItemService.create(request)` — direct creation
@@ -212,12 +212,12 @@ The compile dependency changes from `casehub-work` to `casehub-work-api`.
 
 | File | Drops | Uses instead |
 |------|-------|-------------|
-| `HumanTaskScheduleHandler` | `WorkItemService`, `WorkItemTemplateService`, `WorkItemTemplate`, `WorkItem`, `OutcomeCodecs` | `WorkItemCreator` |
-| `ActionGateCancelledHandler` | `WorkItemStore`, `WorkItemService`, `WorkItem` | `WorkItemCreator.findByCallerRef()` + `WorkItemLifecycle.cancel()` |
-| `WorkItemLifecycleAdapter` | `WorkItemLifecycleEvent` (runtime), `WorkItem` | `@ObservesAsync WorkItemEvent` (api) |
-| `ActionGateCompletionApplier` | `WorkItem` param | `WorkItemRef` param |
-| `PlanItemCompletionApplier` | `WorkItem` param | `WorkItemRef` param |
-| `HumanTaskRecoveryService` | `WorkItemService`, `WorkItem` | `WorkItemCreator.findByCallerRef()` |
+| `HumanTaskScheduleHandler` | `WorkItemService`, `WorkItemTemplateService`, `WorkItemTemplate`, `WorkItemEntity`, `OutcomeCodecs` | `WorkItemCreator` |
+| `ActionGateCancelledHandler` | `WorkItemStore`, `WorkItemService`, `WorkItemEntity` | `WorkItemCreator.findByCallerRef()` + `WorkItemLifecycle.cancel()` |
+| `WorkItemLifecycleAdapter` | `WorkItemLifecycleEvent` (runtime), `WorkItemEntity` | `@ObservesAsync WorkItemEvent` (api) |
+| `ActionGateCompletionApplier` | `WorkItemEntity` param | `WorkItemRef` param |
+| `PlanItemCompletionApplier` | `WorkItemEntity` param | `WorkItemRef` param |
+| `HumanTaskRecoveryService` | `WorkItemService`, `WorkItemEntity` | `WorkItemCreator.findByCallerRef()` |
 
 **casehub-work postgres-broadcaster (cross-module impact):**
 

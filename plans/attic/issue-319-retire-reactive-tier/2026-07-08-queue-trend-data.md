@@ -34,7 +34,7 @@
 Adds a count method to the store SPI so `QueueMembershipService.countMembers()` can count matching WorkItems without hydrating entities.
 
 **Files:**
-- Modify: `runtime/src/main/java/io/casehub/work/runtime/repository/WorkItemStore.java`
+- Modify: `../../../../api/src/main/java/io/casehub/work/api/spi/WorkItemStore.java`
 - Modify: `runtime/src/main/java/io/casehub/work/runtime/repository/jpa/JpaWorkItemStore.java`
 - Modify: `persistence-mongodb/src/main/java/io/casehub/work/mongodb/MongoWorkItemStore.java`
 - Modify: `persistence-memory/src/main/java/io/casehub/work/memory/InMemoryWorkItemStore.java`

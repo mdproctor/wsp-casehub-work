@@ -4,7 +4,7 @@
 
 **Goal:** Add MANUAL/INFERRED label support to WorkItem core (sub-epic #51 — issues #53, #54, #55).
 
-**Architecture:** `WorkItemLabel` is a JPA `@Embeddable` stored via `@ElementCollection` in a `work_item_label` table. `LabelVocabulary` and `LabelDefinition` are Panache entities enforcing path declarations. All changes are in the `runtime` and `testing` modules only — zero queues-module dependency. Strict TDD: unit test first, @QuarkusTest second, commit per issue.
+**Architecture:** `WorkItemLabelEntity` is a JPA `@Embeddable` stored via `@ElementCollection` in a `work_item_label` table. `LabelVocabulary` and `LabelDefinition` are Panache entities enforcing path declarations. All changes are in the `runtime` and `testing` modules only — zero queues-module dependency. Strict TDD: unit test first, @QuarkusTest second, commit per issue.
 
 **Tech Stack:** Java 21, Quarkus 3.32.2, Hibernate ORM Panache, Flyway, H2 (test), REST Assured, JUnit 5
 
@@ -132,7 +132,7 @@ Expected: `Tests run: 1, Failures: 0, Errors: 0`
 
 - [ ] **Step 1: Write failing tests**
 
-Add to `WorkItemLabelTest`:
+Add to `WorkItemLabelEntityTest`:
 
 ```java
     @Test

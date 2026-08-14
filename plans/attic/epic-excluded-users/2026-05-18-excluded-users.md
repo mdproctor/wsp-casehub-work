@@ -4,7 +4,7 @@
 
 **Goal:** Add `excludedUsers` conflict-of-interest enforcement to WorkItem and WorkItemTemplate via an `ExclusionPolicy` SPI, enforcing exclusion at all five assignment paths: auto-assignment candidate filtering, manual claim, direct assignee at creation, delegation, and `SelectionContext` for external strategies.
 
-**Architecture:** `ExclusionPolicy` SPI lives in `casehub-work-api` (Tier 1, pure Java). `CommaSeparatedExclusionPolicy` is the `@DefaultBean` in runtime. `excludedUsers` is a TEXT comma-separated field on both `WorkItemTemplate` (declared at template level) and `WorkItem` (snapshotted at instantiation). `SelectionContext` gains `excludedUsers` so external `WorkerSelectionStrategy` implementations can apply exclusion logic. All five enforcement points use the injected `ExclusionPolicy`.
+**Architecture:** `ExclusionPolicy` SPI lives in `casehub-work-api` (Tier 1, pure Java). `CommaSeparatedExclusionPolicy` is the `@DefaultBean` in runtime. `excludedUsers` is a TEXT comma-separated field on both `WorkItemTemplate` (declared at template level) and `WorkItemEntity` (snapshotted at instantiation). `SelectionContext` gains `excludedUsers` so external `WorkerSelectionStrategy` implementations can apply exclusion logic. All five enforcement points use the injected `ExclusionPolicy`.
 
 **Tech Stack:** Java 21, Quarkus 3.32.2, Hibernate ORM/Panache, Flyway, REST Assured + JUnit 5.
 

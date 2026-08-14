@@ -194,7 +194,7 @@ This is a **breaking API change** on `WorkItemResponse` and `WorkItemWithAuditRe
 
 ### New field: delegationDeclineTarget (typed)
 
-`WorkItem` entity:
+`WorkItemEntity` entity:
 
 ```java
 @Column(name = "delegation_decline_target")

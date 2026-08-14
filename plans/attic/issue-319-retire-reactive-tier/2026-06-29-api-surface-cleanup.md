@@ -352,7 +352,7 @@ In `runtime/src/main/java/io/casehub/work/runtime/event/WorkItemLifecycleEvent.j
 
 1. Remove `extends WorkLifecycleEvent` from class declaration
 2. Remove `import io.casehub.work.api.WorkLifecycleEvent;`
-3. Rename method `source()` → `workItem()`, change return type `Object` → `WorkItem`
+3. Rename method `source()` → `workItem()`, change return type `Object` → `WorkItemEntity`
 4. Update `fromWire()` Javadoc: replace "Callers must not invoke source() or context()" with "Callers must not invoke workItem() or context()"
 5. Remove `@Override` from `eventType()`, `context()` (no longer overriding abstract class methods; `eventType()` now implements `WorkItemEvent` interface method — keep `@Override` on it)
 
@@ -381,7 +381,7 @@ In `notifications/src/main/java/io/casehub/work/notifications/service/Notificati
 
 Line 73: `final WorkItem wi = (WorkItem) event.source();` → `final WorkItem wi = event.workItem();`
 
-(The event parameter is already typed `WorkItemLifecycleEvent`, so `workItem()` returns `WorkItem` directly — no cast needed.)
+(The event parameter is already typed `WorkItemLifecycleEvent`, so `workItem()` returns `WorkItemEntity` directly — no cast needed.)
 
 - [ ] **Step 15: Update notification channels — cast + workItem()**
 

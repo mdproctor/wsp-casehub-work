@@ -38,7 +38,7 @@ scripts/mvn-install core            # publish core module (needed when core chan
 | Modify | `runtime/src/main/java/io/casehub/work/runtime/api/WorkItemMapper.java` | Remove `delegationState`, add `delegationDeclineTarget` |
 | Modify | `persistence-mongodb/src/main/java/io/casehub/work/mongodb/MongoWorkItemDocument.java` | Remove `delegationState`, add `delegationDeclineTarget` |
 | Create | `runtime/src/main/resources/db/work/migration/V34__delegation_state_drop_and_decline_target.sql` | Drop old column, add new column |
-| Modify | `runtime/src/main/java/io/casehub/work/runtime/repository/WorkItemQuery.java` | Add DELEGATED to expired() status list |
+| Modify | `../../../../api/src/main/java/io/casehub/work/api/WorkItemQuery.java` | Add DELEGATED to expired() status list |
 | Modify | `runtime/src/main/java/io/casehub/work/runtime/service/WorkItemService.java` | Update delegate(), add acceptDelegation(), declineDelegation(), findById() |
 | Modify | `runtime/src/test/java/io/casehub/work/runtime/service/WorkItemServiceTest.java` | Update delegate test, add delegation lifecycle tests |
 | Modify | `runtime/src/main/java/io/casehub/work/runtime/api/WorkItemResource.java` | New accept/decline-delegation endpoints, update getById() |
@@ -846,7 +846,7 @@ Refs #245, Refs #92"
 ## Task 6: WorkItemQuery.expired() — add DELEGATED (#245)
 
 **Files:**
-- Modify: `runtime/src/main/java/io/casehub/work/runtime/repository/WorkItemQuery.java`
+- Modify: `../../../../api/src/main/java/io/casehub/work/api/WorkItemQuery.java`
 
 - [ ] **Step 6.1: Write failing test**
 
@@ -885,7 +885,7 @@ If it passes: proceed. If it fails for another reason: investigate.
 
 - [ ] **Step 6.3: Update WorkItemQuery.expired()**
 
-In `runtime/src/main/java/io/casehub/work/runtime/repository/WorkItemQuery.java`, update the `expired()` factory:
+In `../../../../api/src/main/java/io/casehub/work/api/WorkItemQuery.java`, update the `expired()` factory:
 
 ```java
 public static WorkItemQuery expired(final Instant now) {

@@ -785,7 +785,7 @@ Same TDD pattern. Wire callers to eliminate `LabelDefinition.findByVocabularyId(
 ### Task 8: Cross-tenant stores
 
 **Files:**
-- Create: `runtime/src/main/java/io/casehub/work/runtime/repository/CrossTenantWorkItemStore.java`
+- Create: `../../../../api/src/main/java/io/casehub/work/api/spi/CrossTenantWorkItemStore.java`
 - Create: `runtime/src/main/java/io/casehub/work/runtime/repository/CrossTenantWorkItemScheduleStore.java`
 - Create: `runtime/src/main/java/io/casehub/work/runtime/repository/CrossTenantRoutingCursorStore.java`
 - Create: JPA implementations in `runtime/src/main/java/io/casehub/work/runtime/repository/jpa/`

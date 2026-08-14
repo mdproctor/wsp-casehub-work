@@ -1652,7 +1652,7 @@ JAVA_HOME=$(/usr/libexec/java_home -v 26) mvn test -Dtest=WorkItemContextBuilder
 
 `runtime/src/main/java/io/quarkiverse/workitems/runtime/event/WorkItemContextBuilder.java`:
 
-Copy the `toMap(WorkItem)` method body verbatim from the existing `JexlConditionEvaluator.toMap()` (it reads every public field of `WorkItem`). Class structure:
+Copy the `toMap(WorkItem)` method body verbatim from the existing `JexlConditionEvaluator.toMap()` (it reads every public field of `WorkItemEntity`). Class structure:
 
 ```java
 package io.quarkiverse.work.runtime.event;
@@ -1698,10 +1698,10 @@ JAVA_HOME=$(/usr/libexec/java_home -v 26) mvn test -Dtest=WorkItemContextBuilder
 
 The new class:
 - Extends `WorkLifecycleEvent` (from `io.quarkiverse.work.api`)
-- Carries the `WorkItem` entity as a private field (so `source()` can return it)
+- Carries the `WorkItemEntity` entity as a private field (so `source()` can return it)
 - Keeps all existing accessor methods (`type()`, `workItemId()`, `status()`, `actor()`, `detail()`, `rationale()`, `planRef()`, `occurredAt()`, `source()`, `subject()`) so all callers continue to compile
 - Implements `eventType()`, `context()`, `source()` from `WorkLifecycleEvent`
-- Updates static factory methods to take `WorkItem` entity directly (derive `id` and `status` from it)
+- Updates static factory methods to take `WorkItemEntity` entity directly (derive `id` and `status` from it)
 
 ```java
 package io.quarkiverse.work.runtime.event;
@@ -2040,7 +2040,7 @@ public class NotifyEscalationPolicy implements EscalationPolicy {
 }
 ```
 
-Update `AutoRejectEscalationPolicy` and `ReassignEscalationPolicy` the same way — cast `event.source()` to `WorkItem`, check `event.eventType()` where the two cases differ.
+Update `AutoRejectEscalationPolicy` and `ReassignEscalationPolicy` the same way — cast `event.source()` to `WorkItemEntity`, check `event.eventType()` where the two cases differ.
 
 - [ ] **Step 2: Update ExpiryCleanupJob to build event and call escalate()**
 
@@ -2475,7 +2475,7 @@ After completing all tasks, verify:
 - [ ] Integration tests (19) pass in JVM mode
 - [ ] `FilterRegistryEngine` observer type is `WorkLifecycleEvent`, not `WorkItemLifecycleEvent`
 - [ ] `FilterAction.apply()` signature is `(Object workUnit, Map<String,Object> params)`
-- [ ] `JexlConditionEvaluator.evaluate()` takes `Map<String,Object>` as third arg, not `WorkItem`
+- [ ] `JexlConditionEvaluator.evaluate()` takes `Map<String,Object>` as third arg, not `WorkItemEntity`
 - [ ] No file imports `io.quarkiverse.work.filterregistry.*`
 - [ ] No file imports `io.quarkiverse.work.spi.*`
 - [ ] DESIGN.md, CLAUDE.md, HANDOFF.md all reflect the new structure

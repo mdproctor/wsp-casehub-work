@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add `inputDataSchema` and `outputDataSchema` to `WorkItemTemplate` (snapshotted onto `WorkItem` at instantiation), validate payload at create and resolution at complete in the service layer, and remove the now-redundant `WorkItemFormSchema` entity and its CRUD API.
+**Goal:** Add `inputDataSchema` and `outputDataSchema` to `WorkItemTemplate` (snapshotted onto `WorkItemEntity` at instantiation), validate payload at create and resolution at complete in the service layer, and remove the now-redundant `WorkItemFormSchema` entity and its CRUD API.
 
-**Architecture:** Template-level JSON Schema fields are snapshotted onto `WorkItem` at instantiation (same pattern as `permittedOutcomes`). `FormSchemaValidationService` (existing, retained) moves from resource injection to service injection. `WorkItemFormSchema`, its REST resource, and category-level validation in `WorkItemResource` are deleted — the template is the single source of truth for type-level contracts.
+**Architecture:** Template-level JSON Schema fields are snapshotted onto `WorkItemEntity` at instantiation (same pattern as `permittedOutcomes`). `FormSchemaValidationService` (existing, retained) moves from resource injection to service injection. `WorkItemFormSchema`, its REST resource, and category-level validation in `WorkItemResource` are deleted — the template is the single source of truth for type-level contracts.
 
 **Tech Stack:** Java 21, Quarkus 3.32.2, Hibernate ORM / Panache, Flyway, `networknt/json-schema-validator` (already on classpath via `FormSchemaValidationService`), REST Assured + JUnit 5 for tests.
 

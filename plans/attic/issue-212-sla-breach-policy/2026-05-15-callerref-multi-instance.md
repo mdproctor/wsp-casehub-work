@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Propagate `callerRef` from `WorkItemTemplateService.instantiate()` through to the parent `WorkItem` when instantiating multi-instance templates, so `WorkItemGroupLifecycleEvent` carries the correct routing signal for the casehub-engine.
+**Goal:** Propagate `callerRef` from `WorkItemTemplateService.instantiate()` through to the parent `WorkItemEntity` when instantiating multi-instance templates, so `WorkItemGroupLifecycleEvent` carries the correct routing signal for the casehub-engine.
 
-**Architecture:** Add a `callerRef` parameter to `MultiInstanceSpawnService.createGroup()` and set it on the parent `WorkItem`; remove the warn-and-ignore guard in `WorkItemTemplateService.instantiate()` and pass the value through. Children remain callerRef-null — the coordinator's `WorkItemGroupLifecycleEvent` already reads `parent.callerRef` and echoes it correctly.
+**Architecture:** Add a `callerRef` parameter to `MultiInstanceSpawnService.createGroup()` and set it on the parent `WorkItemEntity`; remove the warn-and-ignore guard in `WorkItemTemplateService.instantiate()` and pass the value through. Children remain callerRef-null — the coordinator's `WorkItemGroupLifecycleEvent` already reads `parent.callerRef` and echoes it correctly.
 
 **Tech Stack:** Java 21, Quarkus 3.32.2, Panache, JUnit 5 + AssertJ + Awaitility, `@QuarkusTest`
 

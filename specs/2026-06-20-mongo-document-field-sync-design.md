@@ -6,7 +6,7 @@
 
 ## Problem
 
-`MongoWorkItemDocument` is missing 13 fields present on the `WorkItem` JPA entity. Data written through the MongoDB store silently drops these fields on write and never restores them on read. This breaks:
+`MongoWorkItemDocument` is missing 13 fields present on the `WorkItemEntity` JPA entity. Data written through the MongoDB store silently drops these fields on write and never restores them on read. This breaks:
 
 - **Multi-instance groups:** `parentId` not persisted → `findByParentId()`, `findByParentIdExcludingStatuses()`, `findByParentIdWithStatuses()`, `countByParentAndAssignee()` all return empty/zero via default linear-scan implementations that read `toDomain()` output.
 - **Engine spawn routing:** `callerRef` not persisted → `findByCallerRef()` returns empty. Engine-initiated WorkItems cannot be correlated back to their originating PlanItem.

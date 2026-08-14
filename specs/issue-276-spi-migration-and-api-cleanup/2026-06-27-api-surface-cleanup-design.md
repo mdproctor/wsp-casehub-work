@@ -16,7 +16,7 @@ Three competing event abstractions coexist:
 2. `WorkItemEvent` — interface in api/: `ref(): WorkItemRef` with typed defaults
 3. `WorkItemLifecycleEvent` — final class in runtime/: extends #1, implements #2
 
-`source()` returns `Object`, forcing all 5 callers to downcast to `WorkItem`. Every caller is in a module that already depends on runtime — the `Object` return buys nothing. `NotificationPayload` references `WorkLifecycleEvent` in api/ solely to have a non-runtime event type to hold.
+`source()` returns `Object`, forcing all 5 callers to downcast to `WorkItemEntity`. Every caller is in a module that already depends on runtime — the `Object` return buys nothing. `NotificationPayload` references `WorkLifecycleEvent` in api/ solely to have a non-runtime event type to hold.
 
 ### Design
 
@@ -66,11 +66,11 @@ public interface WorkItemEvent {
 |----------|--------|--------|
 | `FilterRegistryEngine.onLifecycleEvent()` | runtime/ | `@Observes WorkLifecycleEvent` → `@Observes WorkItemLifecycleEvent` |
 | `FilterRegistryEngine.processEvent()` | runtime/ | Parameter `WorkLifecycleEvent` → `WorkItemLifecycleEvent` (package-private, used by tests) |
-| `FilterRegistryEngine.applyFilters()` | runtime/ | Parameter `WorkLifecycleEvent` → `WorkItemLifecycleEvent`; body changes `event.source()` → `event.workItem()` to pass typed `WorkItem` to `FilterAction.apply()` |
+| `FilterRegistryEngine.applyFilters()` | runtime/ | Parameter `WorkLifecycleEvent` → `WorkItemLifecycleEvent`; body changes `event.source()` → `event.workItem()` to pass typed `WorkItemEntity` to `FilterAction.apply()` |
 | `EscalationSummaryObserver` | ai/ | `@Observes WorkLifecycleEvent` → `@Observes WorkItemLifecycleEvent`, use `event.workItem()` |
 | `WorkCloudEventAdapter` | runtime/ | **Not affected** — already observes `WorkItemLifecycleEvent` and uses typed field accessors (`type()`, `sourceUri()`, `subject()`, `occurredAt()`, `tenancyId()`). Never calls `source()`. |
 
-**FilterAction SPI:** parameter type changes from `apply(Object workUnit, ...)` to `apply(WorkItem workItem, ...)` in runtime/filter/. The `Object` parameter was stranded generality — every implementation (`ApplyLabelAction`, `SetPriorityAction`, `OverrideCandidateGroupsAction`) already casts to `WorkItem`, there is no other domain type in the filter engine, and no external consumer implements it. Typing to `WorkItem` eliminates three unchecked casts and adds compile-time safety. Intentionally NOT moved to api/spi/ — the `WorkItem` parameter is a runtime type, which reinforces the placement in runtime/filter/.
+**FilterAction SPI:** parameter type changes from `apply(Object workUnit, ...)` to `apply(WorkItem workItem, ...)` in runtime/filter/. The `Object` parameter was stranded generality — every implementation (`ApplyLabelAction`, `SetPriorityAction`, `OverrideCandidateGroupsAction`) already casts to `WorkItemEntity`, there is no other domain type in the filter engine, and no external consumer implements it. Typing to `WorkItemEntity` eliminates three unchecked casts and adds compile-time safety. Intentionally NOT moved to api/spi/ — the `WorkItemEntity` parameter is a runtime type, which reinforces the placement in runtime/filter/.
 
 **`WorkItemGroupLifecycleEvent`:** stays as-is. Tracked in #279 for future evaluation.
 
@@ -82,7 +82,7 @@ public interface WorkItemEvent {
 
 - **`WorkEventTypeTest.concreteEvent_implementsAbstractMethods`**: Creates an anonymous `WorkLifecycleEvent` providing 3 methods (`eventType`, `context`, `source`). After deletion, becomes an anonymous `WorkItemEvent` requiring 5 methods (`ref`, `eventType`, `occurredAt`, `actor`, `detail`). The `context()` and `source()` assertions are removed; `ref()` requires constructing a `WorkItemRef` record.
 
-- **`FilterRegistryEngineTest`**: Structural rewrite. Currently creates anonymous `WorkLifecycleEvent` subclasses with arbitrary `source()` values (strings like `"WORK_UNIT_1"`, `"UNIT"`) — synthetic, not real WorkItem entities. After the change, `FilterRegistryEngine` observes `WorkItemLifecycleEvent` (final class, no anonymous subclass possible). The test helper `event()` must be rewritten to use `WorkItemLifecycleEvent.of()`, which requires constructing actual `WorkItem` entities. The test's simplicity was enabled by the abstract class design; with the concrete class, every test needs a WorkItem fixture.
+- **`FilterRegistryEngineTest`**: Structural rewrite. Currently creates anonymous `WorkLifecycleEvent` subclasses with arbitrary `source()` values (strings like `"WORK_UNIT_1"`, `"UNIT"`) — synthetic, not real WorkItem entities. After the change, `FilterRegistryEngine` observes `WorkItemLifecycleEvent` (final class, no anonymous subclass possible). The test helper `event()` must be rewritten to use `WorkItemLifecycleEvent.of()`, which requires constructing actual `WorkItemEntity` entities. The test's simplicity was enabled by the abstract class design; with the concrete class, every test needs a WorkItem fixture.
 
 - **`WorkItemLifecycleEventTest`**: Update assertions for `workItem()` instead of `source()`.
 
@@ -120,7 +120,7 @@ Move 14 interfaces from `io.casehub.work.api` to `io.casehub.work.api.spi`:
 **What stays in `io.casehub.work.api`:** value types (19 records/enums), events (WorkItemEvent, WorkItemGroupLifecycleEvent), exceptions (2), utilities (WorkCapabilities, WorkItemCallerRef, WorkItemCreateRequest).
 
 **Intentionally NOT moved — runtime-internal SPIs:**
-- `FilterAction` (runtime/filter/) — takes `WorkItem workItem` (typed in #278, was `Object`), runtime-internal, no external consumers. Stays in `io.casehub.work.runtime.filter` per the `consumer-spi-placement` protocol: its parameter type is a runtime class (`WorkItem`), and the SPI exists to be implemented within the extension's own modules only.
+- `FilterAction` (runtime/filter/) — takes `WorkItem workItem` (typed in #278, was `Object`), runtime-internal, no external consumers. Stays in `io.casehub.work.runtime.filter` per the `consumer-spi-placement` protocol: its parameter type is a runtime class (`WorkItemEntity`), and the SPI exists to be implemented within the extension's own modules only.
 
 ---
 

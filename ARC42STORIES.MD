@@ -15,7 +15,7 @@
 
 `casehub-work` is the human task lifecycle foundation module. It models WorkItems — formal human task assignments with inbox management, SLA enforcement via configurable deadlines, delegation, group routing, and policy-driven escalation.
 
-Core capabilities: `WorkItem` (human task entity with status, candidateGroups, claimDeadline, callerRef), `WorkItemService` (create, claim, complete, reject, cancel, extend), `ExpiryLifecycleService` (deadline enforcement — triggers SlaBreachPolicy and fires SlaBreachEvent), `SlaBreachPolicy` SPI (domain-defined escalation decision: Fail | EscalateTo | Extend | Chained), `BreachDecision` sealed interface, `WorkItemLifecycleEvent` (CDI event on status transitions), `casehub-work-adapter` (Quarkus extension that bridges WorkItemLifecycleEvent to engine PlanItem completion via HumanTaskScheduleHandler + WorkItemLifecycleAdapter).
+Core capabilities: `WorkItemEntity` (human task entity with status, candidateGroups, claimDeadline, callerRef), `WorkItemService` (create, claim, complete, reject, cancel, extend), `ExpiryLifecycleService` (deadline enforcement — triggers SlaBreachPolicy and fires SlaBreachEvent), `SlaBreachPolicy` SPI (domain-defined escalation decision: Fail | EscalateTo | Extend | Chained), `BreachDecision` sealed interface, `WorkItemLifecycleEvent` (CDI event on status transitions), `casehub-work-adapter` (Quarkus extension that bridges WorkItemLifecycleEvent to engine PlanItem completion via HumanTaskScheduleHandler + WorkItemLifecycleAdapter).
 
 `SlaBreachPolicy` lives in `casehub-work-api` — every consumer already has it on their classpath; the SPI is intrinsically work-bounded (ADR-0007 in casehub-devtown).
 
@@ -142,7 +142,7 @@ See §1 Quality Goals for the primary scenarios.
 
 | Term | Definition |
 |---|---|
-| `WorkItem` | Human task entity with inbox, claim deadline (SLA), delegation, escalation, and completion lifecycle. |
+| `WorkItemEntity` | Human task entity with inbox, claim deadline (SLA), delegation, escalation, and completion lifecycle. |
 | `SlaBreachPolicy` | SPI in casehub-work-api. Called by ExpiryLifecycleService when a WorkItem expires. Returns a BreachDecision. |
 | `BreachDecision` | Sealed interface: Fail | EscalateTo | Extend | Chained. Models escalation response to SLA breach. |
 | `casehub-work-adapter` | Quarkus extension — bridges WorkItemLifecycleEvent to engine PlanItem completion. HumanTaskScheduleHandler creates WorkItems from HumanTaskScheduleEvent; WorkItemLifecycleAdapter signals PlanItem. |

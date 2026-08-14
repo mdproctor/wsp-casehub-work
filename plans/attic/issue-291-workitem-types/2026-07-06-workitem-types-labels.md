@@ -427,7 +427,7 @@ Refs #291
 ### Task 4: Query and event layer
 
 **Files:**
-- Modify: `runtime/src/main/java/io/casehub/work/runtime/repository/WorkItemQuery.java`
+- Modify: `../../../../api/src/main/java/io/casehub/work/api/WorkItemQuery.java`
 - Modify: `persistence-memory/src/main/java/io/casehub/work/memory/InMemoryWorkItemStore.java`
 - Modify: `runtime/src/main/java/io/casehub/work/runtime/event/WorkItemLifecycleEvent.java`
 - Modify: `runtime/src/main/java/io/casehub/work/runtime/event/WorkItemContextBuilder.java`
@@ -483,7 +483,7 @@ Expected: FAIL — `type()` method does not exist on WorkItemQuery
 
 - [ ] **Step 3: Update WorkItemQuery — replace category with type**
 
-In `runtime/src/main/java/io/casehub/work/runtime/repository/WorkItemQuery.java`:
+In `../../../../api/src/main/java/io/casehub/work/api/WorkItemQuery.java`:
 
 Replace all occurrences of `category` (field, constructor, accessor, builder method, toBuilder) with `type`. The field type stays `String`. Update the Javadoc to describe ancestor matching semantics.
 

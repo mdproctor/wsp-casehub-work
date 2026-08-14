@@ -829,7 +829,7 @@ public class WebhookEventHandler {
 
 - [ ] **Step 4: Check WorkItemLabel structure**
 
-Before compiling, verify `WorkItemLabel` has a `path` field:
+Before compiling, verify `WorkItemLabelEntity` has a `path` field:
 ```bash
 grep -n "public.*path\|String path" \
   /Users/mdproctor/claude/casehub/work/runtime/src/main/java/io/casehub/work/runtime/model/WorkItemLabel.java

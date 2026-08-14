@@ -416,7 +416,7 @@ git -C /Users/mdproctor/claude/casehub/work commit -m "feat(#314): add LabelRule
 - Test: `runtime/src/test/java/io/casehub/work/runtime/filter/LabelRuleEngineTest.java`
 
 **Interfaces:**
-- Consumes: `LabelRuleStore` (Task 1), platform `LabelRule`, `LabelAction`, `ExpressionEngineRegistry`, `LambdaExpression`, `Instance<LabelRule>`, `WorkItemContextBuilder`, `WorkItem`, `WorkItemLabel`, `LabelPersistence`
+- Consumes: `LabelRuleStore` (Task 1), platform `LabelRule`, `LabelAction`, `ExpressionEngineRegistry`, `LambdaExpression`, `Instance<LabelRule>`, `WorkItemContextBuilder`, `WorkItemEntity`, `WorkItemLabelEntity`, `LabelPersistence`
 - Produces: `LabelRuleEngine.evaluate(WorkItem, Map<String,Object>, String)` — consumed by Tasks 3, 5
 
 - [ ] **Step 1: Write failing test — basic Add action**

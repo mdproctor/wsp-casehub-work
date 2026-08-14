@@ -310,7 +310,7 @@ No changes. `tenancyId` never appears in request DTOs, response DTOs, JSON Schem
 Request/response types already exist separately from entities:
 - Request POJOs (`WorkItemCreateRequest` etc.) — no tenancyId field
 - Response POJOs (`WorkItemResponse`, `WorkItemWithAuditResponse`) — mapper does not map tenancyId out
-- Entity (`WorkItem`) — has tenancyId, internal only
+- Entity (`WorkItemEntity`) — has tenancyId, internal only
 
 ---
 
