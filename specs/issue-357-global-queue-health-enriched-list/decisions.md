@@ -8,3 +8,15 @@
 **Sources:** `QueueResource.java:61` (current list), `WorkItemSummary.java`, `QueueMembershipService.java:33` (cached summarize)
 **Exploration:** quick
 **Status:** captured
+
+## D2: Health endpoint aggregation strategy
+
+**Choice:** Aggregate from per-queue cached summaries — iterate tenant queues, call `summarize()` for each (cache hits), sum totals into KPI array
+**Alternatives:**
+- Direct JPQL aggregate query — single query over all WorkItems, but counts all WorkItems (not just queued ones), duplicates counting logic from `WorkItemSummaryBuilder`, and reimplements overdue/breach thresholds
+**Rationale:** Health endpoint is about queue health — items *in* queues, not all WorkItems. Per-queue summaries are already cached (`@CacheResult`), so aggregation is in-memory. Reuses existing `summarize()` without duplicating logic.
+**Trade-offs:** 100 queues = 100 cache lookups. Acceptable — in-memory map access, not DB round-trips. If this becomes a bottleneck, a dedicated aggregate cache can be added later.
+**Sources:** `QueueMembershipService.java:33` (cached summarize), `WorkItemSummary.java`, issue #357 body (KPI format)
+**Exploration:** quick
+**Depends on:** D1 (same WorkItemSummary shape feeds both list enrichment and health aggregation)
+**Status:** captured
