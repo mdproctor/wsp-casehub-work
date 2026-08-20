@@ -44,3 +44,4 @@
 | [2026-07-02-mdp01-batch-that-widened-the-api.md](2026-07-02-mdp01-batch-that-widened-the-api.md) | 2026-07-02 | Seven SPI issues on one branch; callerRef ordering; WorkItemObserver; MANUALLY_ESCALATED |
 | [2026-07-02-mdp02-the-map-that-was-already-there.md](2026-07-02-mdp02-the-map-that-was-already-there.md) | 2026-07-02 | Normative alignment — mapping WorkItem lifecycle to Qhorus speech acts and commitment states |
 | [2026-07-14-mdp01-summary-that-was-already-there.md](2026-07-14-mdp01-summary-that-was-already-there.md) | 2026-07-14 | Queue summary endpoint — InboxSummaryBuilder renamed to WorkItemSummaryBuilder; oldestCreatedAt added; design review caught naming collision |
+| [2026-08-20-mdp01-documenting-federation-layer.md](2026-08-20-mdp01-documenting-federation-layer.md) | 2026-08-20 | L8 Federation layer added to ARC42STORIES.MD — layer placement decision, shadow replication architecture, filter-on-creation subscription model |
