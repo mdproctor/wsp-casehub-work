@@ -6,11 +6,11 @@
 **Alternatives:**
 - Timestamp only — simpler API, but no way to anchor rollback to a specific event in the tree's history
 - Event only — precise but requires the caller to know a specific event ID
-**Rationale:** Event-based resolves to a timestamp internally and delegates to the timestamp path. They serve different use cases: timestamp for "undo to 3pm," event for "undo to when the parent was at this state." Timestamp-based per-node rollback requires a new SPI method on `ProgressEventStore` — the existing methods (`findByProgressIdSince`, `findByRootProgressIdSince`) return events AFTER a timestamp, not the last event BEFORE a timestamp. New method: `findLastEventBefore(UUID progressId, Instant before)` returning the most recent event for that node before the given instant, or `Optional.empty()` if none.
+**Rationale:** Event-based resolves to a timestamp internally and delegates to the timestamp path. They serve different use cases: timestamp for "undo to 3pm," event for "undo to when the parent was at this state." Timestamp-based per-node rollback requires a new SPI method on `ProgressEventStore` — the existing methods (`findByProgressIdSince`, `findByRootProgressIdSince`) return events AFTER a timestamp, not the last event at-or-before a timestamp. New method: `findLastEventAtOrBefore(UUID progressId, Instant cutoff)` returning the most recent event for that node at or before the given instant (`<=` semantics), or `Optional.empty()` if none. At-or-before semantics are a correctness requirement: the event-to-timestamp delegation path resolves event E to `E.timestamp() = T`, then calls `findLastEventAtOrBefore(node, T)` for each node. With strict `<`, the node that event E belongs to would get the event *before* E — one step behind the intended target. With `<=`, it correctly returns E itself.
 **Trade-offs:** Slightly larger API surface (one extra query param). New SPI method required across all store implementations (JPA, in-memory).
 **Sources:** ProgressService.rollback(), ProgressService.rollbackToEvent() — existing single-instance precedent. These are event-based, not timestamp-based; timestamp-based rollback is a new capability.
 **Exploration:** quick
-**Status:** revised — acknowledged SPI gap; added required new ProgressEventStore method
+**Status:** revised — acknowledged SPI gap; added findLastEventAtOrBefore with at-or-before (<=) semantics
 
 ## D2: Rollup suppression during coordinated rollback
 
@@ -65,7 +65,7 @@
 **Choice:** New `SubtreeRollbackService` in `progress-runtime`
 **Alternatives:**
 - Add to ProgressService — keeps all progress operations together, but ProgressService is already 400 lines and the coordination concern (tree traversal, rollup suppression, bottom-up recompute, result aggregation) is distinct from single-instance state management.
-**Rationale:** Clean separation: ProgressService = single-instance, SubtreeRollbackService = multi-instance coordination. Tree traversal (`collectDescendants`) moves from REST layer to a shared location. Rollup suppression mechanism stays isolated from per-instance logic. SubtreeRollbackService delegates per-node rollback to ProgressService via a new public method `rollbackToTimestamp(UUID id, Instant target, UUID operationId)` that accepts the target timestamp and operation ID for event tagging. This method exposes the validate-update-emit pipeline of `applyRollbackState` (currently private, line 226) with timestamp-based target resolution and operationId tagging on the emitted event.
+**Rationale:** Clean separation: ProgressService = single-instance, SubtreeRollbackService = multi-instance coordination. Tree traversal (`collectDescendants`) moves from REST layer to a shared location. Rollup suppression mechanism stays isolated from per-instance logic. SubtreeRollbackService delegates per-node rollback to ProgressService via a new public method `rollbackToTimestamp(UUID id, Instant target, UUID operationId)` that accepts the target timestamp and operation ID for event tagging. This method resolves the target timestamp to historical state via `findLastEventAtOrBefore` (D1), runs the validate-update-emit pipeline of `applyRollbackState` (currently private, line 226), and tags the emitted event with the provided operationId.
 **Trade-offs:** One more service class. ProgressService gains a new public method. Minor.
 **Sources:** ProgressService.java (403 lines), ProgressResource.collectDescendants() (REST-only tree traversal), ProgressService.applyRollbackState() (private — line 226)
 **Exploration:** quick
