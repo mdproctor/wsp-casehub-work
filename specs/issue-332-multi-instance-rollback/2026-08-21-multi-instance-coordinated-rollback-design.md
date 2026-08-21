@@ -51,7 +51,7 @@ public record NodeRollbackOutcome(
 |-------|-------------|
 | `progressId` | The instance that was processed |
 | `outcome` | `ROLLED_BACK` (state restored), `SKIPPED` (not applicable), `FAILED` (error) |
-| `reason` | `null` for ROLLED_BACK. For SKIPPED: `"created after target timestamp"`, `"no event history before target"`. For FAILED: error description. |
+| `reason` | `null` for ROLLED_BACK. For SKIPPED: `"created after target timestamp"`, `"no event history before target"`, `"already at target state"`. For FAILED: error description. |
 | `previousState` | State before rollback. `null` if SKIPPED. |
 | `restoredState` | State after rollback. `null` if SKIPPED or FAILED. |
 | `policyBypassed` | `true` if the node had `rollbackPolicy = "denied"` and was bypassed (D5). Surfaces that domain-specific protections were overridden. |
@@ -91,7 +91,7 @@ Returns the most recent event for the given progress instance at or before the c
 
 **Why at-or-before (`<=`) and not strict before (`<`):** The event-based rollback target resolves to `event.timestamp()`. With strict `<`, the node that the anchor event belongs to would get the event *before* the anchor — one step behind the intended target. With `<=`, it correctly returns the anchor event itself.
 
-**JPA implementation:** `ORDER BY occurred_at DESC, id DESC LIMIT 1 WHERE progress_id = :id AND occurred_at <= :cutoff`. The `id DESC` tiebreaker handles events with identical timestamps deterministically.
+**JPA implementation:** `WHERE progress_id = :id AND occurred_at <= :cutoff ORDER BY occurred_at DESC, id DESC LIMIT 1`. The `id DESC` tiebreaker handles events with identical timestamps deterministically.
 
 **In-memory implementation:** Stream filter + max by timestamp.
 
@@ -129,7 +129,6 @@ New `@ApplicationScoped` service in `io.casehub.work.progress.runtime.service`.
 @Inject ProgressInstanceStore instanceStore;
 @Inject ProgressEventStore eventStore;
 @Inject RollupEngine rollupEngine;
-@Inject Event<ProgressUpdatedEvent> cdiEvent;
 ```
 
 ### Public API
@@ -157,10 +156,13 @@ rollbackSubtree(rootId, targetTimestamp):
   2. root = instanceStore.get(rootId) — fail if not found
   3. descendants = instanceStore.findDescendantsOf(rootId)
   4. allNodes = [root] + descendants
+  5. Partition allNodes into:
+     - leafNodes: rollupStrategyId == null (no rollup — state is reported directly)
+     - rollupNodes: rollupStrategyId != null (state derived from children)
   
-  // Phase 1: Roll back each node
-  5. outcomes = []
-     for each node in allNodes:
+  // Phase 1: Roll back leaf nodes only
+  6. outcomes = []
+     for each node in leafNodes:
        if node.createdAt > targetTimestamp:
          outcomes.add(SKIPPED, "created after target timestamp")
          continue
@@ -173,20 +175,26 @@ rollbackSubtree(rootId, targetTimestamp):
        catch (Exception e):
          outcomes.add(FAILED, e.getMessage())
   
-  // Phase 2: Bottom-up rollup recomputation
-  6. Group rolled-back nodes by depth (distance from root)
-     Exclude SKIPPED and FAILED nodes from rollup participation
-  7. For each depth level, deepest first:
-       For each node with rollupStrategyId at this depth:
-         children = instanceStore.findByParentProgressId(node.id)
+  // Phase 2: Bottom-up rollup recomputation (rollup nodes only)
+  7. Group rollupNodes by depth (distance from root)
+     Skip rollup nodes created after targetTimestamp (SKIPPED in result)
+  8. For each depth level, deepest first:
+       For each rollupNode at this depth:
+         if rollupNode.createdAt > targetTimestamp:
+           outcomes.add(SKIPPED, "created after target timestamp")
+           continue
+         children = instanceStore.findByParentProgressId(rollupNode.id)
          preTargetChildren = children.filter(c -> c.createdAt <= targetTimestamp)
-         newState = rollupEngine.recompute(node, preTargetChildren)
-         if rollupEngine.hasStateChanged(node.state(), newState):
-           persist updated instance
-           emit ProgressUpdatedEvent(changeType=STATE_UPDATED, operationId=operationId)
+         result = progressService.applyRollupState(rollupNode.id, preTargetChildren, operationId)
+         if result != null:  // state changed
+           outcomes.add(ROLLED_BACK, previousState, result.state(), false)
+         else:
+           outcomes.add(SKIPPED, "already at target state")
   
-  8. return SubtreeRollbackResult(operationId, rootId, targetTimestamp, outcomes)
+  9. return SubtreeRollbackResult(operationId, rootId, targetTimestamp, outcomes)
 ```
+
+**Why rollup nodes are skipped in Phase 1 (R1-02):** Rolling back a rollup parent to its historical state in Phase 1 is wasted work — Phase 2 immediately recomputes the parent's state from its children's post-rollback states, overwriting the Phase 1 result. With partial failures (some children FAILED), the Phase 2 recomputed value differs from the historical state. Phase 2 is always the correct final authority for rollup nodes. Skipping them in Phase 1 avoids an unnecessary transaction, OCC version increment, and misleading `ROLLED_BACK` event that would be immediately superseded.
 
 ### Depth computation
 
@@ -208,7 +216,13 @@ Each node's rollback (`progressService.rollbackToTimestamp`) runs in its own tra
 
 ## 3. ProgressService Changes
 
-### New public method
+### Transaction model
+
+`ProgressService` is a plain Java class constructed via the Quarkus extension build-step processor — not a standard `@ApplicationScoped` CDI bean. It has no `@Transactional` annotations. The caller provides transaction context: `RollupObserver.recomputeWithRetry()` is `@Transactional`, and REST endpoints rely on the Quarkus JAX-RS transaction integration.
+
+The new `rollbackToTimestamp` and `applyRollupState` methods are called by `SubtreeRollbackService`, which uses `@Transactional(NOT_SUPPORTED)` to suspend ambient transactions. To ensure each per-node call has its own transaction boundary, `SubtreeRollbackService` wraps each call in an explicit `@Transactional(REQUIRES_NEW)` helper method. This keeps `ProgressService` unchanged as a plain Java class — the transaction boundary is the caller's responsibility.
+
+### New public method — rollbackToTimestamp
 
 ```java
 public ProgressInstance rollbackToTimestamp(UUID id, Instant target, UUID operationId) {
@@ -218,12 +232,35 @@ public ProgressInstance rollbackToTimestamp(UUID id, Instant target, UUID operat
 
     JsonNode targetState = event.currentState();
     if (targetState.equals(instance.state())) {
-        return instance; // already at target state — no-op
+        return null; // already at target state — no-op, caller reports as SKIPPED
     }
 
     return applyRollbackState(instance, targetState, operationId);
 }
 ```
+
+Returns `null` for no-op (already at target state). The caller (`SubtreeRollbackService`) reports this as `SKIPPED` with reason `"already at target state"` — not `ROLLED_BACK` with identical previous/restored states.
+
+### New public method — applyRollupState
+
+```java
+public ProgressInstance applyRollupState(UUID id, List<ProgressInstance> children, UUID operationId) {
+    ProgressInstance instance = requireInstance(id);
+    JsonNode previousState = instance.state();
+    JsonNode newState = rollupEngine.recompute(instance, children);
+
+    if (newState == null || !rollupEngine.hasStateChanged(previousState, newState)) {
+        return null; // no change — caller reports as SKIPPED
+    }
+
+    ProgressInstance updated = withState(instance, newState, instance.status());
+    instanceStore.put(updated);
+    emitEvent(updated, previousState, ProgressChangeType.STATE_UPDATED, operationId);
+    return updated;
+}
+```
+
+Centralizes the rollup recomputation pipeline within `ProgressService`. Phase 2 of `SubtreeRollbackService` calls this instead of reimplementing the persist-emit pipeline. This ensures consistent event emission through the `eventEmitter` Consumer (which may include broadcasting to `ProgressEventBroadcaster`), avoiding the divergence that would occur if `SubtreeRollbackService` emitted events directly via CDI.
 
 ### applyRollbackState — operationId parameter
 
@@ -257,11 +294,11 @@ private void emitEvent(ProgressInstance instance, JsonNode previousState,
         instance.shapeType(), previousState, instance.state(),
         instance.status(), changeType, Instant.now(), operationId);
     eventStore.append(event);
-    cdiEvent.fireAsync(event);
+    eventEmitter.accept(event);
 }
 ```
 
-Existing callers pass `null` for `operationId`.
+Uses `eventEmitter.accept()` (the constructor-injected Consumer), not direct CDI `fireAsync`. Existing callers pass `null` for `operationId`.
 
 ---
 
@@ -334,8 +371,8 @@ public Response rollbackSubtree(
 Events emitted during the Phase 2 rollup recomputation use `changeType = STATE_UPDATED`, not `ROLLED_BACK`. Rollup is a derivative computation — the engine aggregates children's current (post-rollback) states. The parent was never necessarily at this exact rollup state before. `STATE_UPDATED` accurately describes what happened.
 
 SSE consumers distinguish:
-- `ROLLED_BACK` + `operationId` → direct rollback of a node (Phase 1)
-- `STATE_UPDATED` + `operationId` → rollup consequence of a coordinated operation (Phase 2)
+- `ROLLED_BACK` + `operationId` → direct rollback of a leaf node (Phase 1)
+- `STATE_UPDATED` + `operationId` → rollup recomputation of a parent node (Phase 2)
 - `ROLLED_BACK` + `null operationId` → standalone single-instance rollback
 - `STATE_UPDATED` + `null operationId` → normal state update or standard rollup
 
@@ -344,7 +381,7 @@ SSE consumers distinguish:
 ## 7. Flyway Migration
 
 ```sql
--- V6002__progress_operation_id.sql
+-- V7003__progress_operation_id.sql
 ALTER TABLE progress_event ADD COLUMN operation_id UUID;
 CREATE INDEX idx_progress_event_operation ON progress_event (operation_id) WHERE operation_id IS NOT NULL;
 ```
@@ -393,7 +430,8 @@ Nodes with `createdAt > T` (created after the target) are **skipped** — they r
 | Policy bypassed and flagged | Node with rollbackPolicy=denied, verify rolled back and policyBypassed=true |
 | OCC failure reported | Simulate concurrent modification, verify FAILED in result with reason |
 | Per-node transaction isolation | Node 2 fails, verify node 1 was committed and node 3 still processed |
-| No-op when already at target state | Node whose state matches target, verify returned without emitting event |
+| No-op when already at target state | Node whose state matches target, verify SKIPPED with reason "already at target state" — not ROLLED_BACK |
+| Step-shaped descendants rolled back | Subtree with step-shaped child, rollback, verify rolled-back step state passes shape validation and DAG dependency constraints |
 | operationId correlates all events | Rollback subtree, query events, verify all share the same operationId |
 
 ### Integration (Quarkus, REST round-trip)
@@ -427,11 +465,11 @@ Nodes with `createdAt > T` (created after the target) are **skipped** — they r
 |--------|--------|
 | `progress-api` | New: `SubtreeRollbackResult`, `NodeRollbackOutcome`. Modified: `ProgressUpdatedEvent` (+operationId), `ProgressEventStore` (+findLastEventAtOrBefore), `ProgressInstanceStore` (+findDescendantsOf) |
 | `progress-core` | No changes |
-| `progress-runtime` | New: `SubtreeRollbackService`. Modified: `ProgressService` (+rollbackToTimestamp, applyRollbackState gains operationId, emitEvent gains operationId), `RollupObserver` (+operationId check), `JpaProgressInstanceStore` (+findDescendantsOf with CTE), `JpaProgressEventStore` (+findLastEventAtOrBefore) |
+| `progress-runtime` | New: `SubtreeRollbackService`. Modified: `ProgressService` (+rollbackToTimestamp, +applyRollupState, applyRollbackState gains operationId, emitEvent gains operationId and uses eventEmitter), `RollupObserver` (+operationId check), `JpaProgressInstanceStore` (+findDescendantsOf with CTE), `JpaProgressEventStore` (+findLastEventAtOrBefore), `ProgressEventEntity` (+operationId column), `JpaProgressEventStore.toEntity()`/`toDomain()` (+operationId mapping) |
 | `progress-rest` | New: `POST /{id}/rollback/subtree`. Modified: `getTree` uses store's findDescendantsOf, remove `collectDescendants` |
 | `progress-memory` | Modified: `InMemoryProgressInstanceStore` (+findDescendantsOf), `InMemoryProgressEventStore` (+findLastEventAtOrBefore) |
 | `progress-deployment` | No changes expected |
-| Flyway | New: `V6002__progress_operation_id.sql` |
+| Flyway | New: `V7003__progress_operation_id.sql` |
 
 ---
 
@@ -457,7 +495,7 @@ Nodes with `createdAt > T` (created after the target) are **skipped** — they r
 
 Update #332 description: remove "saga-style compensation across nodes" from scope. Replace with "coordinated rollback across nodes." Reference #238 for full saga compensation.
 
-Update #92 epic: note that #332 is the sole remaining open child. Closing #332 makes #92 fully closeable.
+Update #92 epic scope to include #332. All other children (#93, #155, #94, #96, #95, #97) are closed. Closing #332 makes #92 fully closeable.
 
 ---
 
