@@ -91,3 +91,49 @@
 **Sources:** Issue #238 (saga compensation), issue #332 scope
 **Exploration:** quick
 **Status:** captured
+
+## D9: Tree traversal — add findDescendants to ProgressInstanceStore SPI
+
+**Choice:** Add `findDescendants(UUID rootId)` to `ProgressInstanceStore` SPI
+**Alternatives:**
+- Add to ProgressService — recursive Java logic, store SPI unchanged. Less efficient (N+1 queries for deep trees).
+- Utility on SubtreeRollbackService — duplicates logic already in REST layer's collectDescendants.
+**Rationale:** Tree traversal is a query concern. JPA implementations can use recursive CTE (`WITH RECURSIVE`) for single-query efficiency. In-memory store does recursive iteration. Eliminates duplication between REST getTree and SubtreeRollbackService.
+**Trade-offs:** SPI gains a method — all store implementations (JPA, MongoDB, in-memory) must implement it.
+**Sources:** ProgressResource.collectDescendants() (lines 206-213), ProgressInstanceStore SPI
+**Exploration:** quick
+**Status:** captured
+
+## D10: Result report structure — SubtreeRollbackResult record
+
+**Choice:** `SubtreeRollbackResult` record containing `coordinatedRollbackId`, `rootId`, `targetTimestamp`, and `List<NodeRollbackOutcome>`. Each outcome has `progressId`, `Outcome` enum (ROLLED_BACK, SKIPPED, FAILED), `reason` (null for success), `previousState`, `restoredState`.
+**Alternatives:** None considered — direct reflection of D3 (best-effort with report). The structure is dictated by the information consumers need.
+**Rationale:** Gives callers full visibility: what was rolled back, what was skipped and why, what failed and why. Previous and restored states enable audit and orchestrator decision-making.
+**Trade-offs:** None significant. New types in progress-api.
+**Depends on:** D3 (best-effort with report), D7 (coordinatedRollbackId)
+**Sources:** D3 decision
+**Exploration:** quick
+**Status:** captured
+
+## D11: REST API — POST /progress/{id}/rollback/subtree
+
+**Choice:** `POST /progress/{id}/rollback/subtree` with mutually exclusive query params `?timestamp={instant}` and `?toEvent={eventId}`. Returns `SubtreeRollbackResult`.
+**Alternatives:**
+- `POST /progress/{id}/subtree/rollback` — groups under a `/subtree/` namespace. More extensible but the namespace doesn't exist yet and YAGNI.
+**Rationale:** Groups rollback operations together: `/rollback` for single-instance, `/rollback/subtree` for multi-instance. Matches how consumers think about it. Consistent with the existing "one endpoint, two modes via query params" pattern on the single-instance rollback.
+**Trade-offs:** If future subtree operations are added, they won't share a namespace. Minor — can be introduced later.
+**Depends on:** D1 (timestamp + event-based targets)
+**Sources:** ProgressResource.rollback() (line 135), existing single-instance API pattern
+**Exploration:** quick
+**Status:** captured
+
+## D12: Bottom-up rollup recomputation ordering
+
+**Choice:** After rolling back all descendants with rollup suppressed: group descendants by depth (distance from root), recompute from deepest level upward using `RollupEngine.recompute()` directly, root last.
+**Alternatives:** None — this is the only correct ordering. Each level's recompute must use already-corrected children below it.
+**Rationale:** Depth derived from parentProgressId chain during initial tree traversal. Direct `RollupEngine.recompute()` call bypasses the async observer entirely — same engine, synchronous invocation, correct ordering guaranteed.
+**Trade-offs:** None. Deterministic ordering is a correctness requirement, not a trade-off.
+**Depends on:** D2 (rollup suppression), D7 (coordinatedRollbackId suppresses observer)
+**Sources:** RollupObserver.recompute() (line 68), RollupEngine
+**Exploration:** quick
+**Status:** captured
