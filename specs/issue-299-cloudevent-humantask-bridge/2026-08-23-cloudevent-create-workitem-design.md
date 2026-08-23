@@ -2,7 +2,7 @@
 
 **Issue:** casehubio/work#299
 **Date:** 2026-08-23
-**Status:** Draft
+**Status:** Approved
 
 ## Problem
 
@@ -47,9 +47,13 @@ Constant: `WorkCloudEventTypes.CREATE`
 
 No other extensions are required. `templateid` is NOT an extension (unlike `REQUESTED`) — if template-based creation is wanted, `templateId` goes in the data payload.
 
+### Naming Convention
+
+The type `io.casehub.work.workitem.create` (imperative, command) is one letter from the lifecycle type `io.casehub.work.workitem.created` (past-tense, event). This is deliberate: CloudEvents follow command-vs-event naming — imperative for inbound requests, past-tense for outbound facts. The existing `REQUESTED` follows the same convention. A drift prevention test asserts `CREATE` is not in the `WorkEventType` lifecycle enum (same pattern as the existing `REQUESTED` assertion).
+
 ### Data Fields
 
-The data payload maps 1:1 to `WorkItemCreateRequest` fields using the same camelCase naming. All fields are optional unless noted:
+The data payload maps to `WorkItemCreateRequest` fields using the same camelCase naming. All fields are optional unless noted:
 
 | Field | Type | Notes |
 |---|---|---|
@@ -62,16 +66,16 @@ The data payload maps 1:1 to `WorkItemCreateRequest` fields using the same camel
 | `candidateGroups` | string | CSV (e.g., `"legal,compliance"`) |
 | `candidateUsers` | string | CSV |
 | `requiredCapabilities` | string | CSV |
-| `createdBy` | string | Overridden to `"cloudevent:" + ce.getSource()` — caller value ignored |
 | `payload` | string | Opaque JSON string — the domain data |
 | `callerRef` | string | Domain correlation key. Falls back to `ce.getId()` if absent |
 | `templateId` | string | UUID. If present → template merge; absent → direct creation |
 | `scope` | string | Hierarchical scope path |
 | `expiresAt` | string | ISO-8601 instant |
 | `claimDeadline` | string | ISO-8601 instant |
+| `followUpDate` | string | ISO-8601 instant |
 | `claimDeadlineBusinessHours` | integer | |
 | `expiresAtBusinessHours` | integer | |
-| `permittedOutcomes` | object[] | `[{"name": "approve"}, {"name": "reject", "label": "...", "description": "..."}]` |
+| `permittedOutcomes` | object[] | `[{"name": "approve"}, {"name": "reject", "displayName": "Reject", "condition": "..."}]` — maps to `Outcome(name, displayName, condition)` |
 | `candidateScores` | string | Pre-serialized JSON: `"{\"user1\": 0.95}"` |
 | `routingExperiences` | string | Pre-serialized JSON array |
 | `routingStrategy` | string | Named strategy identifier |
@@ -79,14 +83,25 @@ The data payload maps 1:1 to `WorkItemCreateRequest` fields using the same camel
 | `payloadTypeName` | string | |
 | `resolutionTypeName` | string | |
 | `excludedUsers` | string | CSV |
-| `labels` | object[] | `[{"path": "...", "value": "..."}]` |
+| `labels` | object[] | `[{"path": "...", "persistence": "MANUAL", "appliedBy": "..."}]` — maps to `WorkItemLabelRequest(path, persistence, appliedBy)`. `persistence` defaults to `MANUAL` if absent. |
 | `confidenceScore` | number | |
 | `inputDataSchema` | string | JSON Schema draft-07 |
 | `outputDataSchema` | string | JSON Schema draft-07 |
 
-`tenancyId` in data is **ignored** — the `tenancyid` CloudEvent extension is authoritative. The adapter establishes tenant context via `TenantContextRunner`, and the service reads tenancy from the CDI request context.
+**Overridden fields** (caller values ignored):
 
-`createdBy` is always overridden to `"cloudevent:" + ce.getSource()`. This ensures: (a) provenance tracking shows CloudEvent origin, (b) the existing partial unique index `uq_workitem_cloudevent_idempotency` (`WHERE created_by LIKE 'cloudevent:%'`) covers this path for TOCTOU mitigation.
+| Field | Override value | Why |
+|---|---|---|
+| `createdBy` | `"cloudevent:" + ce.getSource()` | Provenance tracking + partial unique index coverage |
+| `tenancyId` | Explicitly set to `null` | Tenant context established via `TenantContextRunner` from the CloudEvent extension. The store stamps tenancy from `CurrentPrincipal` when the entity value is null. If a data payload smuggles a different `tenancyId`, the override prevents tenant isolation bypass. |
+| `callerRef` | Resolved value (data field or `ce.getId()` fallback) | Ensures the idempotency key matches what was checked in step 5 |
+
+**Excluded fields** (not supported via CloudEvent, set by the service internally):
+
+| Field | Why excluded |
+|---|---|
+| `auditDetail` | Set by `WorkItemService` during creation — records group expansion notes |
+| `templateVersion` | Set by `WorkItemTemplateService` during template merge — records template version at instantiation |
 
 ### Example: Engine HumanTask (distributed)
 
@@ -142,15 +157,21 @@ New method `onCreateCloudEvent(@ObservesAsync CloudEvent ce)`:
 1. Filter on type `WorkCloudEventTypes.CREATE` — return immediately for other types
 2. Extract `tenancyid` extension — missing → log ERROR, return
 3. Wrap in `tenantContextRunner.runInTenantContext(tenancyId, ...)`
-4. Resolve `callerRef`: data field `callerRef`, fall back to `ce.getId()`
-5. Idempotency check: `workItemService.findByCallerRef(callerRef)` — if exists → log DEBUG, return
-6. Deserialize CloudEvent data to `WorkItemCreateRequest` via ObjectMapper
-7. Override `createdBy` to `"cloudevent:" + ce.getSource()`
-8. Override `callerRef` to the resolved value from step 4
-9. Route:
-   - `templateId` present → `templateService.createFromTemplate(request)`
-   - `templateId` absent → `workItemService.create(request)`
-10. Catch `PersistenceException` with unique constraint violation → idempotent success (DEBUG log)
+4. Parse CloudEvent data bytes to `JsonNode` via ObjectMapper
+5. Resolve `callerRef`: `node.get("callerRef")` text value, fall back to `ce.getId()`
+6. Idempotency check: `workItemService.findByCallerRef(callerRef)` — if exists → log DEBUG, return
+7. Build `WorkItemCreateRequest` by reading JsonNode fields into the Builder (manual construction — `WorkItemCreateRequest` has no Jackson annotations and uses a private constructor with Builder pattern)
+8. Override `createdBy` to `"cloudevent:" + ce.getSource()`
+9. Override `callerRef` to the resolved value from step 5
+10. Override `tenancyId` to `null` (tenant context via CDI, not request field — prevents tenant isolation bypass)
+11. Route:
+    - `templateId` present → `templateService.createFromTemplate(request)`
+    - `templateId` absent → `workItemService.create(request)`
+12. Catch `PersistenceException` with unique constraint violation → idempotent success (DEBUG log)
+
+**Deserialization approach:** Manual `JsonNode` → Builder construction, NOT `objectMapper.readValue(data, WorkItemCreateRequest.class)`. `WorkItemCreateRequest` has a private constructor and no `@JsonCreator`/`@JsonDeserialize` annotations — direct deserialization fails with `InvalidDefinitionException`. The REST layer uses the same pattern: a separate `CreateWorkItemRequest` DTO deserialized by Jackson, then mapped to `WorkItemCreateRequest.Builder`. Here, `JsonNode` plays the DTO role — simpler than creating another record.
+
+**Idempotency note:** The `callerRef`-based idempotency for `CREATE` is a semantic shift from `REQUESTED`. With `REQUESTED`, `ce.getId()` IS the callerRef — transport identity and domain correlation are unified. With `CREATE`, they are separate: `ce.getId()` is transport-level (same event redelivered), `callerRef` is domain-level (caller's correlation key). The fallback to `ce.getId()` when callerRef is absent preserves the simpler model for callers that don't need custom correlation.
 
 ### Dependencies
 
@@ -165,6 +186,7 @@ Same classification as `REQUESTED`:
 | Category | Examples | Action |
 |---|---|---|
 | Configuration | Missing `tenancyid`, template not found, payload schema validation failure, `title` null without `templateId` | Log ERROR, return. Retry would produce the same failure. |
+| Deserialization | Malformed JSON data, null data bytes, unrecognized field type coercion failure | Log ERROR, return. Same as configuration — deterministic failure. |
 | Infrastructure | Database, transaction, CDI runtime | Propagate. Transport retries (Kafka offset not committed, HTTP 500). |
 | Idempotent duplicate | `findByCallerRef` hit or unique constraint violation | Log DEBUG, return. Not an error. |
 
@@ -184,7 +206,7 @@ Add `ObjectMapper` injection. Add `onCreateCloudEvent` method. Extract shared te
 
 ### Drift prevention test (api module)
 
-The existing test that asserts `WorkCloudEventTypes` has a constant for every `WorkEventType` value is unaffected — `CREATE` is an inbound type, not a lifecycle event type. No new assertion needed.
+Add assertion: `CREATE` is NOT in the `WorkEventType` lifecycle enum — same pattern as the existing `REQUESTED` assertion. This prevents future confusion between the inbound command `CREATE` (`io.casehub.work.workitem.create`) and the lifecycle event `CREATED` (`io.casehub.work.workitem.created`).
 
 ## Testing
 
@@ -199,9 +221,11 @@ The existing test that asserts `WorkCloudEventTypes` has a constant for every `W
 7. **Idempotency — callerRef exists:** `findByCallerRef` returns existing → skip, DEBUG log
 8. **Idempotency — constraint violation:** Concurrent duplicate caught by DB → skip, DEBUG log
 9. **createdBy override:** Data contains `createdBy` field → overridden to `"cloudevent:" + source`
-10. **tenancyId in data ignored:** Data contains `tenancyId` → ignored, extension value used for tenant context
+10. **tenancyId override:** Data contains `tenancyId: "tenant-B"` but extension is `tenant-A` → request.tenancyId is null, WorkItem created under tenant-A context (prevents tenant isolation bypass)
 11. **Non-CREATE type ignored:** CloudEvent with `REQUESTED` or `COMPLETED` type → method returns immediately
-12. **Field mapping completeness:** All `WorkItemCreateRequest` fields populated from data → all present on created WorkItem
+12. **Field mapping completeness:** All supported `WorkItemCreateRequest` fields populated from data → all present on created WorkItem
+13. **Malformed data:** Invalid JSON in CloudEvent data → ERROR logged, no creation
+14. **Null data:** CloudEvent with null data bytes → ERROR logged, no creation
 
 ### Integration test (runtime module)
 
@@ -209,13 +233,16 @@ Round-trip test:
 1. Create a `WorkItemTemplate`
 2. Fire CDI `Event<CloudEvent>.fireAsync()` with type `CREATE`, `templateId` in data, arbitrary JSON payload
 3. Assert: WorkItem created with template fields merged, payload contains domain data, callerRef matches data field, createdBy is `"cloudevent:" + source`
-4. Complete the WorkItem
-5. Assert: outbound CloudEvent with type `COMPLETED` fired, data contains callerRef for correlation
-6. Fire same CloudEvent again (same callerRef) → no duplicate created
+4. Assert: outbound CloudEvent with type `CREATED` fired (confirms creation round-trip)
+5. Complete the WorkItem
+6. Assert: outbound CloudEvent with type `COMPLETED` fired, data contains callerRef for correlation
+7. Fire same CloudEvent again (same callerRef) → no duplicate created
 
 Inline variant:
 1. Fire `CREATE` CloudEvent with no `templateId`, title and candidateGroups in data
 2. Assert: WorkItem created with exact data fields, no template merge
+
+**H2 limitation:** The partial unique index `uq_workitem_cloudevent_idempotency` (`WHERE created_by LIKE 'cloudevent:%'`) is Postgres-specific. Integration tests on H2 cannot exercise the TOCTOU database-level guard. The constraint violation code path (step 12) is tested via unit test with a mocked `PersistenceException`. Application-level idempotency (step 6) is testable on H2.
 
 ## Not In Scope
 
@@ -237,7 +264,7 @@ Both types coexist. They serve different use cases:
 | Caller control | Template defines everything; data merges payload | Caller defines everything |
 | Use case | External systems with pre-configured templates | Engine, Qhorus, systems needing full control |
 
-No migration needed. `REQUESTED` remains the right choice for simple template-based integrations.
+`REQUESTED` is not deprecated. It serves a different use case with simpler semantics — the CloudEvent id unifies transport identity and domain correlation, and the template-only path means callers never need to know `WorkItemCreateRequest` fields. `CREATE` subsumes `REQUESTED` functionally (a caller could use `CREATE` with `templateId` in data), but `REQUESTED` remains the recommended path for simple integrations where a pre-configured template defines everything.
 
 ### Distributed HumanTask — full picture
 
