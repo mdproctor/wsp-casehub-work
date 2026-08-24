@@ -43,3 +43,39 @@
 **Sources:** `a2a/pom.xml`, `mcp/pom.xml`, `react/pom.xml` (module patterns)
 **Exploration:** quick
 **Status:** captured
+
+## D5: CDI Event<CloudEvent> transport
+
+**Choice:** Emit and consume CloudEvents via CDI async events (`Event<CloudEvent>.fireAsync()` / `@ObservesAsync CloudEvent`). Transport-agnostic — a separate Quarkus messaging connector bridges CDI events to the wire (Kafka, AMQP, HTTP).
+**Alternatives:**
+- Quarkus Reactive Messaging (`@Outgoing`/`@Incoming`) — tighter transport integration but couples the module to a specific broker
+- Direct HTTP client — simple point-to-point but no durability, no fan-out
+**Rationale:** Same pattern as work's `WorkCloudEventAdapter` (outbound) and `WorkCloudEventInboundAdapter` (inbound). The engine module stays transport-neutral; deployment configuration selects the wire protocol.
+**Trade-offs:** Requires a connector to be configured for production — CDI events alone are JVM-local. Acceptable because distributed deployment already implies infrastructure setup.
+**Sources:** `WorkCloudEventAdapter` (work repo outbound pattern), `WorkCloudEventInboundAdapter` (work repo inbound pattern), issue-299 spec §Consumer
+**Exploration:** quick
+**Status:** captured
+
+## D6: Classpath-based mode detection
+
+**Choice:** Classpath detection using `Instance<HumanTaskScheduler>.isResolvable()`. If the work-engine-adapter provides a bean → co-located. If the CloudEvent module provides a bean → distributed. Mutually exclusive JARs.
+**Alternatives:**
+- Config property (`casehub.engine.work.mode=local|distributed`) — explicit but redundant with classpath, risk of misconfiguration
+- Both with config override — unnecessary complexity
+**Rationale:** The engine already uses this pattern — `publishHumanTaskSchedule()` checks `humanTaskScheduler.isResolvable()` and skips silently when absent. Adding a second `HumanTaskScheduler` implementation in the new module follows the same CDI discovery mechanism.
+**Trade-offs:** Both modules on the classpath simultaneously would cause CDI ambiguity. Mitigated by `@Alternative @Priority` — the co-located adapter wins if both are present (it's more direct). Or documented as unsupported.
+**Sources:** `CaseContextChangedEventHandler.java:692` (`humanTaskScheduler.isResolvable()`)
+**Exploration:** quick
+**Status:** captured
+
+## D7: Implement existing HumanTaskScheduler SPI
+
+**Choice:** The CloudEvent module implements `HumanTaskScheduler.schedule(HumanTaskScheduleRequest)`. The mapping from engine types to CloudEvent data is a module-internal concern.
+**Alternatives:**
+- New `HumanTaskCloudEventEmitter` SPI — cleaner separation but adds abstraction when the existing SPI works
+- Extend `HumanTaskScheduleRequest` with distributed-specific fields — couples shared type to deployment mode
+**Rationale:** `HumanTaskScheduleRequest` already carries all data needed to build the `io.casehub.work.workitem.create` CloudEvent: caseId, tenancyId, bindingName, target, inputData, candidateGroups/Users, scores, experiences, deadlines, title, scope, payloadTypeName, resolutionTypeName. The mapping is straightforward.
+**Trade-offs:** The CloudEvent module depends on engine-common (for the SPI) — but all engine modules already do.
+**Sources:** `HumanTaskScheduler.java:25`, `HumanTaskScheduleRequest.java:26-41`, issue-299 spec §CloudEvent Contract §Data Fields
+**Exploration:** quick
+**Status:** captured
