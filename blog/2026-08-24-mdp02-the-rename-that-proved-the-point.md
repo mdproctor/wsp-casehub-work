@@ -95,9 +95,28 @@ Total: 8 tool calls. One compile pass. Zero errors. Roughly two minutes.
 | Compile cycles | ~11 | 1 | 11x |
 | False positives | ~16 + unknown silent | 0 | - |
 
-**Dollar cost method:** Claude Opus 4 pricing at time of session — $15/M input tokens, $75/M output tokens. The marginal cost of the refactoring operation (on top of the existing session) is dominated by output tokens (model reasoning + tool call generation). Assuming 60% output / 40% input split on the token estimates: text-based = 72k × $75/M + 48k × $15/M = $6.12; IDE = 3k × $75/M + 2k × $15/M = $0.26. This is a single 3-field rename. A codebase that accumulates a dozen such renames over its lifetime pays the ratio repeatedly.
+### Token cost breakdown
 
-**IDE token cost method:** 3 rename calls × ~700 tokens + 1 replace call × 350 tokens + 1 sync × 200 tokens + 1 compile × 2,500 tokens + reasoning × ~1,500 tokens ≈ 5,000 tokens.
+Claude Opus 4 pricing at time of session: $15/M input tokens, $75/M output tokens.
+
+| Cost component | Text-based | IDE refactor |
+|---------------|-----------|-------------|
+| File replacement calls | 150 × 350 = 52,500 | — |
+| Rename calls | — | 3 × 700 = 2,100 |
+| Compile cycles | 11 × 2,500 = 27,500 | 1 × 2,500 = 2,500 |
+| False positive reversals | 16 × 1,500 = 24,000 | — |
+| Error investigation | 15 × 600 = 9,000 | — |
+| Sync + misc calls | — | 1 × 200 = 200 |
+| Post-processor cleanup | — | 1 × 350 = 350 |
+| Reasoning between calls | 251 × 300 = 75,300 | 8 × 300 = 2,400 |
+| | | |
+| **Total tokens** | **~120,000** | **~5,000** |
+| Output tokens (60%) | 72,000 × $75/M = $5.40 | 3,000 × $75/M = $0.23 |
+| Input tokens (40%) | 48,000 × $15/M = $0.72 | 2,000 × $15/M = $0.03 |
+| **Total cost** | **$6.12** | **$0.26** |
+| **Ratio** | | **24x** |
+
+This is a single 3-field rename. A codebase that accumulates a dozen such renames over its lifetime pays the ratio repeatedly.
 
 The ratios are large but the qualitative gap is larger. The text-based approach is semantically unsound — it cannot distinguish `Worker.Builder.capabilityName()` from `CandidateMatchingContext.capabilityName()`. Both are `.capabilityName(` in text. Only one should be renamed. The four caught false positives were caught because the target type lacked a `capability()` method, producing a compile error. Any false positive where the target type *does* have a compatible method signature compiles silently and produces a runtime bug. There is no way to quantify how many of those exist without type analysis — which is precisely what the IDE refactoring provides.
 
