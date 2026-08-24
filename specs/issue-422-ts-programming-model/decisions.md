@@ -15,7 +15,7 @@
 **Choice:** Use victools/jsonschema-generator library for Java → JSON Schema generation
 **Alternatives:**
 - Custom reflection walker — full control but reimplements what victools already handles (records, sealed interfaces, generics, Jakarta Validation, Jackson annotations). More code, more edge cases.
-**Rationale:** Battle-tested library purpose-built for this. Custom modules for the two CasehubRuleFactory domain rules (Worker type reuse, CaseCompletion typed additionalProperties). Handles ~90% of the work out of the box.
+**Rationale:** Battle-tested library purpose-built for this. Custom modules for domain-specific rules (Worker extension point, CaseCompletion typed map, expression evaluator pattern, trigger/target naming). Handles most work out of the box once types are aligned.
 **Trade-offs:** Library dependency. Acceptable — victools is well-maintained and widely used.
 **Sources:** victools/jsonschema-generator GitHub, CasehubRuleFactory.java
 **Exploration:** quick
@@ -43,4 +43,17 @@
 **Trade-offs:** Two modules temporarily. Short-lived — codegen is deleted once equivalence is proven.
 **Sources:** codegen/ (2 files), schema/pom.xml (exec-maven-plugin integration)
 **Exploration:** quick
+**Status:** captured
+
+## D5: One-off alignment refactoring — close the two-class gap
+
+**Choice:** Refactor Java model types to align with the YAML schema structure as a prerequisite. For each naming or structural conflict, choose the semantically most correct name regardless of which side it originated on. After alignment, Java is the single canonical source.
+**Alternatives:**
+- Custom modules for every mismatch — functional but makes the generator a thin wrapper around hand-crafted schemas (~9 modules covering ~70% of schema surface)
+- Walk the generated POJOs instead of API model types — circular (schema → POJOs → schema) and preserves the two-class gap
+**Rationale:** The two-class gap is the root problem. Both reflection and JavaParser fail equally against misaligned types. Fixing the root makes the generator trivial. Pre-release platform — breaking changes cost nothing.
+**Trade-offs:** Cross-repo changes required (worker-api: Worker, Capability). One-off mechanical work via IDE refactoring.
+**Depends on:** D1 (reflection needs aligned types to work)
+**Sources:** Design review R1-01, R1-03 (structural mismatch findings), Worker.java (worker-api), Capability.java (worker-api), CaseDefinition.java (engine api)
+**Exploration:** deep-analysis (surfaced by design review)
 **Status:** captured

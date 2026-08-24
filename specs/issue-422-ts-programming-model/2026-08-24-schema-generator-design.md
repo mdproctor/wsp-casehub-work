@@ -2,7 +2,7 @@
 
 ## Summary
 
-Build a reflection-based generator that walks `io.casehub.api.model.CaseDefinition` and emits JSON Schema, reversing the current source-of-truth direction. Uses victools/jsonschema-generator with custom modules for domain-specific rules. Simultaneously expand YAML coverage to ~15 Java-only fields.
+Build a reflection-based generator that walks `io.casehub.api.model.CaseDefinition` and emits JSON Schema, reversing the current source-of-truth direction. Prerequisite: a one-off alignment refactoring to close the structural gap between the Java model types and the YAML schema, choosing the semantically best name for each conflict regardless of which side it originated on. After alignment, victools/jsonschema-generator produces the schema with minimal custom modules. Simultaneously expand YAML coverage to ~15 Java-only fields.
 
 ## Context
 
@@ -17,19 +17,105 @@ CaseDefinition.yaml (hand-written, 1344 lines)
 
 **New flow (model-canonical):**
 ```
-io.casehub.api.model.* (hand-written model types)
+io.casehub.api.model.* (hand-written, aligned with schema structure)
   → victools/jsonschema-generator (reflection)
   → CaseDefinition.yaml (generated)
 ```
 
-Two issues: engine#975 (generator + structural equivalence), engine#976 (YAML expansion).
+Two issues: engine#975 (alignment + generator + structural equivalence), engine#976 (YAML expansion).
 
 ## Decisions
 
-- **D1: Reflection over JavaParser** — Java 17+ reflection handles records, sealed interfaces, generics, Jakarta Validation annotations. Cross-repo types (worker-api, eidos-api, platform-api) resolve naturally from the classpath. No source file management needed.
-- **D2: victools/jsonschema-generator** — Mature library for Java → JSON Schema via reflection. Custom modules for the two CasehubRuleFactory domain rules. Handles ~90% out of the box.
+- **D1: Reflection over JavaParser** — Java 17+ reflection handles records, sealed interfaces, generics, Jakarta Validation annotations. Cross-repo types resolve naturally from the classpath. No source file management needed.
+- **D2: victools/jsonschema-generator** — Mature library for Java → JSON Schema via reflection. Custom modules for domain-specific rules. Handles most of the work out of the box once types are aligned.
 - **D3: @JsonPropertyDescription** — Schema `description` values come from Jackson annotations on model type fields. One-time migration from existing hand-written schema descriptions.
 - **D4: New generator module** — `engine/generator/` alongside `codegen/`. Parallel run until structural equivalence is proven, then retire codegen.
+- **D5: One-off alignment refactoring** — Close the two-class gap between runtime model types and schema types. For each naming or structural conflict, choose the semantically most consistent, most intuitive, and most correct name — regardless of which side (Java or YAML) it originated on. After alignment, Java is the canonical source and schema is generated.
+
+## Phase 0: Alignment Refactoring
+
+The two-class gap must be closed before the generator can work. Today there are two parallel type hierarchies:
+
+- `io.casehub.model.*` — generated from schema, field names match YAML
+- `io.casehub.api.model.*` — hand-written, field names and structure differ from YAML
+
+The refactoring aligns the API model types with the schema structure, choosing the semantically best name for each conflict.
+
+### Naming Conflicts
+
+For each conflict, the chosen name is the one that most accurately describes what the field IS:
+
+| Java field | YAML property | Chosen name | Rationale |
+|-----------|--------------|-------------|-----------|
+| `Worker.capabilityNames` (`Set<String>`) | `capabilities` (array of strings) | `capabilities` | They ARE the capabilities this worker provides. "Names" is redundant — the type (string set) already says they're identifiers. |
+| `Capability.inputSchema` | `inputProjection` | `inputProjection` | It's a JQ expression that PROJECTS data, not a JSON Schema. "Schema" is misleading. |
+| `Capability.outputSchema` | `outputProjection` | `outputProjection` | Same rationale — it's a projection, not a schema. |
+
+### Missing Fields
+
+Fields that exist in the YAML schema but not on the corresponding Java type. These are declarative properties that belong on the type:
+
+| Type | Field to add | Type | Why |
+|------|-------------|------|-----|
+| `Worker` | `sequence` | `List<String>` | Sequential composition of other workers — declarative, belongs on the type |
+| `Worker` | `contextType` | `String` | Typed POJO input class name — declarative configuration |
+| `Worker` | `outputType` | `String` | Typed POJO output class name — declarative configuration |
+
+### Fields to Exclude from Schema
+
+Fields that exist on Java types but are runtime constructs with no declarative representation:
+
+| Type | Field | Exclusion | Why |
+|------|-------|-----------|-----|
+| `Worker` | `function` | `@JsonIgnore` | `WorkerFunction<?, ?>` is a Java lambda — runtime-only. YAML declares function type via plugin blocks (`agent:`, `do:`, `mcp:`, etc.) |
+
+### Structural Nesting
+
+The YAML schema groups ~20 fields under a `spec:` block. `CaseDefinition.java` has them flat. This isn't arbitrary — there IS a semantic distinction:
+
+- **Identity** (top-level): `dsl`, `namespace`, `name`, `version`, `title`, `summary` — what this case IS
+- **Specification** (under `spec:`): `capabilities`, `workers`, `bindings`, `goals`, `milestones`, `completion`, strategy IDs, etc. — what this case DOES
+- **Configuration** (top-level): `context`, `episodic`, `signals`, `labelRules`, `inboundMappings`, `layers`, `use`, `semanticData`, `types`, `labels` — how this case is configured
+
+Add a `Spec` inner class (or `CaseSpec` record) to `CaseDefinition` that groups the specification fields. Reflection then naturally produces the nested schema structure.
+
+### Sealed Interface Mapping
+
+The Java model uses sealed interfaces and marker interfaces for polymorphism. victools maps these to `oneOf` automatically:
+
+| Java type | Schema pattern | Notes |
+|-----------|---------------|-------|
+| `CaseCompletion` (sealed: `GoalBasedCompletion`, `PredicateBasedCompletion`) | `oneOf` with discriminated variants | victools handles sealed interfaces natively |
+| `Trigger` (marker interface, impls: `ContextChangeTrigger`, `ScheduleTrigger`, `ScopeActivatedTrigger`) | `oneOf` with named property branches | Needs `@JsonTypeInfo` or custom module for the existing naming pattern (`contextChange:`, `schedule:`, etc.) |
+| `BindingTarget` (sealed: `CapabilityTarget`, `SubCaseTarget`, `HumanTaskTarget`, `SignalTarget`, `ExtensionTarget`) | `oneOf` with named property branches | `ExtensionTarget` excluded from schema (engine-internal). Custom module for existing naming pattern. |
+| `GoalExpression` (sealed: `AllOfGoalExpression`, `AnyOfGoalExpression`, `SingleGoalExpression`) | `oneOf: [allOf array, anyOf array]` | Maps naturally |
+
+### Expression Evaluator Mapping
+
+Multiple fields across `Binding`, `Goal`, `Milestone`, `Trigger` are typed as `ExpressionEvaluator`. The schema represents these as `ExpressionOrOverride` — either a plain string or a `{lang: expr}` map for per-expression language override.
+
+Custom victools module: when encountering `ExpressionEvaluator` fields, emit the `ExpressionOrOverride` `oneOf` pattern. This is a type-level override, not per-field.
+
+### Cross-Repo Changes
+
+Alignment requires changes to types in other repos:
+
+| Repo | Type | Change |
+|------|------|--------|
+| worker-api | `Worker` | Rename `capabilityNames` → `capabilities`. Add `sequence`, `contextType`, `outputType`. `@JsonIgnore` on `function`. |
+| worker-api | `Capability` | Rename `inputSchema` → `inputProjection`, `outputSchema` → `outputProjection`. |
+
+These are the only cross-repo changes. All other type alignments are within the engine repo.
+
+### Alignment Scope
+
+The alignment is a one-off prerequisite. It touches:
+- `io.casehub.worker.api.Worker` and `Capability` (worker-api repo)
+- `io.casehub.api.model.CaseDefinition` — extract `Spec` inner class
+- All callers of renamed fields (mechanical rename via IDE refactoring)
+- `CaseDefinitionYamlMapper` — simplified where names now match directly
+
+After alignment, the two type hierarchies converge. `io.casehub.model.*` (generated POJOs) becomes redundant and is retired with the codegen module.
 
 ## Module: engine/generator
 
@@ -73,44 +159,29 @@ Maven compiles `api` first (dependency ordering), then `generator` reflects on c
 Main entry point. Configures victools:
 
 - Schema version: Draft 2020-12 (matches existing schema)
-- Modules: JakartaValidationModule, JacksonModule, WorkerSchemaModule, CaseCompletionSchemaModule
+- Modules: JakartaValidationModule, JacksonModule, plus custom modules below
 - Entry type: `CaseDefinition.class`
 - Output: YAML file (JSON Schema in YAML format, matching existing convention)
 
 Configuration:
-- `unevaluatedProperties: false` as the default for all object types (existing schema convention). Worker overrides with `additionalProperties: true`. `CaseDefinitionSpec` overrides with `unevaluatedProperties: true`. victools defaults to `additionalProperties` — a custom type attribute resolver emits `unevaluatedProperties` instead, matching the existing schema's Draft 2020-12 convention.
+- `unevaluatedProperties: false` as the default for all object types (existing schema convention). Worker overrides with `additionalProperties: true`. `Spec` overrides with `unevaluatedProperties: true` (extension point for plugin modules). victools defaults to `additionalProperties` — a custom type attribute resolver emits `unevaluatedProperties` instead, matching the existing schema's Draft 2020-12 convention.
 - Top-level required fields: `[dsl, namespace, name, version, spec]`
 - `$schema`, `$id`, `title`, `description` set on the root schema to match existing values.
 
-#### WorkerSchemaModule
+#### Custom Modules
 
-victools custom module. Handles the Worker type reuse rule from `CasehubRuleFactory`.
+After alignment, the custom modules needed are:
 
-When the generator encounters `io.casehub.worker.api.Worker`:
-- Emits schema with `additionalProperties: true` (Worker is an extension point — `agent:`, `do:`, `mcp:`, `a2a:`, `react:` blocks are plugin-supplied)
-- Required: `[name, capabilities]`
-- Properties: `name`, `description`, `capabilities` (array of strings), `executionPolicy`, `sequence`, `contextType`, `outputType`
+| Module | What it does | Why victools can't handle it alone |
+|--------|-------------|-----------------------------------|
+| `WorkerSchemaModule` | Emits `additionalProperties: true` for Worker | Worker is an extension point — plugin blocks (`agent:`, `do:`, `mcp:`) are open-ended |
+| `CaseCompletionSchemaModule` | Emits `additionalProperties: { $ref: GoalExpression }` | Typed map pattern — `Map<String, GoalExpression>` needs specific `$ref`, not generic object |
+| `ExpressionEvaluatorModule` | Maps `ExpressionEvaluator` fields to `oneOf: [string, {lang: expr}]` | Interface type needs schema-level pattern, not reflection of interface methods |
+| `TriggerModule` | Maps `Trigger` sealed hierarchy to named-property `oneOf` | Existing YAML uses `contextChange:`, `schedule:` property names, not JSON discriminator |
+| `BindingTargetModule` | Maps `BindingTarget` sealed hierarchy to named-property `oneOf` | Same named-property pattern. Excludes `ExtensionTarget` (engine-internal). |
+| `UnevaluatedPropertiesModule` | Emits `unevaluatedProperties` instead of `additionalProperties` | Draft 2020-12 convention not default in victools |
 
-The hand-written `io.casehub.model.Worker` in `schema/src/main/java/` and its `WorkerMarshaller` stay — they serve the generated POJO deserialization path (old flow) during the parallel period.
-
-#### CaseCompletionSchemaModule
-
-victools custom module. Handles the typed additionalProperties rule from `CasehubRuleFactory`.
-
-When the generator encounters `CaseCompletion`:
-- Emits `additionalProperties: { $ref: "#/$defs/GoalExpression" }` (not `Map<String, Object>`)
-- Properties: `doneWhen` (ExpressionOrOverride)
-- Document order = evaluation priority (existing convention)
-
-#### ExpressionOrOverrideModule
-
-victools custom module. When the generator encounters fields typed as `ExpressionEvaluator` or declared with the expression-or-override pattern:
-- Emits the `ExpressionOrOverride` schema: `oneOf: [string, object with single-property additionalProperties]`
-- Matches the existing `$ref: "#/$defs/ExpressionOrOverride"` usage
-
-#### SpecExtensionModule
-
-The `CaseDefinitionSpec` type uses `unevaluatedProperties: true` (it's an extension point for plugin modules). This module overrides the default `unevaluatedProperties: false` for this specific type.
+The simple scalar fields, records, enums, validation annotations, nested objects, and sealed interfaces with standard discriminators are all handled by victools + JakartaValidationModule + JacksonModule.
 
 ### Build Integration
 
@@ -144,20 +215,21 @@ The `CaseDefinitionSpec` type uses `unevaluatedProperties: true` (it's an extens
 
 One-time copy of existing schema descriptions onto model type fields. Scope:
 
-- `CaseDefinition` — ~30 fields
+- `CaseDefinition` / `Spec` — ~30 fields
 - `Binding` — ~20 fields
 - `Capability` — ~5 fields
 - `Goal` — ~4 fields
 - `Milestone` — ~6 fields
-- `CaseCompletion` — ~2 fields
+- `CaseCompletion` types — ~2 fields
 - `OutcomePolicy` — ~4 fields
 - `SubCase` — ~10 fields
 - `HumanTaskTarget` — ~15 fields
 - `Trigger` types — ~10 fields
 - LLM model types (OpenAI, Anthropic, etc.) — ~40 fields total
 - `GoalExpression`, `Use`, `LabelRule`, `InboundSignalMapping` — ~15 fields
+- `Worker`, `Capability` (in worker-api after alignment) — ~10 fields
 
-Total: ~150 annotations. Mechanical work — copy description text from YAML schema to Java annotation.
+Total: ~170 annotations. Mechanical work — copy description text from YAML schema to Java annotation.
 
 ## YAML Expansion (engine#976)
 
@@ -180,6 +252,16 @@ Fields that exist on `CaseDefinition` Java model but have no YAML schema entry. 
 | `maxAdaptations` | `Integer` | `maxAdaptations:` |
 | `recoveryPolicy` | `RecoveryPolicy` | `recoveryPolicy:` |
 | `memoryRetrieval` | `MemoryRetrievalConfig` | `memoryRetrieval:` |
+| `adaptationConfig` | `AdaptationConfig` | `adaptation:` |
+
+### Per-Worker/Per-Capability Annotations (from engine#976 acceptance criteria)
+
+| YAML field | On type | Type | Description |
+|-----------|---------|------|-------------|
+| `cost:` | Worker/Capability binding | `double` | Static GOAP action cost |
+| `effect:` | Worker/Capability binding | `Map<String, Boolean>` | GOAP action effects |
+| `softDependency:` | Worker/Capability binding | `List<String>` | Optional preconditions |
+| `customize:` | Case definition | `List<String>` | Named customiser IDs |
 
 ### Fields That Stay Java-Only
 
@@ -188,7 +270,6 @@ Fields that exist on `CaseDefinition` Java model but have no YAML schema entry. 
 | `defaultWorkerBridge` | `ContextBridge<?>` — runtime object, not serializable |
 | `GoapAction.costFunction` | `CostFunction` — `@FunctionalInterface`, requires code |
 | `agentDescriptors` | `AgentDescriptor` from eidos — tracked in eidos#143 |
-| `cognitiveDemands` | Already in schema (on `Capability`, not `CaseDefinition`) |
 
 ### Per-Field Work
 
@@ -202,23 +283,24 @@ The generator automatically includes new fields in the generated schema.
 
 ## Issue Ordering
 
-1. **engine#975** — Generator module + structural equivalence + @JsonPropertyDescription migration
-2. **engine#976** — YAML expansion (incremental, one field at a time)
+1. **Phase 0: Alignment** — Cross-repo renames (worker-api), `Spec` extraction (engine), `@JsonIgnore` on runtime-only fields. Mechanical IDE refactoring.
+2. **engine#975: Generator** — Generator module + custom modules + structural equivalence test + `@JsonPropertyDescription` migration.
+3. **engine#976: YAML expansion** — Add fields incrementally, one at a time. Generator picks them up automatically.
 
+Phase 0 gates #975: the types must be aligned before reflection produces correct output.
 #975 gates #976: the generator must produce a structurally equivalent schema before expanding it.
 
 ## What Stays
 
 - `json-schema-validator` (networknt) — more valuable than before: validates the *generated* schema
-- Hand-written `Worker.java` + `WorkerMarshaller.java` in schema module — custom Jackson serialization
-- `CaseDefinitionYamlMapper` — remains until the two-class problem is collapsed (longer-term)
-- `codegen/` — stays during parallel run, retired after sustained green CI
+- `CaseDefinitionYamlMapper` — simplified after alignment, but remains until full direct-deserialization migration (longer-term)
 
 ## What Gets Retired (after equivalence proven)
 
 - `codegen/` module (2 files)
 - exec-maven-plugin + build-helper-maven-plugin in `schema/pom.xml`
-- ~40 generated `io.casehub.model.*` POJOs (replaced by `io.casehub.api.model.*` as canonical)
+- ~40 generated `io.casehub.model.*` POJOs (replaced by aligned `io.casehub.api.model.*`)
+- Hand-written `Worker.java` + `WorkerMarshaller.java` in schema module
 - Hand-written `CaseDefinition.yaml` in `schema/src/main/resources/schema/` (replaced by generated)
 
 ## References
@@ -230,6 +312,7 @@ The generator automatically includes new fields in the generated schema.
 - `api/src/main/java/io/casehub/api/model/converter/CaseDefinitionYamlMapper.java` — YAML mapper (1882 lines)
 - `schema/src/test/java/io/casehub/model/SchemaValidationTest.java` — existing schema tests
 - `specs/main/2026-08-23-typescript-programming-model-design.md` — roadmap spec (blocks workspace)
+- `reviews/casehub-slots/issue-422-schema-generator-20260824-044035/` — design review (R1-01 through R1-12)
 - victools/jsonschema-generator: https://github.com/victools/jsonschema-generator
 - casehubio/parent#422 — epic
 - casehubio/engine#975 — SchemaWriter issue
