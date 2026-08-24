@@ -33,6 +33,30 @@ Claude reported the situation as "tedious" and asked whether to continue or find
 
 ## The measured cost
 
+The 69 tool calls before abandonment break down by phase:
+
+| Phase | Tool calls | What happened |
+|-------|-----------|---------------|
+| Production code fixes (`.capabilityNames()` accessor) | 17 | One `ide_replace_text_in_file` per source file |
+| Production code fixes (`.inputSchema(`/`.outputSchema(`) | 14 | Across 6 source files |
+| Test file fixes (6 compile cycles) | 20 | Each cycle exposed the next module |
+| Compile attempts | 9 | Maven sequential — each pass reveals one module |
+| Error investigation | 5 | Read logs, count errors, find affected files |
+| False positive reversals | 4 | 2 on WorkerDescriptor, 1 BindingDescriptor, 1 CandidateMatchingContext |
+| **Total at abandonment** | **69** | **33 of 99 files fixed** |
+
+### Projection to completion
+
+Two independent methods to estimate remaining work:
+
+**Source 1 — IntelliJ ground truth.** The successful IDE refactor (attempt 2) changed 49 engine Java files. Text approach fixed 33. Remaining: 16.
+
+**Source 2 — text search results.** Searching for `.inputSchema(` returned 195+ matches across the engine. Grouping unique files by module: 29 runtime test files, 26 planning, 5 resilience, plus flow, a2a, mcp. Remaining: ~61.
+
+The discrepancy between 16 and 61 is itself evidence. Source 2 over-counts because text search cannot distinguish `Capability.inputSchema()` (should rename) from `JsonNode.get("inputSchema")` (should not) from `"inputSchema"` in a YAML test string (should not). The text-based approach would attempt replacements on all 61 files, producing false positives on ~45 of them. The IDE refactor correctly touched only 16 because it operates on the AST, not text.
+
+Using Source 2 (what the text approach would actually attempt):
+
 | Metric | At abandonment | Projected to completion |
 |--------|---------------|------------------------|
 | Tool calls | 69 | ~251 |
@@ -40,8 +64,11 @@ Claude reported the situation as "tedious" and asked whether to continue or find
 | Compile cycles | 6 | ~11 |
 | False positives caught | 4 | ~16 (at observed 20% rate) |
 | Wall time | ~25 min | ~45 min |
+| Estimated tokens | ~45k | ~120k |
 
-The projection method: 61 files remained from search results, averaging 2.3 replacement patterns per file, plus compile cycles for each remaining module. The false positive rate (4 out of 20 `.capabilityName(` replacements) is from a small sample — the true rate depends on how many types in the codebase share the renamed method name. In a platform with routing strategies, contexts, and plan steps all carrying a `capabilityName()` accessor, 20% is conservative.
+**Token cost method:** Each `ide_replace_text_in_file` call ≈ 350 tokens (request + response). Each compile cycle ≈ 2,500 tokens (command + output + error investigation). Each false positive reversal ≈ 1,500 tokens (investigation + reversal + recompile). Reasoning between calls ≈ 300 tokens average.
+
+The false positive rate (4 out of 20 `.capabilityName(` replacements) is from a small sample — the true rate depends on how many types in the codebase share the renamed method name. In a platform with routing strategies, contexts, and plan steps all carrying a `capabilityName()` accessor, 20% is conservative.
 
 ## The type-safe attempt
 
@@ -62,11 +89,23 @@ Total: 8 tool calls. One compile pass. Zero errors. Roughly two minutes.
 | Metric | Text-based (projected) | IDE refactor (actual) | Ratio |
 |--------|----------------------|----------------------|-------|
 | Tool calls | ~251 | 8 | 31x |
+| Estimated tokens | ~120k | ~5k | 24x |
 | Wall time | ~45 min | ~2 min | 23x |
 | Compile cycles | ~11 | 1 | 11x |
 | False positives | ~16 + unknown silent | 0 | - |
 
+**IDE token cost method:** 3 rename calls × ~700 tokens + 1 replace call × 350 tokens + 1 sync × 200 tokens + 1 compile × 2,500 tokens + reasoning × ~1,500 tokens ≈ 5,000 tokens.
+
 The ratios are large but the qualitative gap is larger. The text-based approach is semantically unsound — it cannot distinguish `Worker.Builder.capabilityName()` from `CandidateMatchingContext.capabilityName()`. Both are `.capabilityName(` in text. Only one should be renamed. The four caught false positives were caught because the target type lacked a `capability()` method, producing a compile error. Any false positive where the target type *does* have a compatible method signature compiles silently and produces a runtime bug. There is no way to quantify how many of those exist without type analysis — which is precisely what the IDE refactoring provides.
+
+### Methodological caveats
+
+These numbers come from a single session on a single codebase. For academic honesty:
+
+1. The 20% false positive rate is from a small sample (n=20 replacements yielded 4 false positives). The true rate depends on codebase naming conventions — projects with more shared method names across types would see higher rates.
+2. Token estimates are ±30%. Exact per-call token counting is not available at the tool-call level; the figures are computed from request/response size estimates.
+3. The text-based projection assumes no additional complications (merge conflicts, missed patterns, encoding issues). Real-world execution would likely cost more.
+4. The "silent false positive" risk is real but unquantifiable from this data alone. It requires a codebase where multiple types share both the method name and a compatible parameter signature — common in platforms with strategy/context pattern hierarchies, less common in simpler codebases.
 
 ## What this tells us about LLM productivity
 
