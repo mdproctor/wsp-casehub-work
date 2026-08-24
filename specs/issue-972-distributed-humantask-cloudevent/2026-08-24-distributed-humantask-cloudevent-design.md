@@ -23,7 +23,7 @@ casehubio/work#299 shipped the work-side inbound CloudEvent consumer (`io.casehu
 New optional engine module. Directory: `work-cloudevent/` (per maven-submodule-folder-naming protocol). Activated by adding to consumer classpath. Mutually exclusive with `casehub-work-engine-adapter`.
 
 **Compile dependencies:**
-- `casehub-engine-common` (SPIs: `HumanTaskScheduler`, `ActionGateScheduler`, `BlackboardRegistry`, `CrossTenantCaseInstanceRepository`, `PlanItemStore`, `EventBusAddresses`)
+- `casehub-engine-common` (SPIs: `HumanTaskScheduler`, `ActionGateScheduler`, `PlanItemCompletionApplier`, `GateCompletionApplier`, `CallerRefParser`, `EventBusAddresses`)
 - `casehub-engine-api` (types: `HumanTaskTarget`, `CaseDefinition`, `Binding`, `TaskStatus`)
 - `casehub-engine-planning` (types: `CasePlanModel`, `PlanItem`)
 - `casehub-work-api` (types: `WorkCloudEventTypes`, `WorkItemStatus`, `WorkItemRef`)
@@ -66,6 +66,23 @@ On `schedule(HumanTaskScheduleRequest)`:
 
 **Error handling:** If PlanItem lookup or validation fails, `item.revertDispatching()` and return (same as co-located handler). CloudEvent emission failure is fire-and-forget at the CDI level — transport-level retry is the connector's responsibility.
 
+### Shared Completion Infrastructure (engine-common)
+
+Per review finding R1-02: completion logic is shared between co-located and distributed modes. Rather than duplicating ~481 lines of orchestration (PlanItem lookup, resolution validation, JQ output mapping, conflict resolution, CDI events, context-changed publishing), the engine provides shared appliers that both modes delegate to.
+
+**`PlanItemCompletionApplier`** — `@ApplicationScoped` in `engine-common/spi/` (or `engine-planning/`). Encapsulates the full PlanItem completion flow:
+- `apply(UUID caseId, String planItemId, WorkItemStatus status, String resolution, String resolutionTypeName)` → lookup PlanItem via `BlackboardRegistry`, validate resolution via `BridgeResolver`, apply status transition, evaluate output mapping (JQ), apply via `ConflictResolver`, fire `PlanItemStateChangedEvent`/`PlanItemObsoleteEvent`, publish `CONTEXT_CHANGED`
+- `applySuspend(UUID caseId, String planItemId)` / `applyResume(UUID caseId, String planItemId)`
+
+**`GateCompletionApplier`** — `@ApplicationScoped` in `engine-common/spi/`. Encapsulates ActionGate lifecycle routing:
+- `apply(UUID caseId, long gateId, WorkItemStatus status, String resolution, String tenancyId)` → map status to event bus address (`ACTION_GATE_APPROVED` / `_REJECTED` / `_EXPIRED`), build event, publish on Vert.x event bus
+
+**`CallerRefParser`** — utility in `engine-common/spi/`. Parses `case:{caseId}/pi:{planItemId}` and `case:{caseId}/gate:{gateId}` formats. Encoding methods for both patterns. Single implementation shared by all consumers.
+
+These types use `WorkItemStatus` from `casehub-work-api` in their method signatures. `casehub-engine-common` gains a compile dependency on `casehub-work-api` (Tier 1, one-way — same direction as the existing `engine-api → casehub-worker-api` edge).
+
+The co-located work-engine-adapter can adopt these shared appliers in a future work-repo PR, eliminating its own copies. Until then, both implementations coexist — the engine-side versions are authoritative.
+
 ### Part 2 — Outbound: ActionGate CloudEvent Emitter
 
 **Prerequisite:** `ActionGateScheduler` SPI in `engine-common/spi/` (new, symmetric with `HumanTaskScheduler`).
@@ -76,7 +93,7 @@ public interface ActionGateScheduler {
 }
 ```
 
-`ActionGateScheduleRequest` — new record in `engine-common/spi/`, carrying the same fields as `ActionGateScheduleEvent`: `caseId`, `tenancyId`, `gateId`, `plannedAction`, `gateRequired`, `resolvedCandidateGroups`, `resolutionTypeName`.
+`ActionGateScheduleRequest` — renamed and moved from `ActionGateScheduleEvent` (`engine-common/internal/event/` → `engine-common/spi/`). Same fields: `caseId`, `tenancyId`, `gateId`, `plannedAction`, `gateRequired`, `resolvedCandidateGroups`, `resolutionTypeName`. The old `ActionGateScheduleEvent` class is deleted — one type, no dead code.
 
 **Engine runtime refactoring:** `WorkflowExecutionCompletedHandler.handleGate()` switches from `eventBus.publish(ACTION_GATE_SCHEDULE, event)` to `actionGateScheduler.get().schedule(request)` via `Instance<ActionGateScheduler>`. Same pattern as work#298's HumanTask refactoring. When `actionGateScheduler.isResolvable()` is false, logs a warning and returns (gate silently skipped — same behavior as HumanTask).
 
@@ -94,7 +111,7 @@ On `schedule(ActionGateScheduleRequest)`:
 
 ### Part 3 — Inbound: Lifecycle CloudEvent Consumer
 
-`WorkItemLifecycleCloudEventConsumer` — `@ApplicationScoped`.
+`WorkItemLifecycleCloudEventConsumer` — `@ApplicationScoped`. Pure transport adapter — all completion logic delegates to the shared appliers.
 
 ```java
 @ObservesAsync CloudEvent ce
@@ -109,38 +126,24 @@ On `schedule(ActionGateScheduleRequest)`:
 
 2. **Tenant context:** Extract `tenancyid` extension. Missing → log ERROR, return.
 
-3. **Parse data:** Extract `callerRef` from CloudEvent data payload.
+3. **Parse data:** Extract `callerRef` from CloudEvent data payload. Parse via `CallerRefParser`.
 
 4. **Route by callerRef format:**
 
    **PlanItem path** (`case:{uuid}/pi:{planItemId}`):
-
-   a. `BlackboardRegistry.get(caseId)` → `CasePlanModel`
-   b. `plan.getPlanItem(planItemId)` → `PlanItem`
-   c. `CrossTenantCaseInstanceRepository.findByUuid(caseId)` → `CaseInstance`
-   d. **Resolution validation:** If terminal and `resolutionTypeName` present in data → `BridgeResolver.resolveByTypeNameStrict()` + `bridge.deserialise()` (same as co-located `PlanItemCompletionApplier`)
-   e. **Status transition:** Map `WorkItemStatus` → PlanItem transition:
-      - COMPLETED → `markCompleted()`
-      - REJECTED → `markRejected()`
-      - FAULTED/EXPIRED/ESCALATED → `markFaulted()`
-      - OBSOLETE → `markObsolete()`
-      - CANCELLED → `markCancelled()`
-      - SUSPENDED → `markSuspended()`
-      - RESUMED → `markResumed()` (only if current status is SUSPENDED)
-   f. **Output mapping:** For COMPLETED/REJECTED — evaluate `HumanTaskTarget.outputMapping()` (JQ expression) against resolution data from CloudEvent, apply to case context via `ConflictResolver`
-   g. **Fire events:** `PlanItemStateChangedEvent` (async) for REJECTED/FAULTED/ESCALATED, `PlanItemObsoleteEvent` for OBSOLETE
-   h. **Context changed:** `eventBus.publish(CONTEXT_CHANGED, ...)`
+   - Map CloudEvent type → `WorkItemStatus`
+   - Extract `resolution` and `resolutionTypeName` from CloudEvent data
+   - Delegate to `PlanItemCompletionApplier.apply(caseId, planItemId, status, resolution, resolutionTypeName)`
+   - For SUSPENDED/RESUMED: delegate to `applySuspend()`/`applyResume()`
 
    **Gate path** (`case:{uuid}/gate:{gateId}`):
+   - Map CloudEvent type → `WorkItemStatus`
+   - Extract resolution data from CloudEvent data
+   - Delegate to `GateCompletionApplier.apply(caseId, gateId, status, resolution, tenancyId)`
 
-   a. Map CloudEvent type to gate event bus address:
-      - COMPLETED → `ACTION_GATE_APPROVED`
-      - REJECTED/CANCELLED → `ACTION_GATE_REJECTED`
-      - EXPIRED → `ACTION_GATE_EXPIRED`
-   b. Build the corresponding event (`ActionGateApprovedEvent`, `ActionGateRejectedEvent`, `ActionGateExpiredEvent`) from CloudEvent data
-   c. Publish on the engine's Vert.x event bus — existing engine handlers (`ActionGateApprovedHandler`, `ActionGateRejectedHandler`, `ActionGateExpiredHandler`) take over
+5. **Group lifecycle:** Observe `io.casehub.work.group.*` CloudEvents for M-of-N completion. Parse `callerRef` from data, route to PlanItem or gate path via the same shared appliers.
 
-5. **Group lifecycle:** Observe `io.casehub.work.group.*` CloudEvents for M-of-N completion. Parse `callerRef` from data, route to PlanItem or gate path. Same completion semantics as `WorkItemLifecycleAdapter.onWorkItemGroupLifecycle()`.
+The consumer contains no completion logic itself — it is a CloudEvent-to-SPI adapter. The same shared appliers handle the co-located path (from CDI `WorkItemEvent` observer in the work-engine-adapter, once adopted).
 
 ### Mode Detection
 
@@ -151,7 +154,7 @@ No configuration property. CDI bean discovery determines the mode:
 | `casehub-work-engine-adapter` present | Co-located | Adapter's beans implement SPIs, CDI observer handles lifecycle |
 | `casehub-engine-work-cloudevent` present | Distributed | This module's beans implement SPIs, CloudEvent consumer handles lifecycle |
 | Neither | No work integration | `Instance<>.isResolvable()` returns false, humanTask/gate bindings silently skipped |
-| Both | Unsupported | Startup warning via `@Observes StartupEvent`. Document as unsupported — pick one. |
+| Both | Error | `@Observes @Priority(1) StartupEvent` throws `IllegalStateException`. Fail fast — don't let the deployment reach case execution with ambiguous routing. |
 
 ### CallerRef Encoding
 
@@ -160,7 +163,7 @@ The callerRef format is a shared convention between engine emitter and engine co
 - PlanItem: `case:{caseId}/pi:{planItemId}`
 - Gate: `case:{caseId}/gate:{gateId}`
 
-The encoding/parsing logic is duplicated from the work-engine-adapter (`PlanItemCallerRef.encode()`, `GateCallerRef.encode()`, `CallerRef.parse()`). Both implementations use the same regex patterns. Consolidation to a shared location is tracked in engine#974.
+The encoding/parsing logic lives in `CallerRefParser` (engine-common/spi/) — the authoritative implementation. The work-engine-adapter has its own copies (`PlanItemCallerRef`, `GateCallerRef`, `CallerRef`), which it can migrate to the shared parser in a future work-repo PR.
 
 ### Error Handling
 
@@ -223,19 +226,22 @@ Round-trip test using CDI events (no external broker):
 
 | Location | Change |
 |---|---|
-| `engine-common/spi/` | New: `ActionGateScheduler` interface, `ActionGateScheduleRequest` record |
+| `engine-common/spi/` | New: `ActionGateScheduler` interface, `PlanItemCompletionApplier`, `GateCompletionApplier`, `CallerRefParser` |
+| `engine-common/internal/event/` | Rename+move: `ActionGateScheduleEvent` → `ActionGateScheduleRequest` in `spi/` (delete old class) |
+| `engine-common/pom.xml` | New dependency: `casehub-work-api` (for `WorkItemStatus` in applier signatures) |
 | `engine/runtime/` | Refactor: `WorkflowExecutionCompletedHandler.handleGate()` uses `Instance<ActionGateScheduler>` instead of event bus |
 | `engine/runtime/` | New: `NoOpActionGateScheduler` (`@DefaultBean`, no-op, symmetric with existing pattern) |
-| `work-cloudevent/` (new module) | New: `CloudEventHumanTaskScheduler`, `CloudEventActionGateScheduler`, `WorkItemLifecycleCloudEventConsumer`, callerRef encoding/parsing utilities |
+| `work-cloudevent/` (new module) | New: `CloudEventHumanTaskScheduler`, `CloudEventActionGateScheduler`, `WorkItemLifecycleCloudEventConsumer` (pure transport adapter), startup conflict detector |
 | Root `pom.xml` | Add `work-cloudevent` to `<modules>` |
 
 ## Not In Scope
 
 - **Transport configuration** — selecting Kafka, AMQP, or HTTP as the CloudEvent wire protocol. That's a deployment concern, configured via Quarkus messaging connectors.
 - **Work-engine-adapter updates** — the adapter implementing `HumanTaskScheduler` (work#298) and `ActionGateScheduler` (follow-up) are work-repo PRs.
-- **Multi-instance gate via CloudEvent** — if the work-side `CREATE` consumer doesn't support multi-instance creation, quorum gates are deferred until the work side adds support.
+- **Multi-instance gate via CloudEvent** — quorum gates require work-side multi-instance CloudEvent support. Single-approver gates work immediately; quorum gates log a warning and skip emission until the work side adds support. Tracked as a follow-up work-repo issue.
+- **Transactional outbox** — CDI fire-and-forget emission has a stuck-DELEGATED risk if the event is lost between PlanItem persistence and CDI delivery. The outbox pattern (persist event in the same transaction, relay via poller/CDC) eliminates this gap. Deferred for pre-release — the failure mode requires manual intervention but is detectable via PlanItem status monitoring.
 - **Repo build order resolution** — tracked in engine#974.
-- **Consolidation of duplicated CallerRef/completion logic** — tracked in engine#974.
+- **Work-engine-adapter adoption of shared appliers** — the co-located adapter can migrate to `PlanItemCompletionApplier`, `GateCompletionApplier`, and `CallerRefParser` from engine-common. Separate work-repo PR.
 
 ## References
 
