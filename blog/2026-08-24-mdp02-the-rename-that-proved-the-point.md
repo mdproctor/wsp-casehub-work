@@ -17,9 +17,7 @@ Claude tried it without the IDE first. The results are worth documenting because
 
 ## The text-based attempt
 
-The worker-api repo was renamed first via IntelliJ, but the engine repo resolved worker-api from a Maven jar, not the workspace source. IntelliJ's refactoring propagated within the worker repo but stopped at the project boundary. The engine still had the old names everywhere.
-
-Claude fell back to `ide_replace_text_in_file` — individual file text replacement. The approach: search for `.capabilityName(`, replace with `.capability(`. Search for `.inputSchema(`, replace with `.inputProjection(`. Repeat per file.
+Claude attempted the rename with per-file text replacement — search for `.capabilityName(`, replace with `.capability(`. Search for `.inputSchema(`, replace with `.inputProjection(`. Repeat across each of the 99 affected files.
 
 The first false positive appeared on file four.
 
