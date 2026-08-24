@@ -90,9 +90,12 @@ Total: 8 tool calls. One compile pass. Zero errors. Roughly two minutes.
 |--------|----------------------|----------------------|-------|
 | Tool calls | ~251 | 8 | 31x |
 | Estimated tokens | ~120k | ~5k | 24x |
+| Estimated cost (USD) | ~$6.12 | ~$0.26 | 24x |
 | Wall time | ~45 min | ~2 min | 23x |
 | Compile cycles | ~11 | 1 | 11x |
 | False positives | ~16 + unknown silent | 0 | - |
+
+**Dollar cost method:** Claude Opus 4 pricing at time of session — $15/M input tokens, $75/M output tokens. The marginal cost of the refactoring operation (on top of the existing session) is dominated by output tokens (model reasoning + tool call generation). Assuming 60% output / 40% input split on the token estimates: text-based = 72k × $75/M + 48k × $15/M = $6.12; IDE = 3k × $75/M + 2k × $15/M = $0.26. This is a single 3-field rename. A codebase that accumulates a dozen such renames over its lifetime pays the ratio repeatedly.
 
 **IDE token cost method:** 3 rename calls × ~700 tokens + 1 replace call × 350 tokens + 1 sync × 200 tokens + 1 compile × 2,500 tokens + reasoning × ~1,500 tokens ≈ 5,000 tokens.
 
