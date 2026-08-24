@@ -79,3 +79,16 @@
 **Sources:** `HumanTaskScheduler.java:25`, `HumanTaskScheduleRequest.java:26-41`, issue-299 spec §CloudEvent Contract §Data Fields
 **Exploration:** quick
 **Status:** captured
+
+## D8: ActionGateScheduler SPI — symmetric with HumanTaskScheduler
+
+**Choice:** Create `ActionGateScheduler` SPI in `engine-common/spi/` and refactor `WorkflowExecutionCompletedHandler.handleGate()` to use it via `Instance<ActionGateScheduler>`. Same pattern as work#298's HumanTask refactoring.
+**Alternatives:**
+- Keep Vert.x event bus for ActionGate, have CloudEvent module consume it — preserves the event-as-request anti-pattern that work#298 is eliminating
+- Defer ActionGate SPI to a follow-up — leaves distributed ActionGate broken until then
+**Rationale:** The ActionGate outbound path (`ActionGateScheduleEvent` on Vert.x event bus → `ActionGateWorkItemHandler` via `@ConsumeEvent`) is the same event-as-request pattern that work#298 replaced for HumanTask. The CloudEvent module needs an SPI to implement — without it, the distributed ActionGate path has no seam. The refactoring is mechanical and follows the established pattern.
+**Trade-offs:** Slightly larger scope — `WorkflowExecutionCompletedHandler.handleGate()` must be modified. Offset by consistency with the HumanTask path and elimination of the last event-as-request usage.
+**Depends on:** D1 (scope includes ActionGate), D4 (new engine module)
+**Sources:** `ActionGateWorkItemHandler.class` (decompiled — `@ConsumeEvent("casehub.action.gate.schedule")`), `WorkflowExecutionCompletedHandler.java:729` (publishes `ActionGateScheduleEvent`), `ActionGateScheduleEvent.java:24`
+**Exploration:** quick
+**Status:** captured
