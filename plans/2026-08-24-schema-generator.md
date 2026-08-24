@@ -22,7 +22,7 @@
 - `unevaluatedProperties: false` default for all objects (not `additionalProperties`)
 - Worker uses `additionalProperties: true` (plugin extension point)
 - `_codegen*` properties excluded from equivalence comparison
-- Cross-repo renames (worker-api `capabilityNames` → `capabilities`, `inputSchema` → `inputProjection`) tracked as separate issues — custom modules bridge the gap until those land
+- Cross-repo renames (worker-api `capabilities` → `capabilities`, `inputProjection` → `inputProjection`) tracked as separate issues — custom modules bridge the gap until those land
 
 ---
 
