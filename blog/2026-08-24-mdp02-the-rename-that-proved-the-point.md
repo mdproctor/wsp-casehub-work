@@ -107,12 +107,20 @@ These numbers come from a single session on a single codebase. For academic hone
 3. The text-based projection assumes no additional complications (merge conflicts, missed patterns, encoding issues). Real-world execution would likely cost more.
 4. The "silent false positive" risk is real but unquantifiable from this data alone. It requires a codebase where multiple types share both the method name and a compatible parameter signature — common in platforms with strategy/context pattern hierarchies, less common in simpler codebases.
 
-## What this tells us about LLM productivity
+## What this tells us about language choice at scale
 
-An LLM coding agent without type-aware tooling is not slower at refactoring. It cannot safely do it at all.
+The text-based approach failed on Java, but Java had a way out. The IDE refactoring operates on the type graph — it knows that `Worker.Builder.capabilityName()` and `CandidateMatchingContext.capabilityName()` are different symbols because the type system makes that distinction structural, not nominal. The 31x cost ratio measures the difference between having that escape hatch and not having it.
 
-The text-based approach was not a junior-engineer version of the same operation. It was a fundamentally different operation — string substitution with no semantic model. The 20% false positive rate on a 3-field rename across 99 files means the probability of at least one undetected semantic error approaches certainty as the codebase grows. The LLM has no in-loop type checker. It discovers errors only via compilation, and only for errors that produce compile failures. Silent type-compatible false positives are invisible.
+Python doesn't have the escape hatch.
 
-The cost ratio — 31x in tool calls, 23x in time — understates the real difference because it compares a projected completion against an actual completion. The text-based approach was abandoned at 33% progress with an accelerating error rate. Projecting linear completion from a non-linear failure curve is generous.
+In Python, the text-based approach is not a fallback — it is the approach. PyCharm and rope perform best-effort refactoring, but without static type information they cannot guarantee completeness. A method called `capability_name()` on a `WorkerBuilder` and a method called `capability_name()` on a `CandidateMatchingContext` are textually identical and semantically ambiguous. No tool can distinguish them without type annotations that are complete, correct, and enforced — which, in practice, most Python codebases are not.
 
-Type-safe refactoring tools don't make LLMs faster. They make operations possible that are otherwise not safely achievable. That is a categorical difference, not a quantitative one.
+This doesn't matter for small projects. A 5-file Flask app doesn't have multiple types sharing method names. The rename is unambiguous because the codebase is small enough that name collisions are unlikely. An LLM can rename by text replacement and get it right.
+
+It breaks down at scale. The false positive rate we measured — 20% on `.capabilityName(` — is a function of how many types in the codebase share the target method name. That number grows with codebase size. In a platform with routing strategies, execution contexts, plan steps, and diagnostic types all carrying a `capabilityName()` accessor, the name space is crowded. In a 99-file rename, 4 false positives were caught by the compiler and an unknown number were not. In a 500-file rename the probability of at least one undetected semantic error approaches certainty.
+
+The cost ratio — 31x in tool calls, 24x in tokens, 23x in time — understates the real difference because it compares a projected completion against an actual completion. The text-based approach was abandoned at 33% progress with an accelerating error rate. Projecting linear completion from a non-linear failure curve is generous.
+
+But the quantitative gap is not the argument. The argument is categorical. A typed language with IDE tooling makes cross-repo refactoring a solved operation — three tool calls, zero errors, two minutes. A dynamically typed language makes the same operation an unsound approximation at any scale where types share method names. The LLM has no in-loop type checker. It discovers errors only via compilation, and only for errors that produce compile failures. Silent type-compatible false positives are invisible.
+
+Type-safe refactoring tools don't make LLMs faster. They make operations possible that are otherwise not safely achievable at engineering scale. Small projects don't surface the difference. Large ones can't afford to ignore it.
