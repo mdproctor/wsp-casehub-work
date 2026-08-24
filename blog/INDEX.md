@@ -45,3 +45,4 @@
 | [2026-07-02-mdp02-the-map-that-was-already-there.md](2026-07-02-mdp02-the-map-that-was-already-there.md) | 2026-07-02 | Normative alignment — mapping WorkItem lifecycle to Qhorus speech acts and commitment states |
 | [2026-07-14-mdp01-summary-that-was-already-there.md](2026-07-14-mdp01-summary-that-was-already-there.md) | 2026-07-14 | Queue summary endpoint — InboxSummaryBuilder renamed to WorkItemSummaryBuilder; oldestCreatedAt added; design review caught naming collision |
 | [2026-08-20-mdp01-documenting-federation-layer.md](2026-08-20-mdp01-documenting-federation-layer.md) | 2026-08-20 | L8 Federation layer added to ARC42STORIES.MD — layer placement decision, shadow replication architecture, filter-on-creation subscription model |
+| [2026-08-24-mdp01-two-models-of-the-same-system.md](2026-08-24-mdp01-two-models-of-the-same-system.md) | 2026-08-24 | Schema generator structural equivalence: 217 diffs to zero via root-cause analysis and post-processing |
