@@ -57,3 +57,16 @@
 **Sources:** Design review R1-01, R1-03 (structural mismatch findings), Worker.java (worker-api), Capability.java (worker-api), CaseDefinition.java (engine api)
 **Exploration:** deep-analysis (surfaced by design review)
 **Status:** captured
+
+## D6: CaseDefinitionModule — full CaseDefinition deserialization
+
+**Choice:** Single `CaseDefinitionModule extends SimpleModule` with custom deserializers for all polymorphic types in CaseDefinition. Full scope — covers both spec-level and top-level deserialization. Post-deserialization validation stays separate. Runtime wiring (ContextBridge creation, expression registry) stays at the call site.
+**Alternatives:**
+- Spec-only scope — stop at CaseDefinitionSpec deserialization; leaves top-level CaseDefinition to the mapper. Partial implementation that delays the eventual goal.
+- Per-type modules — separate modules per polymorphic type (TriggerModule, BindingTargetModule, etc.). Over-engineered for a single consumer.
+**Rationale:** The goal is full round-trip fidelity for CaseDefinition through YAML/JSON. A single module centralizes all structural mapping rules. The protocol (PP-20260825-7ad4b1) mandates externalized deserialization — no behavior annotations on domain types.
+**Trade-offs:** Large module surface (6 custom deserializers + mixins + property name mappings). Acceptable — the complexity is inherent in the polymorphic types, not in the module structure.
+**Depends on:** D5 (alignment refactoring — types must be aligned for direct deserialization)
+**Sources:** PP-20260825-7ad4b1 (Jackson externalized serialization protocol), CaseDefinitionYamlMapper.java (existing manual deserialization logic), CaseDefinition.java, CaseDefinitionSpec.java
+**Exploration:** quick
+**Status:** captured
