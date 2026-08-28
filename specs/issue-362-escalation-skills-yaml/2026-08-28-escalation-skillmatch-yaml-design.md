@@ -54,7 +54,7 @@ escalation:
       description: Candidate group to escalate to when claim deadline passes.
     deadline:
       type: string
-      description: ISO-8601 duration for the escalation deadline.
+      description: ISO-8601 duration for the escalated WorkItem's new completion window.
     generateSummary:
       type: boolean
       default: true
@@ -244,6 +244,11 @@ private BreachDecision resolveBreachDecision(WorkItem item, SlaBreachContext ctx
         case CLAIM_EXPIRED -> item.escalationOnClaimDeadline();
     };
     if (target != null) {
+        // Already at escalation target — declarative config exhausted, fall through to policy
+        Set<String> currentGroups = parseCandidateGroups(item.candidateGroups());
+        if (currentGroups.contains(target)) {
+            return slaBreachPolicy.onBreach(ctx);
+        }
         Duration deadline = item.escalationDeadline() != null
             ? Duration.parse(item.escalationDeadline()) : null;
         var decision = EscalateTo.to(target);
@@ -253,9 +258,11 @@ private BreachDecision resolveBreachDecision(WorkItem item, SlaBreachContext ctx
 }
 ```
 
+**Self-detection guard:** Before firing the declarative escalation, the method checks whether `candidateGroups` already contains the target group. If so, the declarative config has already been applied — the WorkItem is at the escalation tier. It falls through to `SlaBreachPolicy` for the next decision (typically `Fail` or `Exhausted`). This mirrors the stateless tier-detection pattern from `SlaBreachPolicy` (GE-20260522-f7db12) and prevents infinite re-escalation to the same group.
+
 Rationale for this precedence model:
 - Per-item YAML config is **declarative routing** — the YAML author specifies what happens to this specific task on breach
-- `SlaBreachPolicy` is the **deployment-wide programmatic default** — consulted only when no per-item config exists
+- `SlaBreachPolicy` is the **deployment-wide programmatic default** — consulted only when no per-item config exists, or when per-item config is exhausted (already at escalation tier)
 - `BreachedTask` stays unchanged — minimal projection for policy use, no config data leaks into SPI types
 - `SlaBreachContext` stays unchanged — no new fields needed
 - **No changes** to the `SlaBreachPolicy` SPI contract — existing implementations continue to work for WorkItems without per-item config
