@@ -120,7 +120,9 @@ CDI guarantees: `@Observes` (synchronous) completes before `@ObservesAsync` fire
 
 ### PlanItemCompletionApplier — what the engine does with ledgerEntryId
 
-`PlanItemCompletionApplier.apply()` gains a `UUID workLedgerEntryId` parameter. The applier passes this through when firing `PlanItemStateChangedEvent`, which the engine can use to set `causedByEntryId` on its own ledger entry. The work-side change is just threading the value — the engine decides how to use it.
+`PlanItemCompletionApplier.apply()` gains a `UUID workLedgerEntryId` parameter. The work-side change stops here — the parameter is accepted and available for use. How the engine consumes it (adding a field to `PlanItemStateChangedEvent`, writing it to the engine's own ledger entry as `causedByEntryId`) is engine#205 scope. `PlanItemStateChangedEvent` is an engine-common record — modifying it requires a change in the engine repo, not here.
+
+For now, `PlanItemCompletionApplier` logs the value at DEBUG level so the threading is visible and testable without modifying engine types.
 
 ---
 
@@ -138,7 +140,7 @@ CDI guarantees: `@Observes` (synchronous) completes before `@ObservesAsync` fire
 5. `WorkItemLifecycleAdapterTest` — terminal event with `PlanItemRef` callerRef triggers `applier.apply()` with correct `ledgerEntryId`
 6. `WorkItemLifecycleAdapterTest` — terminal event with `GateRef` callerRef routes to `gateApplier`
 7. `WorkItemLifecycleAdapterTest` — null callerRef returns early (no NPE)
-8. `PlanItemCompletionApplierTest` — `workLedgerEntryId` parameter threaded to `PlanItemStateChangedEvent`
+8. `PlanItemCompletionApplierTest` — `workLedgerEntryId` parameter accepted and logged at DEBUG
 
 ### qhorus
 
