@@ -123,7 +123,11 @@ if (node.has("escalation")) {
     String deadline = textOrNull(esc, "deadline");
     if (deadline != null && !deadline.isEmpty()) {
         try {
-            java.time.Duration.parse(deadline);
+            java.time.Duration d = java.time.Duration.parse(deadline);
+            if (d.isZero() || d.isNegative()) {
+                throw new IllegalArgumentException(
+                    "Binding '" + bindingName + "' escalation deadline must be positive, got: " + deadline);
+            }
         } catch (java.time.format.DateTimeParseException e) {
             throw new IllegalArgumentException(
                 "Binding '" + bindingName + "' escalation has invalid deadline: " + deadline, e);
@@ -244,13 +248,19 @@ private BreachDecision resolveBreachDecision(WorkItem item, SlaBreachContext ctx
         case CLAIM_EXPIRED -> item.escalationOnClaimDeadline();
     };
     if (target != null) {
-        // Already at escalation target — declarative config exhausted, fall through to policy
         Set<String> currentGroups = parseCandidateGroups(item.candidateGroups());
-        if (currentGroups.contains(target)) {
+        if (currentGroups.equals(Set.of(target))) {
             return slaBreachPolicy.onBreach(ctx);
         }
-        Duration deadline = item.escalationDeadline() != null
-            ? Duration.parse(item.escalationDeadline()) : null;
+        Duration deadline = null;
+        if (item.escalationDeadline() != null) {
+            try {
+                deadline = Duration.parse(item.escalationDeadline());
+            } catch (DateTimeParseException e) {
+                LOG.warnf("WorkItem %s has invalid escalationDeadline '%s' — ignoring per-item deadline",
+                          item.id(), item.escalationDeadline());
+            }
+        }
         var decision = EscalateTo.to(target);
         return deadline != null ? decision.withDeadline(deadline) : decision;
     }
@@ -258,7 +268,9 @@ private BreachDecision resolveBreachDecision(WorkItem item, SlaBreachContext ctx
 }
 ```
 
-**Self-detection guard:** Before firing the declarative escalation, the method checks whether `candidateGroups` already contains the target group. If so, the declarative config has already been applied — the WorkItem is at the escalation tier. It falls through to `SlaBreachPolicy` for the next decision (typically `Fail` or `Exhausted`). This mirrors the stateless tier-detection pattern from `SlaBreachPolicy` (GE-20260522-f7db12) and prevents infinite re-escalation to the same group.
+**Self-detection guard:** Before firing the declarative escalation, the method checks whether `candidateGroups` is **exactly** the target group (single-element set equality). `executeEscalateTo` replaces candidateGroups entirely with `String.join(",", escalate.groups())`, so after a per-item escalation to `"team-leads"`, candidateGroups becomes exactly `"team-leads"`. The `equals(Set.of(target))` check correctly detects this post-escalation state, while a `contains` check would false-positive when the original candidateGroups includes the target alongside other groups. This mirrors the stateless tier-detection pattern from `SlaBreachPolicy` (GE-20260522-f7db12) and prevents infinite re-escalation to the same group.
+
+**Defensive deadline parse:** The persisted `escalationDeadline` string is validated at YAML parse time by `BindingDeserializer`. However, if an invalid value is persisted through an alternative path (REST API without validation, DB corruption, migration error), `Duration.parse()` would throw `DateTimeParseException`. An uncaught `DateTimeParseException` in the breach path would roll back the transaction and re-trigger on every timer tick — an infinite failure loop. The try-catch degrades gracefully: the per-item escalation still fires (correct group), but uses the default deadline from `config.defaultExpiryHours()` instead of the corrupted value.
 
 Rationale for this precedence model:
 - Per-item YAML config is **declarative routing** — the YAML author specifies what happens to this specific task on breach
@@ -294,7 +306,7 @@ Default behavior is unchanged: `null` (no YAML config) and `true` both generate 
 
 **Work tests:**
 - `HumanTaskScheduleHandlerTest` — verify escalation/skillMatch fields flow from `HumanTaskTarget` through to `WorkItemCreateRequest`
-- `ExpiryLifecycleServiceTest` — verify per-item escalation config takes precedence over `SlaBreachPolicy`; verify fallback to policy when per-item config is absent; verify `escalationDeadline` duration parsing and application to new `expiresAt`
+- `ExpiryLifecycleServiceTest` — verify per-item escalation config takes precedence over `SlaBreachPolicy`; verify fallback to policy when per-item config is absent; verify `escalationDeadline` duration parsing and application to new `expiresAt`; verify self-detection guard uses exact set equality (original groups including target must NOT bypass per-item escalation); verify invalid persisted `escalationDeadline` degrades gracefully to default deadline
 - `WorkItemCreateRequestTest` — verify escalation fields are carried through builder and equals/hashCode
 
 ## Deferred
