@@ -282,20 +282,43 @@ Rationale for this precedence model:
 
 ### Work: EscalationSummaryObserver — generateSummary gate
 
-`EscalationSummaryObserver.onEscalation()` currently generates summaries unconditionally for all `EXPIRED` and `CLAIM_EXPIRED` events. With the `escalationGenerateSummary` field on `WorkItem`, the observer must check it:
+`EscalationSummaryObserver.onEscalation()` currently generates summaries for `EXPIRED` and `CLAIM_EXPIRED` events only. With per-item declarative escalation, the observer must also handle `SLA_REASSIGNED` — this is the event fired by `executeEscalateTo()` when a completion-expiry declarative escalation fires.
+
+**Event semantics and the asymmetry they create:**
+- `CLAIM_EXPIRED` fires **before** the breach decision (see `processClaimDeadline` line ~170), so the observer already catches claim-deadline breaches regardless of escalation path.
+- Completion-expiry declarative escalation produces `EscalateTo` → `executeEscalateTo` → fires `SLA_REASSIGNED`. No `EXPIRED` event fires (that requires `Fail`). Without this fix, `generateSummary: true` with `onExpiry` would be inert.
+
+**Two event groups, two default semantics:**
+
+| Event | Default (null) | Rationale |
+|-------|---------------|-----------|
+| `EXPIRED`, `CLAIM_EXPIRED` | summary generated | Breach/failure events — backward compatible, existing behavior |
+| `SLA_REASSIGNED` | no summary | Continuation event — opt-in only, avoids generating summaries for all SlaBreachPolicy-driven escalations |
 
 ```java
 void onEscalation(@Observes final WorkItemLifecycleEvent event) {
     final WorkEventType type = event.eventType();
-    if (type != WorkEventType.EXPIRED && type != WorkEventType.CLAIM_EXPIRED) return;
     final WorkItem wi = event.workItem();
     if (wi == null) return;
-    if (wi.escalationGenerateSummary() != null && !wi.escalationGenerateSummary()) return;
-    summaryStore.put(summaryService.buildSummary(wi.id(), type.name()));
+
+    switch (type) {
+        case SLA_REASSIGNED -> {
+            // Per-item declarative escalation — opt-in: only when explicitly true
+            if (Boolean.TRUE.equals(wi.escalationGenerateSummary())) {
+                summaryStore.put(summaryService.buildSummary(wi.id(), type.name()));
+            }
+        }
+        case EXPIRED, CLAIM_EXPIRED -> {
+            // Existing behavior — opt-out: generate unless explicitly false
+            if (Boolean.FALSE.equals(wi.escalationGenerateSummary())) return;
+            summaryStore.put(summaryService.buildSummary(wi.id(), type.name()));
+        }
+        default -> { }
+    }
 }
 ```
 
-Default behavior is unchanged: `null` (no YAML config) and `true` both generate summaries. Only an explicit `generateSummary: false` suppresses the LLM call.
+This makes `generateSummary: true` effective for both `onExpiry` and `onClaimDeadline` declarative escalation paths, while preserving existing behavior for SlaBreachPolicy-driven escalations (no `escalationGenerateSummary` field → `null` → no summary for `SLA_REASSIGNED`, summary for `EXPIRED`/`CLAIM_EXPIRED`).
 
 ### Test Fixtures
 
@@ -307,6 +330,7 @@ Default behavior is unchanged: `null` (no YAML config) and `true` both generate 
 **Work tests:**
 - `HumanTaskScheduleHandlerTest` — verify escalation/skillMatch fields flow from `HumanTaskTarget` through to `WorkItemCreateRequest`
 - `ExpiryLifecycleServiceTest` — verify per-item escalation config takes precedence over `SlaBreachPolicy`; verify fallback to policy when per-item config is absent; verify `escalationDeadline` duration parsing and application to new `expiresAt`; verify self-detection guard uses exact set equality (original groups including target must NOT bypass per-item escalation); verify invalid persisted `escalationDeadline` degrades gracefully to default deadline
+- `EscalationSummaryObserverTest` — verify `SLA_REASSIGNED` with `escalationGenerateSummary=true` generates summary (opt-in); verify `SLA_REASSIGNED` with `null` does NOT generate summary (backward compat); verify `EXPIRED` with `null` generates summary (existing default); verify `EXPIRED` with `escalationGenerateSummary=false` suppresses summary (opt-out)
 - `WorkItemCreateRequestTest` — verify escalation fields are carried through builder and equals/hashCode
 
 ## Deferred
