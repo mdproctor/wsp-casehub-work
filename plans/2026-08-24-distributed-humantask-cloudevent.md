@@ -30,11 +30,11 @@
 
 ### Task 1: ActionGateScheduler SPI, request type, handler refactoring
 
-Create the `ActionGateScheduler` SPI (symmetric with `HumanTaskScheduler`), rename `ActionGateScheduleEvent` → `ActionGateScheduleRequest`, refactor the single production call site, and add the `@DefaultBean` no-op.
+Create the `ActionGateScheduler` SPI (symmetric with `HumanTaskScheduler`), rename `ActionGateScheduleRequest` → `ActionGateScheduleRequest`, refactor the single production call site, and add the `@DefaultBean` no-op.
 
 **Files:**
 - Create: `common/src/main/java/io/casehub/engine/common/spi/ActionGateScheduler.java`
-- Rename: `ActionGateScheduleEvent` → `ActionGateScheduleRequest` (use `ide_refactor_rename`)
+- Rename: `ActionGateScheduleRequest` → `ActionGateScheduleRequest` (use `ide_refactor_rename`)
 - Move: `ActionGateScheduleRequest` from `common/internal/event/` → `common/spi/` (use `ide_move_file`)
 - Create: `runtime/src/main/java/io/casehub/engine/internal/worker/NoOpActionGateScheduler.java`
 - Modify: `runtime/src/main/java/io/casehub/engine/internal/engine/handler/WorkflowExecutionCompletedHandler.java` — `handleGate()` uses `Instance<ActionGateScheduler>` instead of event bus publish
@@ -89,7 +89,7 @@ public interface ActionGateScheduler {
 
 - [ ] **Step 4: Rename ActionGateScheduleEvent → ActionGateScheduleRequest**
 
-Use `ide_refactor_rename` on `ActionGateScheduleEvent` → `ActionGateScheduleRequest`.
+Use `ide_refactor_rename` on `ActionGateScheduleRequest` → `ActionGateScheduleRequest`.
 Then use `ide_move_file` from `common/src/main/java/io/casehub/engine/common/internal/event/ActionGateScheduleRequest.java` to `common/src/main/java/io/casehub/engine/common/spi/ActionGateScheduleRequest.java`.
 
 Verify all references updated (one production site in `WorkflowExecutionCompletedHandler`, two test sites in `ActionGateResolutionTest` and `ActionGateResolutionTypeTest`).
