@@ -39,7 +39,7 @@ Both `escalation` and `skillMatch` are optional. All fields within each are opti
 
 ### Engine: CaseDefinition.yaml — Schema (D1)
 
-Add to `HumanTask` `$defs`:
+Add `escalation` and `skillMatch` as entries under `HumanTask.properties` (the schema uses `unevaluatedProperties: false`, so they must appear here to pass validation):
 
 ```yaml
 escalation:
@@ -87,14 +87,8 @@ public record EscalationConfig(
     String onExpiry,
     String onClaimDeadline,
     String deadline,
-    boolean generateSummary
-) {
-    public EscalationConfig {
-        if (deadline != null && !deadline.isEmpty()) {
-            java.time.Duration.parse(deadline); // validate ISO-8601
-        }
-    }
-}
+    Boolean generateSummary
+) {}
 
 public record SkillMatchConfig(
     String strategy,
@@ -102,10 +96,9 @@ public record SkillMatchConfig(
     Double minimumScore
 ) {
     public SkillMatchConfig {
-        if (minimumScore != null && minimumScore != -1.0
-                && (minimumScore < 0.0 || minimumScore > 1.0)) {
+        if (minimumScore != null && (minimumScore < 0.0 || minimumScore > 1.0)) {
             throw new IllegalArgumentException(
-                "minimumScore must be in [0.0, 1.0] or -1.0, was: " + minimumScore);
+                "minimumScore must be in [0.0, 1.0], was: " + minimumScore);
         }
     }
 }
@@ -118,6 +111,8 @@ Add fields to `HumanTaskTarget`:
 Add builder methods:
 - `escalation(EscalationConfig)`, `skillMatch(SkillMatchConfig)`
 
+**Annotation mapping path:** When parent#422 wires the annotation processor to production code, `CompositeWorkItemDescriptor` (which holds `EscalationDescriptor`) will map to `HumanTaskTarget.EscalationConfig` in the engine-adapter layer. The mapping is mechanical — `EscalationDescriptor` and `EscalationConfig` have identical field names and types. The two records exist in separate modules because engine-api cannot depend on work-annotations (wrong dependency direction per D2). This structural duplication is intentional and preferred over introducing a shared module for four fields.
+
 ### Engine: BindingDeserializer — Parsing
 
 Add to `deserializeHumanTask()`, following the existing pattern (check `node.has()`, parse nested object, set on builder):
@@ -125,10 +120,33 @@ Add to `deserializeHumanTask()`, following the existing pattern (check `node.has
 ```java
 if (node.has("escalation")) {
     JsonNode esc = node.get("escalation");
+    String deadline = textOrNull(esc, "deadline");
+    if (deadline != null && !deadline.isEmpty()) {
+        try {
+            java.time.Duration.parse(deadline);
+        } catch (java.time.format.DateTimeParseException e) {
+            throw new IllegalArgumentException(
+                "Binding '" + bindingName + "' escalation has invalid deadline: " + deadline, e);
+        }
+    }
+    String onExpiry = textOrNull(esc, "onExpiry");
+    String onClaimDeadline = textOrNull(esc, "onClaimDeadline");
+    if (onExpiry != null && !node.has("expiresIn") && !node.has("expiresInExpression")
+            && !node.has("expiresAtExpression")) {
+        LOG.warnf("Binding '%s': escalation.onExpiry is set but no expiry deadline "
+                + "(expiresIn/expiresInExpression/expiresAtExpression) — escalation may "
+                + "never fire unless a case-level budget deadline applies", bindingName);
+    }
+    if (onClaimDeadline != null && !node.has("claimDeadlineHours")) {
+        LOG.warnf("Binding '%s': escalation.onClaimDeadline is set but no "
+                + "claimDeadlineHours — claim escalation will not fire", bindingName);
+    }
+    if (deadline != null && onExpiry == null && onClaimDeadline == null) {
+        LOG.warnf("Binding '%s': escalation.deadline is set but no escalation target "
+                + "(onExpiry/onClaimDeadline) — deadline has no effect", bindingName);
+    }
     b.escalation(new HumanTaskTarget.EscalationConfig(
-        textOrNull(esc, "onExpiry"),
-        textOrNull(esc, "onClaimDeadline"),
-        textOrNull(esc, "deadline"),
+        onExpiry, onClaimDeadline, deadline,
         esc.has("generateSummary") ? esc.get("generateSummary").asBoolean() : true
     ));
 }
@@ -152,22 +170,26 @@ If the victools generator is already active (engine#975), the inner records on `
 
 ### Work: WorkItemCreateRequest — New fields (D3)
 
-Add three fields:
+Add four fields:
 
-| Field | Type | Maps from |
-|-------|------|-----------|
-| `escalationOnExpiry` | `String` | `EscalationConfig.onExpiry` |
-| `escalationOnClaimDeadline` | `String` | `EscalationConfig.onClaimDeadline` |
-| `escalationDeadline` | `String` | `EscalationConfig.deadline` |
-| `escalationGenerateSummary` | `Boolean` | `EscalationConfig.generateSummary` |
+| Field | Type | Maps from | Lifecycle |
+|-------|------|-----------|-----------|
+| `escalationOnExpiry` | `String` | `EscalationConfig.onExpiry` | Persisted |
+| `escalationOnClaimDeadline` | `String` | `EscalationConfig.onClaimDeadline` | Persisted |
+| `escalationDeadline` | `String` | `EscalationConfig.deadline` | Persisted |
+| `escalationGenerateSummary` | `Boolean` | `EscalationConfig.generateSummary` | Persisted |
 
-`escalationDeadline` is the ISO-8601 duration for how long the escalated group has to act after escalation fires — distinct from the WorkItem's own `expiresAt`. `SlaBreachPolicy` reads it when constructing the escalated WorkItem.
+All four escalation fields are **persisted** on `WorkItemEntity` and `WorkItem` for consumption at breach time. This contrasts with skill-match routing fields (`routingStrategy`, `minimumScore`) which are transient creation-time metadata consumed by the routing/assignment service and not persisted.
+
+`escalationDeadline` is an ISO-8601 duration (e.g. `PT4H`) persisted on the WorkItem. At breach time, `ExpiryLifecycleService` parses it and applies `now.plus(duration)` to set the new `expiresAt` on the escalated WorkItem. It is NOT consumed at creation time — it is stored and read later.
 
 Skill-match fields already exist: `routingStrategy`, `requiredCapabilities`, `minimumScore`.
 
 ### Work: HumanTaskScheduleHandler — Threading
 
-In both `handleInlineMode` and `handleTemplateMode`, read the new config from `HumanTaskTarget` and pass to the `WorkItemCreateRequest.Builder`:
+In both `handleInlineMode` and `handleTemplateMode`, read the new config from `HumanTaskTarget` and pass to the `WorkItemCreateRequest.Builder`.
+
+**Template-mode fix:** `handleTemplateMode` currently does not set `.claimDeadlineBusinessHours(target.claimDeadlineHours())` — this is a pre-existing gap (inline mode sets it). This spec fixes the gap because `escalation.onClaimDeadline` requires a claim deadline to trigger. Add `.claimDeadlineBusinessHours(target.claimDeadlineHours())` to the template-mode builder.
 
 ```java
 if (target.escalation() != null) {
@@ -187,7 +209,74 @@ if (target.skillMatch() != null) {
 
 ### Work: WorkItemEntity — Persistence
 
-`WorkItemEntity` must store `escalationOnExpiry`, `escalationOnClaimDeadline`, and `escalationGenerateSummary` so `SlaBreachPolicy` can read them at breach time. Check existing columns — if absent, add a Flyway migration (V-number per `docs/FLYWAY.md` reservation procedure).
+Add four nullable columns via Flyway migration (V-number per `docs/FLYWAY.md` reservation procedure):
+
+| Column | Type | JPA mapping |
+|--------|------|-------------|
+| `escalation_on_expiry` | `VARCHAR(255)` | `@Column String escalationOnExpiry` |
+| `escalation_on_claim_deadline` | `VARCHAR(255)` | `@Column String escalationOnClaimDeadline` |
+| `escalation_deadline` | `VARCHAR(32)` | `@Column String escalationDeadline` |
+| `escalation_generate_summary` | `BOOLEAN` | `@Column Boolean escalationGenerateSummary` |
+
+All four are nullable — `NULL` means "no per-item escalation config for this dimension." `ExpiryLifecycleService` reads these fields at breach time via the `WorkItem` SPI record.
+
+### Work: WorkItem SPI — Record expansion
+
+`io.casehub.work.api.WorkItem` is the service-layer interface — all runtime code (including `ExpiryLifecycleService`) operates on this record, not the JPA entity. Additions required:
+
+1. **WorkItem record** — four new components: `String escalationOnExpiry`, `String escalationOnClaimDeadline`, `String escalationDeadline`, `Boolean escalationGenerateSummary`
+2. **WorkItem.Builder** — four new builder methods
+3. **WorkItem.toBuilder()** — field propagation for all four fields
+4. **Entity ↔ WorkItem mapping** — bidirectional mapping in the entity-to-record and record-to-entity conversion code
+
+### Work: ExpiryLifecycleService — Per-item escalation precedence
+
+Per-item YAML escalation config and the `SlaBreachPolicy` SPI are two escalation mechanisms. Their interaction model:
+
+**Per-item config takes precedence; `SlaBreachPolicy` is the fallback.**
+
+When a WorkItem breaches its SLA deadline, `ExpiryLifecycleService` checks for per-item escalation config on the `WorkItem` before consulting the policy:
+
+```java
+private BreachDecision resolveBreachDecision(WorkItem item, SlaBreachContext ctx) {
+    String target = switch (ctx.breachType()) {
+        case COMPLETION_EXPIRED -> item.escalationOnExpiry();
+        case CLAIM_EXPIRED -> item.escalationOnClaimDeadline();
+    };
+    if (target != null) {
+        Duration deadline = item.escalationDeadline() != null
+            ? Duration.parse(item.escalationDeadline()) : null;
+        var decision = EscalateTo.to(target);
+        return deadline != null ? decision.withDeadline(deadline) : decision;
+    }
+    return slaBreachPolicy.onBreach(ctx);
+}
+```
+
+Rationale for this precedence model:
+- Per-item YAML config is **declarative routing** — the YAML author specifies what happens to this specific task on breach
+- `SlaBreachPolicy` is the **deployment-wide programmatic default** — consulted only when no per-item config exists
+- `BreachedTask` stays unchanged — minimal projection for policy use, no config data leaks into SPI types
+- `SlaBreachContext` stays unchanged — no new fields needed
+- **No changes** to the `SlaBreachPolicy` SPI contract — existing implementations continue to work for WorkItems without per-item config
+- The existing stateless multi-tier pattern (GE-20260522-f7db12) continues to work via `SlaBreachPolicy` for WorkItems that rely on `candidateGroups`-based tier detection
+
+### Work: EscalationSummaryObserver — generateSummary gate
+
+`EscalationSummaryObserver.onEscalation()` currently generates summaries unconditionally for all `EXPIRED` and `CLAIM_EXPIRED` events. With the `escalationGenerateSummary` field on `WorkItem`, the observer must check it:
+
+```java
+void onEscalation(@Observes final WorkItemLifecycleEvent event) {
+    final WorkEventType type = event.eventType();
+    if (type != WorkEventType.EXPIRED && type != WorkEventType.CLAIM_EXPIRED) return;
+    final WorkItem wi = event.workItem();
+    if (wi == null) return;
+    if (wi.escalationGenerateSummary() != null && !wi.escalationGenerateSummary()) return;
+    summaryStore.put(summaryService.buildSummary(wi.id(), type.name()));
+}
+```
+
+Default behavior is unchanged: `null` (no YAML config) and `true` both generate summaries. Only an explicit `generateSummary: false` suppresses the LLM call.
 
 ### Test Fixtures
 
@@ -198,6 +287,14 @@ if (target.skillMatch() != null) {
 
 **Work tests:**
 - `HumanTaskScheduleHandlerTest` — verify escalation/skillMatch fields flow from `HumanTaskTarget` through to `WorkItemCreateRequest`
+- `ExpiryLifecycleServiceTest` — verify per-item escalation config takes precedence over `SlaBreachPolicy`; verify fallback to policy when per-item config is absent; verify `escalationDeadline` duration parsing and application to new `expiresAt`
+- `WorkItemCreateRequestTest` — verify escalation fields are carried through builder and equals/hashCode
+
+## Deferred
+
+### @RequiresQuorum YAML assessment
+
+Issue #362 notes: "assess whether standalone quorum needs a separate YAML field." SubCase already supports `groupId`, `requiredCount`, `totalInGroup`, and `onThresholdReached` in YAML (via `BindingDeserializer.deserializeSubCase()`). Whether standalone quorum outside SubCase needs a separate YAML field is deferred to casehubio/work#367.
 
 ## References
 
@@ -208,6 +305,12 @@ if (target.skillMatch() != null) {
 - `engine/schema/src/main/resources/schema/CaseDefinition.yaml:716` — HumanTask $defs
 - `engine-adapter/src/main/java/io/casehub/work/engine/HumanTaskScheduleHandler.java` — adapter wiring
 - `api/src/main/java/io/casehub/work/api/WorkItemCreateRequest.java` — create request DTO
+- `api/src/main/java/io/casehub/work/api/WorkItem.java` — SPI record
+- `api/src/main/java/io/casehub/work/api/BreachedTask.java` — breach projection (unchanged)
+- `api/src/main/java/io/casehub/work/api/SlaBreachContext.java` — breach context (unchanged)
+- `api/src/main/java/io/casehub/work/api/spi/SlaBreachPolicy.java` — breach policy SPI (unchanged)
+- `runtime/src/main/java/io/casehub/work/runtime/service/ExpiryLifecycleService.java` — breach execution
+- `runtime/src/main/java/io/casehub/work/runtime/model/WorkItemEntity.java` — JPA entity
 - GE-20260511-3e5a75 — SlaBreachPolicy escalation pattern
 - GE-20260522-f7db12 — stateless multi-tier escalation via candidateGroups
 - casehubio/parent#422 — TypeScript programming model epic
