@@ -102,8 +102,8 @@ Alignment requires changes to types in other repos:
 
 | Repo | Type | Change |
 |------|------|--------|
-| worker-api | `Worker` | Rename `capabilityNames` → `capabilities`. Add `sequence`, `contextType`, `outputType`. `@JsonIgnore` on `function`. |
-| worker-api | `Capability` | Rename `inputSchema` → `inputProjection`, `outputSchema` → `outputProjection`. |
+| worker-api | `Worker` | Rename `capabilities` → `capabilities`. Add `sequence`, `contextType`, `outputType`. `@JsonIgnore` on `function`. |
+| worker-api | `Capability` | Rename `inputProjection` → `inputProjection`, `outputProjection` → `outputProjection`. |
 
 These are the only cross-repo changes. All other type alignments are within the engine repo.
 

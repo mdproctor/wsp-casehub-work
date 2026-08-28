@@ -30,6 +30,6 @@ Testing was the other surprise. Putting both `casehub-work` and `casehub-qhorus`
 
 ## What landed
 
-The module landed as `casehub-work-qhorus` — three source files (`QhorusCallerRef`, `QhorusWorkItemLifecycleAdapter`, `WorkQhorusMcpTools`), twenty tests. The speech act mapping covers all seven terminal statuses: COMPLETED→DONE, REJECTED/FAULTED/ESCALATED→FAILURE, CANCELLED/EXPIRED/OBSOLETE→DECLINE.
+The module landed as `casehub-work-qhorus` — three source files (`QhorusRef`, `QhorusWorkItemLifecycleAdapter`, `WorkQhorusMcpTools`), twenty tests. The speech act mapping covers all seven terminal statuses: COMPLETED→DONE, REJECTED/FAULTED/ESCALATED→FAILURE, CANCELLED/EXPIRED/OBSOLETE→DECLINE.
 
 What this opens up: any Qhorus agent can now request human work and get the result back on the channel, with full normative tracing. The `work-and-workitems.md` vision — WorkItems as the oversight channel materialised — has its first concrete implementation. The next question is whether `casehub-work-qhorus` should also surface WorkItem lifecycle events as Qhorus STATUS messages for the observe channel, giving dashboards in other services live visibility into human work progress.

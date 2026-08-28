@@ -12,7 +12,7 @@ Two provenance gaps in the work→engine boundary:
 
 1. **No inbound causedByEntryId (#365).** When `WorkItemLifecycleAdapter` observes a terminal WorkItem event and calls `PlanItemCompletionApplier`, no work-ledger entry ID flows back to the engine. The causal chain breaks: `engine SPAWN → work CREATED → work COMPLETED → engine [no back-reference]`.
 
-2. **String-convention callerRef (#366).** Three independent parsing systems exist for the same concept — `CallerRef` (engine-adapter sealed interface), `QhorusCallerRef` (qhorus record), and `CallerRefParser` (engine-side duplicate). Each new integration module requires a new string format and parser.
+2. **String-convention callerRef (#366).** Three independent parsing systems exist for the same concept — `CallerRef` (engine-adapter sealed interface), `QhorusRef` (qhorus record), and `CallerRefParser` (engine-side duplicate). Each new integration module requires a new string format and parser.
 
 ---
 
@@ -120,7 +120,7 @@ public record GateRef(UUID caseId, long gateId) implements CallerRef {
 }
 ```
 
-This is a rename of the existing types (`PlanItemCallerRef` → `PlanItemRef`, `GateCallerRef` → `GateRef`) plus implementing `CrossSystemRef`. The sealed hierarchy and parse logic stay in engine-adapter where they belong.
+This is a rename of the existing types (`PlanItemRef` → `PlanItemRef`, `GateRef` → `GateRef`) plus implementing `CrossSystemRef`. The sealed hierarchy and parse logic stay in engine-adapter where they belong.
 
 #### qhorus — QhorusRef extends CrossSystemRef
 
@@ -136,7 +136,7 @@ public record QhorusRef(UUID channelId, long messageId, String correlationId)
 }
 ```
 
-Rename from `QhorusCallerRef` → `QhorusRef`, implementing `CrossSystemRef`. Parse logic stays in qhorus module.
+Rename from `QhorusRef` → `QhorusRef`, implementing `CrossSystemRef`. Parse logic stays in qhorus module.
 
 #### decode() — no centralized decode
 
@@ -160,8 +160,8 @@ Future platform lineage work (parent#363) can introduce a `CrossSystemRefRegistr
 
 #### engine-adapter
 
-- **Renamed:** `PlanItemCallerRef` → `PlanItemRef` (implements `CallerRef extends CrossSystemRef`)
-- **Renamed:** `GateCallerRef` → `GateRef` (implements `CallerRef extends CrossSystemRef`)
+- **Renamed:** `PlanItemRef` → `PlanItemRef` (implements `CallerRef extends CrossSystemRef`)
+- **Renamed:** `GateRef` → `GateRef` (implements `CallerRef extends CrossSystemRef`)
 - **Modified:** `CallerRef` — extends `CrossSystemRef`, adds `default system()` method
 - **Modified:** `WorkItemLifecycleAdapter.onWorkItemLifecycle()` — pass `event.ledgerEntryId()` to applier and gateApplier
 - **Modified:** `WorkItemLifecycleAdapter.handleSuspension()` — use renamed types
@@ -174,7 +174,7 @@ Future platform lineage work (parent#363) can introduce a `CrossSystemRefRegistr
 
 #### qhorus
 
-- **Renamed:** `QhorusCallerRef` → `QhorusRef` (implements `CrossSystemRef`)
+- **Renamed:** `QhorusRef` → `QhorusRef` (implements `CrossSystemRef`)
 - **Modified:** `QhorusWorkItemLifecycleAdapter` — use renamed `QhorusRef`
 - **Modified:** `WorkQhorusMcpTools` (or equivalent MCP tool class) — use `QhorusRef.encode()`
 

@@ -42,7 +42,7 @@
 **Alternatives:**
 - Move all types to work-api (sealed) — violates opacity
 - Delete and recreate — unnecessary churn
-**Rationale:** Pre-release stage, no external consumers. `PlanItemCallerRef` → `PlanItemRef`, `GateCallerRef` → `GateRef` (stay in engine-adapter, now extend `CrossSystemRef`). `QhorusCallerRef` → `QhorusRef` (stays in qhorus, implements `CrossSystemRef`). Types stay in their modules — only the name and interface lineage change.
+**Rationale:** Pre-release stage, no external consumers. `PlanItemRef` → `PlanItemRef`, `GateRef` → `GateRef` (stay in engine-adapter, now extend `CrossSystemRef`). `QhorusRef` → `QhorusRef` (stays in qhorus, implements `CrossSystemRef`). Types stay in their modules — only the name and interface lineage change.
 **Trade-offs:** Engine-side CallerRefParser stays as-is (follow-on issue). Two parallel parsing implementations until engine migrates.
 **Sources:** CLAUDE.md (Stage: pre-release), design review finding #3 (keep types in their modules)
 **Exploration:** quick

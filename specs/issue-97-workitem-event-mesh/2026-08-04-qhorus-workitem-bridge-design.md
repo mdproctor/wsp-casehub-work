@@ -131,7 +131,7 @@ On every `WorkItemStatusEvent`:
 
 1. Check `QhorusCallerRef.isQhorus(event.callerRef())` — if not Qhorus-originated, return
 2. If status is not terminal, return
-3. Parse `QhorusCallerRef` from callerRef — extract `channelId`, `messageId`, `correlationId`
+3. Parse `QhorusRef` from callerRef — extract `channelId`, `messageId`, `correlationId`
 4. Map terminal status to speech act
 5. Post to originating channel via `MessageService.dispatch()` using `channelId` (UUID), `correlationId`, and `inReplyTo = messageId`. **Wrapped in try-catch** — exceptions are logged at WARN and swallowed to prevent rolling back the WorkItem lifecycle transaction.
 

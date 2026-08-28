@@ -23,7 +23,7 @@ Six root causes accounted for everything:
 
 4. **Unwanted type definitions.** Victools reflects through every field type. `Map(String,Object)`, `CostFunction`, `PlanningConstraints`, `CompiledExpression(Map(String,Object),Boolean)` — 32 types that exist in Java but have no place in the YAML schema. Post-processing removes them.
 
-5. **Property naming.** Java uses `replanHint`, `completionCriteria`, `inputSchema`. The YAML schema uses `replanAfter`, `condition`, `inputProjection`. Some are pending cross-repo renames in worker-api; the rest are bridged by post-processing renames.
+5. **Property naming.** Java uses `replanHint`, `completionCriteria`, `inputProjection`. The YAML schema uses `replanAfter`, `condition`, `inputProjection`. Some are pending cross-repo renames in worker-api; the rest are bridged by post-processing renames.
 
 6. **Validation constraints.** `title`, `minLength`, `maxLength`, `pattern`, `default`, `required` — metadata the hand-written schema carries but the Java model doesn't annotate. Post-processing handles them.
 

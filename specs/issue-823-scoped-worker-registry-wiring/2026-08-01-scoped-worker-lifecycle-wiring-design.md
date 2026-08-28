@@ -477,7 +477,7 @@ Implements `PersistentScope<T>`:
 - `execute()`: delegates to an inner `WorkerRuntime` (Tier 1 orchestration available to persistent workers).
 - `accumulatedState()`: returns `Map.of()` (persistent workers don't use accumulated state — they have the mailbox).
 
-Constructor parameters: `inputType`, `mailbox`, `caseId`, `taskId`, `context`, `eventBus`, `inputProjection`, `outputSchema`, `bridgeResolver`, `jqEvaluator`, `expressionEngineRegistry`, `workerRuntimeFactory`.
+Constructor parameters: `inputType`, `mailbox`, `caseId`, `taskId`, `context`, `eventBus`, `inputProjection`, `outputProjection`, `bridgeResolver`, `jqEvaluator`, `expressionEngineRegistry`, `workerRuntimeFactory`.
 
 ### 7. Schedule Trigger Integration
 

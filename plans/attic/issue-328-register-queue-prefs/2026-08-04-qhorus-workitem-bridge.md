@@ -35,7 +35,7 @@
 - Modify: `pom.xml` (parent — add `<module>qhorus</module>`)
 
 **Interfaces:**
-- Produces: `QhorusCallerRef.encode(UUID channelId, long messageId, String correlationId)` → `String`, `QhorusCallerRef.parse(String callerRef)` → `QhorusCallerRef`, `QhorusCallerRef.isQhorus(String callerRef)` → `boolean`
+- Produces: `QhorusCallerRef.encode(UUID channelId, long messageId, String correlationId)` → `String`, `QhorusCallerRef.parse(String callerRef)` → `QhorusRef`, `QhorusCallerRef.isQhorus(String callerRef)` → `boolean`
 
 - [ ] **Step 1: Create module directory and pom.xml**
 
@@ -232,7 +232,7 @@ class QhorusCallerRefTest {
 - [ ] **Step 4: Run tests — verify they fail**
 
 Run: `JAVA_HOME=$(/usr/libexec/java_home -v 26) mvn test -pl qhorus -Dtest=QhorusCallerRefTest`
-Expected: Compilation failure — `QhorusCallerRef` does not exist
+Expected: Compilation failure — `QhorusRef` does not exist
 
 - [ ] **Step 5: Implement QhorusCallerRef**
 
@@ -576,7 +576,7 @@ Refs #97, Refs #92"
 - Create: `qhorus/src/test/java/io/casehub/work/qhorus/WorkQhorusMcpToolsTest.java`
 
 **Interfaces:**
-- Consumes: `QhorusCallerRef` from Task 1, `QhorusWorkItemLifecycleAdapter` from Task 2
+- Consumes: `QhorusRef` from Task 1, `QhorusWorkItemLifecycleAdapter` from Task 2
 - Consumes: `WorkItemCreator.create()`, `WorkItemCreator.findByCallerRef()` from `casehub-work-api`
 - Consumes: `ChannelReader.findByName()` from `casehub-qhorus-api`
 - Consumes: `MessageDispatcher.dispatch()` from `casehub-qhorus-api`

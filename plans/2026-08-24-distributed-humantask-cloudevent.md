@@ -163,7 +163,7 @@ Refs #972"
 
 ### Task 2: CallerRefParser utility
 
-Engine-side callerRef encoding and parsing, symmetric with the work-engine-adapter's `CallerRef`/`PlanItemCallerRef`/`GateCallerRef`. Pure utility — no CDI, no dependencies beyond Java stdlib.
+Engine-side callerRef encoding and parsing, symmetric with the work-engine-adapter's `CallerRef`/`PlanItemRef`/`GateRef`. Pure utility — no CDI, no dependencies beyond Java stdlib.
 
 **Files:**
 - Create: `common/src/main/java/io/casehub/engine/common/spi/CallerRefParser.java`

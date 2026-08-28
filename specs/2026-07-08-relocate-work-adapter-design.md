@@ -165,7 +165,7 @@ Consumer builds will fail until they update — this is intentional. The breakag
 
 Delete `WorkItemCallerRef` and `WorkItemCallerRefTest` from work-api entirely.
 
-Rationale: `CallerRef` — the sealed interface in the adapter with `PlanItemCallerRef` and `GateCallerRef` — already provides correct, type-safe callerRef parsing with regex patterns and encode/decode symmetry. After relocation, both parsers would be in the same repo. Fixing `WorkItemCallerRef` would create two parallel callerRef parsers — one well-designed sealed interface, one utility method returning a nullable UUID. Worse, a callerRef parser in work-api violates the ARC42STORIES §3 boundary rule: callerRef is "stored and echoed opaquely" by work. The adapter's `CallerRef` is the canonical parser; any future code needing callerRef parsing should use it directly.
+Rationale: `CallerRef` — the sealed interface in the adapter with `PlanItemRef` and `GateRef` — already provides correct, type-safe callerRef parsing with regex patterns and encode/decode symmetry. After relocation, both parsers would be in the same repo. Fixing `WorkItemCallerRef` would create two parallel callerRef parsers — one well-designed sealed interface, one utility method returning a nullable UUID. Worse, a callerRef parser in work-api violates the ARC42STORIES §3 boundary rule: callerRef is "stored and echoed opaquely" by work. The adapter's `CallerRef` is the canonical parser; any future code needing callerRef parsing should use it directly.
 
 No external consumers — only its own test in work-api. Zero usages outside the test class (verified via IntelliJ find-references across both repos).
 

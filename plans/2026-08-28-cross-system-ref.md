@@ -11,7 +11,7 @@
 
 **Goal:** Thread work-ledger entry IDs back to the engine on WorkItem completion, and introduce a CrossSystemRef interface for typed cross-system references.
 
-**Architecture:** Two composable changes. Part 1 (#365): add a `ledgerEntryId` field to `WorkItemLifecycleEvent` set by `LedgerEventCapture` via a `LedgerEntryIdSetter` SPI, threaded through adapters to `PlanItemCompletionApplier` and `ActionGateCompletionApplier`. Part 2 (#366): introduce a minimal `CrossSystemRef` interface in work-api, make `CallerRef` extend it, rename `PlanItemCallerRef` → `PlanItemRef`, `GateCallerRef` → `GateRef`, `QhorusCallerRef` → `QhorusRef`.
+**Architecture:** Two composable changes. Part 1 (#365): add a `ledgerEntryId` field to `WorkItemLifecycleEvent` set by `LedgerEventCapture` via a `LedgerEntryIdSetter` SPI, threaded through adapters to `PlanItemCompletionApplier` and `ActionGateCompletionApplier`. Part 2 (#366): introduce a minimal `CrossSystemRef` interface in work-api, make `CallerRef` extend it, rename `PlanItemRef` → `PlanItemRef`, `GateRef` → `GateRef`, `QhorusRef` → `QhorusRef`.
 
 **Tech Stack:** Java 21, Quarkus 3.32.2, CDI (Jakarta), JPA/Hibernate
 
@@ -118,8 +118,8 @@ Refs #365, Refs #366"
 ### Task 2: Rename PlanItemCallerRef → PlanItemRef, GateCallerRef → GateRef
 
 **Files:**
-- Rename: `PlanItemCallerRef` → `PlanItemRef` (use `ide_refactor_rename`)
-- Rename: `GateCallerRef` → `GateRef` (use `ide_refactor_rename`)
+- Rename: `PlanItemRef` → `PlanItemRef` (use `ide_refactor_rename`)
+- Rename: `GateRef` → `GateRef` (use `ide_refactor_rename`)
 - Modify: `engine-adapter/src/main/java/io/casehub/work/engine/CallerRef.java` — extend CrossSystemRef
 - All referencing files auto-updated by IDE rename
 
@@ -186,7 +186,7 @@ Refs #365, Refs #366"
 ### Task 3: Rename QhorusCallerRef → QhorusRef, implement CrossSystemRef
 
 **Files:**
-- Rename: `QhorusCallerRef` → `QhorusRef` (use `ide_refactor_rename`)
+- Rename: `QhorusRef` → `QhorusRef` (use `ide_refactor_rename`)
 - All referencing files in qhorus/ auto-updated by IDE rename
 
 **Interfaces:**
@@ -211,7 +211,7 @@ public record QhorusRef(UUID channelId, long messageId, String correlationId)
 
 - [ ] **Step 3: Add QhorusRef CrossSystemRef test**
 
-In `QhorusCallerRefTest` (now `QhorusRefTest` after rename), add:
+In `QhorusRefTest` (now `QhorusRefTest` after rename), add:
 - `qhorusRef_implementsCrossSystemRef` — verify `system()` returns `"qhorus"` and `encode()` matches existing format
 
 - [ ] **Step 4: Run tests**
@@ -420,8 +420,8 @@ Expected: PASS — end-to-end threading works in a real Quarkus container
 - [ ] **Step 3: Update contributor-guide.md**
 
 Update the engine-adapter module description and CallerRef format section to reflect renamed types:
-- `PlanItemCallerRef` → `PlanItemRef`
-- `GateCallerRef` → `GateRef`
+- `PlanItemRef` → `PlanItemRef`
+- `GateRef` → `GateRef`
 - Add mention of `CrossSystemRef` interface
 
 - [ ] **Step 4: Commit**

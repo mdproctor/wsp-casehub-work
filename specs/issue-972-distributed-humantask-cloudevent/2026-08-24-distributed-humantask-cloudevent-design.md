@@ -9,7 +9,7 @@
 The engine dispatches human tasks and action gates via in-JVM calls that require `casehub-work-engine-adapter` to be co-located in the same Quarkus application. Two SPIs mediate this:
 
 - **HumanTask outbound:** `HumanTaskScheduler` SPI (engine-common) — the co-located adapter implements it, creating WorkItems via `WorkItemCreator.create()`
-- **ActionGate outbound:** `ActionGateScheduleEvent` on the Vert.x event bus — `ActionGateWorkItemHandler` consumes it via `@ConsumeEvent`
+- **ActionGate outbound:** `ActionGateScheduleRequest` on the Vert.x event bus — `ActionGateWorkItemHandler` consumes it via `@ConsumeEvent`
 - **Inbound (both):** `WorkItemLifecycleAdapter` observes `@ObservesAsync WorkItemEvent` (CDI), parses `callerRef`, and routes terminal events to `PlanItemCompletionApplier` (PlanItem path) or `ActionGateCompletionApplier` (gate path)
 
 In a distributed deployment — engine and work as separate services — none of these paths work. The work-engine-adapter is absent from the engine's classpath, and CDI/Vert.x events don't cross JVM boundaries.
@@ -93,7 +93,7 @@ public interface ActionGateScheduler {
 }
 ```
 
-`ActionGateScheduleRequest` — renamed and moved from `ActionGateScheduleEvent` (`engine-common/internal/event/` → `engine-common/spi/`). Same fields: `caseId`, `tenancyId`, `gateId`, `plannedAction`, `gateRequired`, `resolvedCandidateGroups`, `resolutionTypeName`. The old `ActionGateScheduleEvent` class is deleted — one type, no dead code.
+`ActionGateScheduleRequest` — renamed and moved from `ActionGateScheduleRequest` (`engine-common/internal/event/` → `engine-common/spi/`). Same fields: `caseId`, `tenancyId`, `gateId`, `plannedAction`, `gateRequired`, `resolvedCandidateGroups`, `resolutionTypeName`. The old `ActionGateScheduleRequest` class is deleted — one type, no dead code.
 
 **Engine runtime refactoring:** `WorkflowExecutionCompletedHandler.handleGate()` switches from `eventBus.publish(ACTION_GATE_SCHEDULE, event)` to `actionGateScheduler.get().schedule(request)` via `Instance<ActionGateScheduler>`. Same pattern as work#298's HumanTask refactoring. When `actionGateScheduler.isResolvable()` is false, logs a warning and returns (gate silently skipped — same behavior as HumanTask).
 
@@ -163,7 +163,7 @@ The callerRef format is a shared convention between engine emitter and engine co
 - PlanItem: `case:{caseId}/pi:{planItemId}`
 - Gate: `case:{caseId}/gate:{gateId}`
 
-The encoding/parsing logic lives in `CallerRefParser` (engine-common/spi/) — the authoritative implementation. The work-engine-adapter has its own copies (`PlanItemCallerRef`, `GateCallerRef`, `CallerRef`), which it can migrate to the shared parser in a future work-repo PR.
+The encoding/parsing logic lives in `CallerRefParser` (engine-common/spi/) — the authoritative implementation. The work-engine-adapter has its own copies (`PlanItemRef`, `GateRef`, `CallerRef`), which it can migrate to the shared parser in a future work-repo PR.
 
 ### Error Handling
 
@@ -227,7 +227,7 @@ Round-trip test using CDI events (no external broker):
 | Location | Change |
 |---|---|
 | `engine-common/spi/` | New: `ActionGateScheduler` interface, `PlanItemCompletionApplier`, `GateCompletionApplier`, `CallerRefParser` |
-| `engine-common/internal/event/` | Rename+move: `ActionGateScheduleEvent` → `ActionGateScheduleRequest` in `spi/` (delete old class) |
+| `engine-common/internal/event/` | Rename+move: `ActionGateScheduleRequest` → `ActionGateScheduleRequest` in `spi/` (delete old class) |
 | `engine-common/pom.xml` | New dependency: `casehub-work-api` (for `WorkItemStatus` in applier signatures) |
 | `engine/runtime/` | Refactor: `WorkflowExecutionCompletedHandler.handleGate()` uses `Instance<ActionGateScheduler>` instead of event bus |
 | `engine/runtime/` | New: `NoOpActionGateScheduler` (`@DefaultBean`, no-op, symmetric with existing pattern) |
