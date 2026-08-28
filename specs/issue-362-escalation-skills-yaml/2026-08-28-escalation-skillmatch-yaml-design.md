@@ -199,12 +199,6 @@ if (target.skillMatch() != null) {
 **Work tests:**
 - `HumanTaskScheduleHandlerTest` — verify escalation/skillMatch fields flow from `HumanTaskTarget` through to `WorkItemCreateRequest`
 
-### Backward Compatibility
-
-- All new fields are optional with sensible defaults (no escalation, no skill-match)
-- Existing YAML fixtures and annotation-based definitions are unaffected
-- No breaking changes to `WorkItemCreateRequest` (additive fields only)
-
 ## References
 
 - `annotations/runtime/src/main/java/io/casehub/work/annotations/Escalate.java` — annotation definition
