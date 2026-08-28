@@ -54,7 +54,11 @@ escalation:
       description: Candidate group to escalate to when claim deadline passes.
     deadline:
       type: string
-      description: ISO-8601 duration for the escalated WorkItem's new completion window.
+      description: >-
+        ISO-8601 duration for the escalated WorkItem's new completion window.
+        Only applies to onExpiry (completion-expiry) escalations; has no effect
+        on onClaimDeadline escalations, where the new claim deadline is always
+        computed via ClaimSlaPolicy.
     generateSummary:
       type: boolean
       default: true
@@ -88,7 +92,17 @@ public record EscalationConfig(
     String onClaimDeadline,
     String deadline,
     Boolean generateSummary
-) {}
+) {
+    public EscalationConfig {
+        if (deadline != null && !deadline.isEmpty()) {
+            java.time.Duration d = java.time.Duration.parse(deadline);
+            if (d.isZero() || d.isNegative()) {
+                throw new IllegalArgumentException(
+                    "escalation deadline must be positive, was: " + deadline);
+            }
+        }
+    }
+}
 
 public record SkillMatchConfig(
     String strategy,
@@ -111,7 +125,13 @@ Add fields to `HumanTaskTarget`:
 Add builder methods:
 - `escalation(EscalationConfig)`, `skillMatch(SkillMatchConfig)`
 
-**Annotation mapping path:** When parent#422 wires the annotation processor to production code, `CompositeWorkItemDescriptor` (which holds `EscalationDescriptor`) will map to `HumanTaskTarget.EscalationConfig` in the engine-adapter layer. The mapping is mechanical — `EscalationDescriptor` and `EscalationConfig` have identical field names and types. The two records exist in separate modules because engine-api cannot depend on work-annotations (wrong dependency direction per D2). This structural duplication is intentional and preferred over introducing a shared module for four fields.
+**Annotation mapping path:** When parent#422 wires the annotation processor to production code, `CompositeWorkItemDescriptor` (which holds `EscalationDescriptor`) will map to `HumanTaskTarget.EscalationConfig` in the engine-adapter layer. The mapping is mechanical — `EscalationDescriptor` and `EscalationConfig` have identical field names; types differ for nullable semantics. Mapping rules for the annotation path:
+
+- `EscalationDescriptor.generateSummary` (`boolean`, annotation default: `true`) → `Boolean.valueOf(desc.generateSummary())` — no sentinel needed; the `@Escalate` annotation's presence is the opt-in signal
+- `SkillMatchDescriptor.minimumScore` (`double`, sentinel: `-1.0`) → `null` when `-1.0`, otherwise `Double.valueOf(...)`
+- `SkillMatchDescriptor.requiredCapabilities` (`List<String>`) → `Set<String>` via `new LinkedHashSet<>(...)`
+
+The two record families exist in separate modules because engine-api cannot depend on work-annotations (wrong dependency direction per D2). This structural duplication is intentional and preferred over introducing a shared module for four fields.
 
 ### Engine: BindingDeserializer — Parsing
 
@@ -148,6 +168,11 @@ if (node.has("escalation")) {
     if (deadline != null && onExpiry == null && onClaimDeadline == null) {
         LOG.warnf("Binding '%s': escalation.deadline is set but no escalation target "
                 + "(onExpiry/onClaimDeadline) — deadline has no effect", bindingName);
+    }
+    if (deadline != null && onClaimDeadline != null && onExpiry == null) {
+        LOG.warnf("Binding '%s': escalation.deadline only applies to completion-expiry "
+                + "escalations (onExpiry); it has no effect on claim-deadline escalations "
+                + "(onClaimDeadline)", bindingName);
     }
     b.escalation(new HumanTaskTarget.EscalationConfig(
         onExpiry, onClaimDeadline, deadline,
@@ -293,7 +318,7 @@ Rationale for this precedence model:
 | Event | Default (null) | Rationale |
 |-------|---------------|-----------|
 | `EXPIRED`, `CLAIM_EXPIRED` | summary generated | Breach/failure events — backward compatible, existing behavior |
-| `SLA_REASSIGNED` | no summary | Continuation event — opt-in only, avoids generating summaries for all SlaBreachPolicy-driven escalations |
+| `SLA_REASSIGNED` | no summary | Continuation event — opt-in only via per-item `generateSummary` |
 
 ```java
 void onEscalation(@Observes final WorkItemLifecycleEvent event) {
@@ -303,14 +328,18 @@ void onEscalation(@Observes final WorkItemLifecycleEvent event) {
 
     switch (type) {
         case SLA_REASSIGNED -> {
-            // Per-item declarative escalation — opt-in: only when explicitly true
             if (Boolean.TRUE.equals(wi.escalationGenerateSummary())) {
                 summaryStore.put(summaryService.buildSummary(wi.id(), type.name()));
             }
         }
         case EXPIRED, CLAIM_EXPIRED -> {
-            // Existing behavior — opt-out: generate unless explicitly false
             if (Boolean.FALSE.equals(wi.escalationGenerateSummary())) return;
+            // Defer to SLA_REASSIGNED when per-item claim-deadline escalation is
+            // configured with explicit generateSummary — avoids double summary
+            // (CLAIM_EXPIRED fires before the breach decision, SLA_REASSIGNED after).
+            if (type == WorkEventType.CLAIM_EXPIRED
+                    && wi.escalationOnClaimDeadline() != null
+                    && wi.escalationGenerateSummary() != null) return;
             summaryStore.put(summaryService.buildSummary(wi.id(), type.name()));
         }
         default -> { }
@@ -318,7 +347,9 @@ void onEscalation(@Observes final WorkItemLifecycleEvent event) {
 }
 ```
 
-This makes `generateSummary: true` effective for both `onExpiry` and `onClaimDeadline` declarative escalation paths, while preserving existing behavior for SlaBreachPolicy-driven escalations (no `escalationGenerateSummary` field → `null` → no summary for `SLA_REASSIGNED`, summary for `EXPIRED`/`CLAIM_EXPIRED`).
+**Duplicate prevention for claim-deadline breaches:** `processClaimDeadline` fires `CLAIM_EXPIRED` *before* the breach decision (pre-decision notification). When per-item `onClaimDeadline` config triggers an `EscalateTo` decision, `executeEscalateTo` fires `SLA_REASSIGNED` (post-decision outcome). Without the skip guard, both events generate summaries. The guard defers to `SLA_REASSIGNED` when per-item config is active with explicit `generateSummary`. The completion-expiry path has no equivalent issue because no pre-decision event fires — the event comes from within `executeEscalateTo` or `executeFail`.
+
+**`escalationGenerateSummary` lifecycle scope:** This flag is per-WorkItem, not per-mechanism. When non-null, it governs all escalation events for that WorkItem, including policy-driven escalations after per-item config exhaustion (self-detection guard fires, falls back to `SlaBreachPolicy`). This is intentional — the YAML author configured this WorkItem for summary generation regardless of which mechanism fires the escalation. WorkItems without per-item config (`escalationGenerateSummary == null`) are unaffected: `SLA_REASSIGNED` produces no summary, preserving backward compatibility with existing `SlaBreachPolicy` implementations.
 
 ### Test Fixtures
 
@@ -330,10 +361,14 @@ This makes `generateSummary: true` effective for both `onExpiry` and `onClaimDea
 **Work tests:**
 - `HumanTaskScheduleHandlerTest` — verify escalation/skillMatch fields flow from `HumanTaskTarget` through to `WorkItemCreateRequest`
 - `ExpiryLifecycleServiceTest` — verify per-item escalation config takes precedence over `SlaBreachPolicy`; verify fallback to policy when per-item config is absent; verify `escalationDeadline` duration parsing and application to new `expiresAt`; verify self-detection guard uses exact set equality (original groups including target must NOT bypass per-item escalation); verify invalid persisted `escalationDeadline` degrades gracefully to default deadline
-- `EscalationSummaryObserverTest` — verify `SLA_REASSIGNED` with `escalationGenerateSummary=true` generates summary (opt-in); verify `SLA_REASSIGNED` with `null` does NOT generate summary (backward compat); verify `EXPIRED` with `null` generates summary (existing default); verify `EXPIRED` with `escalationGenerateSummary=false` suppresses summary (opt-out)
+- `EscalationSummaryObserverTest` — verify `SLA_REASSIGNED` with `escalationGenerateSummary=true` generates summary (opt-in); verify `SLA_REASSIGNED` with `null` does NOT generate summary (backward compat); verify `EXPIRED` with `null` generates summary (existing default); verify `EXPIRED` with `escalationGenerateSummary=false` suppresses summary (opt-out); verify `CLAIM_EXPIRED` with `escalationOnClaimDeadline` set and `escalationGenerateSummary=true` does NOT generate summary (deferred to `SLA_REASSIGNED` — duplicate prevention); verify `CLAIM_EXPIRED` with `escalationOnClaimDeadline` set but `escalationGenerateSummary=null` DOES generate summary (no per-item generateSummary override)
 - `WorkItemCreateRequestTest` — verify escalation fields are carried through builder and equals/hashCode
 
 ## Deferred
+
+### REST API boundary validation for escalation fields
+
+`CreateWorkItemRequest` (rest module) does not currently expose escalation fields. When the REST API is extended to accept `escalationOnExpiry`, `escalationOnClaimDeadline`, `escalationDeadline`, and `escalationGenerateSummary`, the REST boundary must validate `escalationDeadline` (parseable ISO-8601, positive duration) — not rely solely on the defensive breach-time parse in `ExpiryLifecycleService`. Deferred to casehubio/work#369.
 
 ### @RequiresQuorum YAML assessment
 
