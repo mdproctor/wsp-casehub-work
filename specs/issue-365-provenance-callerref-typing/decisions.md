@@ -1,45 +1,70 @@
 ## D1: CrossSystemRef type design
 
-**Choice:** Sealed interface with integration-specific records
+**Choice:** Non-sealed interface in work-api with minimal surface; engine-specific types stay in engine-adapter
 **Alternatives:**
-- Single record with string fields — simpler but loses typed access to domain fields (caseId, channelId); no compile-time exhaustiveness
+- Sealed interface with all variants in work-api — violates callerRef opacity boundary (ARC42STORIES §3); work-api would know engine internals
+- Single record with string fields — loses typed access to domain fields
 - Keep callerRef as String, add ledgerEntryId separately — doesn't solve #366 at all
-**Rationale:** Type-safe sealed interface gives exhaustive switching and domain-specific accessors per integration module. `decode()` provides backward compatibility with existing callerRef format strings. `ledgerEntryId` is a first-class field on every variant.
-**Trade-offs:** Adding a new integration module requires adding a new `permits` variant — but that's the right constraint (unknown formats use GenericRef fallback).
-**Sources:** engine-adapter/src/main/java/io/casehub/work/engine/CallerRef.java, qhorus/src/main/java/io/casehub/work/qhorus/QhorusCallerRef.java, engine/common/src/main/java/io/casehub/engine/common/spi/CallerRefParser.java
+**Rationale:** Non-sealed `CrossSystemRef` interface in work-api provides `system()` and `encode()` — minimal surface, opacity-preserving. `CallerRef` sealed hierarchy stays in engine-adapter (extends `CrossSystemRef`). `QhorusRef` stays in qhorus (implements `CrossSystemRef`). Each module retains its own parse logic.
+**Trade-offs:** No centralized `decode()` — each module parses its own format. Future platform lineage work (parent#363) can introduce a registry; not needed now.
+**Sources:** engine-adapter/src/main/java/io/casehub/work/engine/CallerRef.java, qhorus/src/main/java/io/casehub/work/qhorus/QhorusCallerRef.java, ARC42STORIES.MD §3 (opacity boundary)
 **Exploration:** quick
-**Status:** captured
+**Status:** revised (post design review — finding #3 opacity violation, #2 phantom field)
 
-## D2: ledgerEntryId field scope
+## D2: ledgerEntryId — separate from CrossSystemRef
 
-**Choice:** UUID ledgerEntryId(), nullable — narrowly scoped to ledger entries
+**Choice:** ledgerEntryId threaded via WorkItemLifecycleEvent, NOT on CrossSystemRef
 **Alternatives:**
-- Generic sourceRef(system, id) pair — over-generalized for the actual use case; reasoning traces (engine#1007) are a different integration path, not callerRef
-**Rationale:** CrossSystemRef is about creation provenance of a WorkItem — the ledger entry in the source system that caused this WorkItem to exist. Reasoning traces, EventLog entries, and memory store entries flow through different data paths and don't belong on CrossSystemRef.
-**Trade-offs:** If someone ever wants callerRef to point to a non-ledger entity, they'd need to add a field. But this hasn't happened in practice and would indicate a design smell.
-**Sources:** Slot 140 handoff (reasoning traces landing — confirms reasoning is stored in CaseMemoryStore, not on callerRef); engine#1007 (reasoning as lineage DAG participants — separate concern)
+- ledgerEntryId as a field on CrossSystemRef — phantom field: callerRef strings don't encode the ID, so decode() can never populate it
+- Generic sourceRef(system, id) pair — over-generalized
+**Rationale:** The ledger entry ID comes from a separate channel (LedgerEventCapture writes the entry after the event is created). CrossSystemRef is decoded from the callerRef string which doesn't contain the ID. Separate threading is the honest architecture.
+**Trade-offs:** Two independent data channels for related provenance data (callerRef string + ledgerEntryId field). Consumers must read both.
+**Sources:** ledger/src/main/java/io/casehub/work/ledger/service/LedgerEventCapture.java, design review finding #2 (phantom field)
 **Exploration:** quick
-**Status:** captured
+**Status:** revised (post design review — finding #2)
 
 ## D3: Ledger entry ID threading mechanism
 
-**Choice:** Mutable field on WorkItemLifecycleEvent, set by LedgerEventCapture after writing the entry
+**Choice:** Private field on WorkItemLifecycleEvent with LedgerEntryIdSetter SPI for controlled mutation
 **Alternatives:**
-- Post-capture CDI event (WorkItemLedgerEntryCreatedEvent) — clean separation but new event class, dual-observation risk, more complex
-- Query at adapter time — DB query on every terminal event, wrong dependency direction (engine-adapter shouldn't depend on work-ledger)
-**Rationale:** CDI guarantees @Observes (sync) completes before @ObservesAsync fires. LedgerEventCapture writes the entry synchronously and sets the field. WorkItemLifecycleAdapter reads it asynchronously — field is guaranteed populated. WorkItemLifecycleEvent is already a mutable class.
-**Trade-offs:** Relies on CDI observer ordering guarantee. Mutation of an event object is slightly unusual but narrowly scoped and documented.
-**Sources:** ledger/src/main/java/io/casehub/work/ledger/service/LedgerEventCapture.java:72 (@Observes), engine-adapter/src/main/java/io/casehub/work/engine/WorkItemLifecycleAdapter.java:68 (@ObservesAsync), slot 140 handoff (reasoning uses same "add to event, thread through pipeline" pattern)
+- Public mutable setter — breaks immutability contract visible to all consumers
+- Post-capture CDI event — dual-observation risk, ledger-absent path loses terminal events
+- Query at adapter time — DB query on every terminal event, wrong dependency direction
+**Rationale:** CDI guarantees @Observes (sync) completes before @ObservesAsync fires. LedgerEventCapture is the sole writer. LedgerEntryIdSetter SPI keeps the public API immutable while allowing the ledger module to set the ID. No other sync observer reads ledgerEntryId.
+**Trade-offs:** SPI indirection for a single setter. Acceptable for preserving the immutability contract.
+**Sources:** ledger/src/main/java/io/casehub/work/ledger/service/LedgerEventCapture.java:72 (@Observes), engine-adapter/src/main/java/io/casehub/work/engine/WorkItemLifecycleAdapter.java:68 (@ObservesAsync), design review finding #1 (immutability)
 **Exploration:** quick
-**Status:** captured
+**Status:** revised (post design review — finding #1 immutability)
 
 ## D4: Migration path for CallerRef and QhorusCallerRef
 
-**Choice:** Replace and delete in one step — clean break
+**Choice:** Rename in place, extend CrossSystemRef — minimal disruption
 **Alternatives:**
-- Parallel types with adapters and deprecation — unnecessary caution for a pre-release project with no external consumers
-**Rationale:** Pre-release stage, no external consumers. CallerRef sealed interface (engine-adapter) and QhorusCallerRef record (qhorus) both live in this repo. PlanItemCallerRef/GateCallerRef become PlanItemRef/GateRef in work-api. QhorusCallerRef becomes QhorusRef in work-api. encode() methods produce identical strings — backward compatible. Engine-side CallerRefParser stays as-is (follow-on issue in engine repo).
-**Trade-offs:** Touches engine-adapter and qhorus module in one change. But both are in this repo and there are no external consumers.
-**Sources:** CLAUDE.md (Stage: pre-release), engine-adapter/src/main/java/io/casehub/work/engine/CallerRef.java, qhorus/src/main/java/io/casehub/work/qhorus/QhorusCallerRef.java
+- Move all types to work-api (sealed) — violates opacity
+- Delete and recreate — unnecessary churn
+**Rationale:** Pre-release stage, no external consumers. `PlanItemCallerRef` → `PlanItemRef`, `GateCallerRef` → `GateRef` (stay in engine-adapter, now extend `CrossSystemRef`). `QhorusCallerRef` → `QhorusRef` (stays in qhorus, implements `CrossSystemRef`). Types stay in their modules — only the name and interface lineage change.
+**Trade-offs:** Engine-side CallerRefParser stays as-is (follow-on issue). Two parallel parsing implementations until engine migrates.
+**Sources:** CLAUDE.md (Stage: pre-release), design review finding #3 (keep types in their modules)
 **Exploration:** quick
-**Status:** captured
+**Status:** revised (post design review — finding #3)
+
+---
+
+## Review Decisions Log
+
+### Accepted
+- [coherence+structure+robustness/HIGH] Mutable setter contradicts immutability — replaced with LedgerEntryIdSetter SPI
+- [structure/HIGH] ledgerEntryId phantom field on CrossSystemRef — removed from CrossSystemRef, threaded via event
+- [coherence+structure/HIGH] CrossSystemRef violates opacity boundary — changed to non-sealed interface, types stay in their modules
+- [coherence/HIGH] ActionGateCompletionApplier missing — added to change list
+- [robustness/HIGH] Deleted types still referenced — added SpawnCallerRefTest, ActionGateCancelledHandler
+- [robustness/MEDIUM] fromWire() drops ledgerEntryId — added parameter
+- [coherence/MEDIUM] Gate path omitted — added to threading diagram
+- [robustness/MEDIUM] No integration test — added LedgerEntryIdThreadingIT
+- [coherence/MEDIUM] entityType() unspecified — removed from interface (unnecessary)
+- [structure/MEDIUM] GenericRef undermines type safety — removed (no centralized decode)
+- [robustness/MEDIUM] GenericRef edge cases underdefined — removed (no centralized decode)
+
+### Deferred
+- [robustness/MEDIUM] Error handling mismatch (parse throws vs returns null) — preserved existing contracts; unification is a separate concern
+- [structure/MEDIUM] CallerRefParser competing authority — engine-side follow-on issue
