@@ -61,18 +61,19 @@
 **Exploration:** quick
 **Status:** revised (R1: replaced dual-source resolution with load-time collision semantics per R1-05 and R1-06)
 
-## D6: YAML templates loaded under default tenant
+## D6: YAML templates loaded under default tenant with pre-stamped tenancyId
 
-**Choice:** YAML templates are loaded at `@Startup @PostConstruct` — no request context exists. `JpaWorkItemTemplateStore.put()` stamps `tenancyId` from `CurrentPrincipal.tenancyId()`, which at startup returns the `@DefaultBean` mock value: `TenancyConstants.DEFAULT_TENANT_ID`. Single-tenant and tutorial deployments (the primary use case) work correctly. Multi-tenant YAML template loading is a follow-on concern.
+**Choice:** YAML templates are loaded at `@Startup @PostConstruct` — no request context exists. The loader pre-stamps `template.tenancyId = TenancyConstants.DEFAULT_TENANT_ID` on each entity before calling `WorkItemTemplateStore.put()`. This bypasses `CurrentPrincipal.tenancyId()` entirely, which is critical because `SecurityIdentityCurrentPrincipal` (`@RequestScoped @Alternative @Priority(100)` in `casehub-platform-oidc`) displaces `MockCurrentPrincipal @DefaultBean` when OIDC is on the classpath, and `@RequestScoped` beans throw `ContextNotActiveException` outside a request context. Pre-stamping avoids the scope problem for ALL deployments — tutorial, single-tenant-with-OIDC, and multi-tenant alike. The upsert collision check (D5) must also use a direct Panache query with an explicit tenancyId parameter rather than `getByName()` (which delegates to `CurrentPrincipal`).
 **Alternatives:**
 - `TenancyConstants.PLATFORM_TENANT_ID` — makes templates globally visible, but `WorkItemTemplateStore.getByName()` queries filter by `CurrentPrincipal.tenancyId()`, so platform-tenant templates would be invisible to tenant-specific queries unless the store is modified
 - Per-template tenancyId in YAML — each template entry specifies its tenant. Complex, premature for initial delivery.
 - Per-tenant file configuration — separate YAML files per tenant, loaded in tenant context. Complex, premature for initial delivery.
-**Rationale:** `DEFAULT_TENANT_ID` is the single-tenant sentinel, and issue #370 targets YAML-only tutorials (single-tenant). The startup loader can be extended to support tenant-aware loading without architectural changes — `CurrentPrincipal` is injectable and the tenant context can be set programmatically before calling `put()`.
-**Trade-offs:** Multi-tenant deployments cannot use YAML templates in initial delivery. Acceptable — multi-tenancy is a follow-on.
-**Sources:** TenancyConstants.DEFAULT_TENANT_ID, JpaWorkItemTemplateStore.put() tenancyId stamping, MockCurrentPrincipal @DefaultBean
-**Exploration:** quick (surfaced by reviewer R1-07)
-**Status:** captured
+- Rely on `MockCurrentPrincipal @DefaultBean` at startup — works only when OIDC is NOT on the classpath. Any deployment with `casehub-platform-oidc` (even single-tenant production apps using OIDC for authentication only) would fail with `ContextNotActiveException`.
+**Rationale:** Pre-stamping `tenancyId` makes the loader independent of `CurrentPrincipal` scope. `DEFAULT_TENANT_ID` is the single-tenant sentinel, and issue #370 targets YAML-only tutorials (single-tenant). The startup loader can be extended to support tenant-aware loading without architectural changes — a future YAML field or config property can override the stamped tenancyId per template.
+**Trade-offs:** Multi-tenant deployments get all YAML templates under `DEFAULT_TENANT_ID`. Acceptable — multi-tenancy is a follow-on.
+**Sources:** TenancyConstants.DEFAULT_TENANT_ID, JpaWorkItemTemplateStore.put() tenancyId stamping (line 29), SecurityIdentityCurrentPrincipal @RequestScoped @Alternative @Priority(100) (oidc module, line 54), MockCurrentPrincipal @DefaultBean @ApplicationScoped (platform module, line 30)
+**Exploration:** quick (surfaced by reviewer R1-07, refined by reviewer R2-01)
+**Status:** revised (R2: clarified deferred scope — "any deployment with @RequestScoped CurrentPrincipal", not just "multi-tenant"; added pre-stamping approach to avoid ContextNotActiveException)
 
 ## D7: YAML templates are mutable DB entities after loading
 
