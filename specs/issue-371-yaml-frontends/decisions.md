@@ -5,7 +5,7 @@
 - Extend `resolveBreachDecision` in `ExpiryLifecycleService` — embeds YAML logic in the service, breaking SPI separation
 - PreferenceProvider-based — conflates deployment-level SLA declarations with runtime-configurable preferences
 **Rationale:** Preserves the SPI contract, follows the established NamedStrategy + StrategyResolver pattern, doesn't touch ExpiryLifecycleService. The YAML policy is just another policy implementation — clean, testable, composable with per-item config.
-**Trade-offs:** Needs `Instance<SlaBreachPolicy>` injection for fallback chaining (slightly more wiring). Requires a new config property to activate (`casehub.work.sla.breach-policy=declarative`).
+**Trade-offs:** Requires a new config property to activate (`casehub.work.sla.breach-policy=declarative`).
 **Sources:** ExpiryLifecycleService.java:75 (StrategyResolver resolution), NoOpSlaBreachPolicy.java, GE-20260810-724b82 (StrategyResolver is config-driven)
 **Exploration:** quick
 **Status:** captured
@@ -39,16 +39,18 @@
 
 ## D3: Fallback chain mechanism — config property
 
-**Choice:** New config property `casehub.work.sla.declarative-fallback=no-op`. The declarative policy looks up this id via `Instance<SlaBreachPolicy>` and delegates when no YAML scope or default matches. Default fallback: `"no-op"` (Fail).
+**Choice:** New config property `casehub.work.sla.declarative.fallback=no-op`. The declarative policy resolves its fallback lazily via `Provider<StrategyResolver>` on first `onBreach()` call, following the `RoundRobinAssignmentStrategy` pattern. Self-reference (`fallback=declarative`) is rejected at `@PostConstruct` using config string comparison (no StrategyResolver access). Default fallback: `"no-op"` (Fail).
 **Alternatives:**
 - Hardcoded Fail — simpler but blocks hybrid YAML + Java deployments where custom policies handle exotic scopes
+- `Instance<SlaBreachPolicy>` iteration — introduces a second resolution path, and CDI client proxies defeat reference-equality self-reference guards
+- Direct `@Inject StrategyResolver` + `@PostConstruct` resolve — circular dependency: `DefaultStrategyResolver` eagerly iterates `Instance<NamedStrategy>`, calling `id()` which triggers `@ApplicationScoped` bean creation; if `@PostConstruct` accesses StrategyResolver, the singleton is mid-construction
 - Inject-all + iterate — auto-discovers policies but ordering is undefined; implicit behavior is worse than explicit config
-**Rationale:** Explicit config for the fallback preserves the NamedStrategy selection model. Hybrid deployments set `declarative-fallback=my-custom-policy` and get YAML for most scopes with a CDI policy for the rest. The default `no-op` means standalone YAML works without additional config.
-**Trade-offs:** One more config property. The fallback policy must be a valid `SlaBreachPolicy` bean in CDI.
-**Sources:** GE-20260810-724b82 (StrategyResolver is config-driven), WorkItemsConfig.SlaConfig
+**Rationale:** Explicit config for the fallback preserves the NamedStrategy selection model. `Provider<StrategyResolver>` defers resolution until after CDI startup, avoiding the circular dependency while still using the canonical resolution mechanism. Hybrid deployments set `declarative.fallback=my-custom-policy` and get YAML for most scopes with a CDI policy for the rest. Invalid fallback ids surface on first breach as a clear `IllegalArgumentException`. The default `no-op` means standalone YAML works without additional config.
+**Trade-offs:** One more config property. Invalid fallback ids surface on first breach rather than at startup (same trade-off as `RoundRobinAssignmentStrategy`). The fallback policy must be a valid `SlaBreachPolicy` bean in CDI.
+**Sources:** GE-20260810-724b82 (StrategyResolver is config-driven), RoundRobinAssignmentStrategy.java:42 (Provider pattern precedent), DefaultStrategyResolver (bytecode — eager Instance iteration), WorkItemsConfig.SlaConfig
 **Exploration:** quick
 **Depends on:** D1 (integration approach)
-**Status:** captured
+**Status:** revised (R1-01, R1-02, R2 circular dependency)
 
 ## D5: Module placement — runtime
 

@@ -211,6 +211,8 @@ sealed interface BreachAction {
 
 `BreachAction` is the intermediate representation between YAML/config parsing and `BreachDecision` construction. `toBreachDecision()` resolves durations: `ExtendAction` with null `explicitDuration` uses `fallbackExtensionHours` if non-null, otherwise `defaultExpiryHours`; `EscalateToAction` with null `deadline` uses `Duration.ofHours(defaultExpiryHours)`.
 
+**Extend duration validation:** `BreachAction.parse()` and `parseColon()` reject zero or negative extend durations at parse time. `{extend: PT0S}`, `{extend: -PT1H}`, and `extend:PT0S` all throw `IllegalArgumentException("extend duration must be positive")`. This is consistent with the escalation deadline validation in the #362 spec (`BindingDeserializer`).
+
 ### SlaDefaultsYamlLoader — Classpath Loader
 
 New `@ApplicationScoped @Startup` bean in `io.casehub.work.runtime.service`:
@@ -240,6 +242,8 @@ public class SlaDefaultsYamlLoader {
 
 **Config property merge:** After classpath loading, config properties from `config.sla().declarative().defaults()` override the defaults section. WARN log emitted for each override.
 
+**Duration validation:** `extensionHours` and `claimExtensionHours` values must be positive when present. The loader rejects values ≤ 0 with `IllegalArgumentException` at startup. This prevents the same infinite re-extension loop as the absent-extensionHours case (R1-04) — `Extend(Duration.ofHours(0))` advances `expiresAt` by zero, re-triggering on the next scheduler tick.
+
 **Error handling:** Malformed YAML throws `RuntimeException` at startup — fail fast. Invalid action values (unparseable duration, unknown action type) throw `IllegalArgumentException` with the scope path and field name for diagnostics.
 
 ### DeclarativeSlaBreachPolicy — Policy Implementation
@@ -252,28 +256,34 @@ New `@ApplicationScoped @Unremovable` bean in `io.casehub.work.runtime.service`:
 public class DeclarativeSlaBreachPolicy implements SlaBreachPolicy {
 
     @Inject SlaDefaultsYamlLoader loader;
-    @Inject StrategyResolver strategyResolver;
+    @Inject Provider<StrategyResolver> strategyResolverProvider;
     @Inject WorkItemsConfig config;
 
-    private SlaBreachPolicy fallbackPolicy;
+    private volatile SlaBreachPolicy fallbackPolicy;
 
     @Override
     public String id() { return "declarative"; }
 
     @PostConstruct
     void init() {
-        String fallbackId = config.sla().declarative().fallback();
-        if ("declarative".equals(fallbackId)) {
+        if (id().equals(config.sla().declarative().fallback())) {
             throw new IllegalStateException(
-                "casehub.work.sla.declarative.fallback cannot be 'declarative' — infinite recursion");
+                "casehub.work.sla.declarative.fallback cannot be '" + id() + "' — infinite recursion");
         }
-        this.fallbackPolicy = strategyResolver.resolve(SlaBreachPolicy.class, fallbackId);
+    }
+
+    private SlaBreachPolicy fallbackPolicy() {
+        if (fallbackPolicy == null) {
+            fallbackPolicy = strategyResolverProvider.get()
+                    .resolve(SlaBreachPolicy.class, config.sla().declarative().fallback());
+        }
+        return fallbackPolicy;
     }
 
     @Override
     public BreachDecision onBreach(SlaBreachContext context) {
         SlaDeclarativeConfig cfg = loader.loadedConfig;
-        if (cfg == null) return fallbackPolicy.onBreach(context);
+        if (cfg == null) return fallbackPolicy().onBreach(context);
 
         // 1. Walk scope hierarchy
         BreachAction action = resolveByScope(cfg, context.scope(), context.breachType());
@@ -287,7 +297,7 @@ public class DeclarativeSlaBreachPolicy implements SlaBreachPolicy {
         }
 
         // 3. Delegate to fallback policy
-        if (action == null) return fallbackPolicy.onBreach(context);
+        if (action == null) return fallbackPolicy().onBreach(context);
 
         Integer extHours = resolveExtensionHours(cfg, context.scope(), context.breachType());
         return action.toBreachDecision(extHours, config.defaultExpiryHours());
@@ -328,7 +338,7 @@ public class DeclarativeSlaBreachPolicy implements SlaBreachPolicy {
 }
 ```
 
-**Startup validation:** `@PostConstruct init()` resolves the fallback policy via `StrategyResolver` — consistent with `ExpiryLifecycleService.init()` (GE-20260810-724b82). Self-reference (`fallback=declarative`) is detected at startup and fails fast. Invalid fallback ids surface via `StrategyResolver.resolve()` throwing `IllegalArgumentException`. No `Instance<SlaBreachPolicy>` — single resolution path for all policy selection.
+**Startup validation and lazy fallback:** `@PostConstruct init()` validates that the fallback id is not self-referential — this check uses config strings only and does not touch `StrategyResolver`. The fallback policy is resolved lazily via `Provider<StrategyResolver>` on first `onBreach()` call, following the `RoundRobinAssignmentStrategy` pattern (line 42). This avoids a circular dependency: `DefaultStrategyResolver`'s constructor eagerly iterates all `NamedStrategy` beans via `Instance<NamedStrategy>.toList()`, calling `strategy.id()` which triggers `@ApplicationScoped` bean creation through CDI proxies — if `@PostConstruct` accessed `StrategyResolver` directly, the singleton would be mid-construction. Invalid fallback ids surface on first breach as `IllegalArgumentException` from `StrategyResolver.resolve()`, caught by `ExpiryLifecycleService` as `BREACH_POLICY_MISCONFIGURED`.
 
 ### Activation
 
@@ -354,9 +364,9 @@ These are independent concerns: a template says "this task expires in 4 hours"; 
 
 ### Unit Tests
 
-- **`BreachActionTest`** — parse string shorthands (`fail`, `extend`, `exhausted`); parse object form (`{escalateTo: group, deadline: PT4H}`); parse colon-delimited config values; invalid values throw `IllegalArgumentException`; `toBreachDecision` resolves fallback extension hours correctly
-- **`SlaDefaultsYamlLoaderTest`** — load from classpath resource; merge config property overrides; log WARN on override; multiple YAML resources merge scopes; conflicting defaults from multiple resources fail-fast; duplicate scope keys warn; malformed YAML fails fast; invalid scope key gives diagnostic error; variable interpolation (`${env.X}`, `${sys.X}`)
-- **`DeclarativeSlaBreachPolicyTest`** — scope hierarchy resolution (exact → parent → defaults → fallback); root scope goes straight to defaults; missing action at scope level walks to parent; missing defaults delegates to fallback policy; startup validation rejects `fallback=declarative`; extensionHours inheritance through scope hierarchy; null extensionHours falls back to `config.defaultExpiryHours()`
+- **`BreachActionTest`** — parse string shorthands (`fail`, `extend`, `exhausted`); parse object form (`{escalateTo: group, deadline: PT4H}`); parse colon-delimited config values; invalid values throw `IllegalArgumentException`; zero and negative extend durations rejected (`{extend: PT0S}`, `{extend: -PT1H}`); `toBreachDecision` resolves fallback extension hours correctly
+- **`SlaDefaultsYamlLoaderTest`** — load from classpath resource; merge config property overrides; log WARN on override; multiple YAML resources merge scopes; conflicting defaults from multiple resources fail-fast; duplicate scope keys warn; malformed YAML fails fast; invalid scope key gives diagnostic error; zero and negative extensionHours rejected at load time; variable interpolation (`${env.X}`, `${sys.X}`)
+- **`DeclarativeSlaBreachPolicyTest`** — scope hierarchy resolution (exact → parent → defaults → fallback); root scope goes straight to defaults; missing action at scope level walks to parent; missing defaults delegates to fallback policy via lazy `fallbackPolicy()`; startup validation rejects `fallback=declarative`; extensionHours inheritance through scope hierarchy; null extensionHours falls back to `config.defaultExpiryHours()`
 - **`SlaDeclarativeConfigTest`** — immutable record construction; scope map with Path keys; nullable extensionHours
 
 ### Integration Tests
