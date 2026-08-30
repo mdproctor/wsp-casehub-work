@@ -71,7 +71,9 @@ Each `onCompletionExpiry` and `onClaimExpiry` value is either a string shorthand
 
 **`extensionHours`** can appear at scope level or defaults level. Scope-level `extensionHours` takes precedence for `extend` shorthands within that scope. If neither is set, falls back to `config.defaultExpiryHours()`.
 
-**`Chained` is excluded** from YAML. Cross-breach sequencing uses the candidateGroups-as-state pattern (GE-20260522-f7db12). Within a single breach event, atomic fallback is a programmatic concern that belongs in a CDI `SlaBreachPolicy` bean.
+**`claimExtensionHours` and `extensionHours` for `extend`:** Under `onClaimExpiry`, `extend` uses `claimExtensionHours` if defined at the resolved scope, falling back to `extensionHours` at the same scope, then walking to parent scopes and defaults. Under `onCompletionExpiry`, `extend` uses `extensionHours` directly.
+
+**`Chained` is excluded** from YAML (#376). Cross-breach sequencing uses the candidateGroups-as-state pattern (GE-20260522-f7db12). Within a single breach event, atomic fallback is a programmatic concern that belongs in a CDI `SlaBreachPolicy` bean.
 
 ### Variable Interpolation
 
@@ -81,8 +83,10 @@ Following the `WorkItemTemplateYamlLoader` pattern, string values support `${env
 scopes:
   casehubio/clinical:
     onCompletionExpiry:
-      escalateTo: ${env.ESCALATION_GROUP:-senior-reviewers}
+      escalateTo: ${env.ESCALATION_GROUP}
 ```
+
+Variable interpolation does NOT support `:-default` syntax. If the referenced environment variable or system property is unset, the placeholder remains as a literal string. Default-value syntax is tracked for both loaders in #377.
 
 ## Scope Resolution (D6)
 
@@ -99,6 +103,8 @@ WorkItem scope: casehubio/clinical/triage
 
 At each scope level, the policy checks whether the relevant action (`onCompletionExpiry` or `onClaimExpiry`) is defined for that scope. If defined, it returns the corresponding `BreachDecision`. If not defined at any scope level or in defaults, it delegates to the fallback policy.
 
+**Independent resolution:** Action (`onCompletionExpiry`/`onClaimExpiry`) and `extensionHours`/`claimExtensionHours` resolve independently through the scope hierarchy. A child scope's `extensionHours` applies even when the action is defined at a parent scope. This is intentional — it allows scopes to override duration without re-declaring the action.
+
 **Root scope (`Path.root()`):** WorkItems without an assigned scope have `Path.root()`. These skip the scope walk entirely and go straight to defaults.
 
 **Scope key format:** YAML scope keys are the full path string (e.g., `casehubio/clinical`). `Path.parse()` is used to normalize them at load time. If two YAML scope keys normalize to the same `Path`, the loader logs WARN and the last one wins.
@@ -108,10 +114,10 @@ At each scope level, the policy checks whether the relevant action (`onCompletio
 Defaults-only override via application.yaml config properties. Values use colon-delimited syntax:
 
 ```properties
-casehub.work.sla.defaults.on-completion-expiry=fail
-casehub.work.sla.defaults.on-claim-expiry=escalateTo:team-leads:PT4H
-casehub.work.sla.defaults.extension-hours=4
-casehub.work.sla.defaults.claim-extension-hours=8
+casehub.work.sla.declarative.defaults.on-completion-expiry=fail
+casehub.work.sla.declarative.defaults.on-claim-expiry=escalateTo:team-leads:PT4H
+casehub.work.sla.declarative.defaults.extension-hours=4
+casehub.work.sla.declarative.defaults.claim-extension-hours=8
 ```
 
 **Colon-delimited syntax:**
@@ -132,40 +138,46 @@ SLA default for on-completion-expiry overridden by config property (config: fail
 
 **When both surfaces are absent:** If no classpath YAML exists and no config properties are set, the declarative policy delegates everything to the fallback policy (default: `"no-op"` → `Fail("no-sla-breach-policy-configured")`).
 
+**Config property access:** The declarative policy reads its config from `config.sla().declarative()` — scoped under the `DeclarativeConfig` sub-interface, not on the shared `SlaConfig`. See §WorkItemsConfig below.
+
 ## Changes
 
 ### WorkItemsConfig — Config Properties
 
-Add to `SlaConfig`:
+Add `DeclarativeConfig` sub-interface to `SlaConfig`. Declarative-policy-specific config is scoped under `casehub.work.sla.declarative.*`, keeping the shared `SlaConfig` interface clean:
 
 ```java
 interface SlaConfig {
-    // ... existing breachPolicy(), claimPolicy()
+    // ... existing breachPolicy(), claimPolicy() — unchanged
 
-    @WithDefault("no-op")
-    String declarativeFallback();
+    DeclarativeConfig declarative();
 
-    SlaDefaultsConfig defaults();
-}
+    interface DeclarativeConfig {
+        @WithDefault("no-op")
+        String fallback();
 
-interface SlaDefaultsConfig {
-    Optional<String> onCompletionExpiry();
-    Optional<String> onClaimExpiry();
-    OptionalInt extensionHours();
-    OptionalInt claimExtensionHours();
+        DefaultsConfig defaults();
+
+        interface DefaultsConfig {
+            Optional<String> onCompletionExpiry();
+            Optional<String> onClaimExpiry();
+            OptionalInt extensionHours();
+            OptionalInt claimExtensionHours();
+        }
+    }
 }
 ```
 
-### SlaDefaultsConfig — Immutable Config Record
+### SlaDeclarativeConfig — Immutable Config Record
 
 New record in `io.casehub.work.runtime.service`:
 
 ```java
-public record SlaDefaultsConfig(
+public record SlaDeclarativeConfig(
     BreachAction defaultOnCompletionExpiry,
     BreachAction defaultOnClaimExpiry,
-    int extensionHours,
-    int claimExtensionHours,
+    Integer extensionHours,
+    Integer claimExtensionHours,
     Map<Path, ScopeConfig> scopes
 ) {
     public record ScopeConfig(
@@ -176,6 +188,8 @@ public record SlaDefaultsConfig(
     ) {}
 }
 ```
+
+`extensionHours` and `claimExtensionHours` at the defaults level use `Integer` (nullable), not `int`. A `null` value means "not configured" — `resolveExtensionHours` returns `null`, and `BreachAction.toBreachDecision` falls back to `config.defaultExpiryHours()`. This prevents a silent zero-duration extension when neither YAML nor config properties set `extensionHours`.
 
 ### BreachAction — Parsed Action Value
 
@@ -191,11 +205,11 @@ sealed interface BreachAction {
     static BreachAction parse(Object yamlValue) { /* ... */ }
     static BreachAction parseColon(String configValue) { /* ... */ }
 
-    BreachDecision toBreachDecision(int fallbackExtensionHours, int defaultExpiryHours);
+    BreachDecision toBreachDecision(Integer fallbackExtensionHours, int defaultExpiryHours);
 }
 ```
 
-`BreachAction` is the intermediate representation between YAML/config parsing and `BreachDecision` construction. `toBreachDecision()` resolves durations: `ExtendAction` with null `explicitDuration` uses `fallbackExtensionHours`; `EscalateToAction` with null `deadline` uses `Duration.ofHours(defaultExpiryHours)`.
+`BreachAction` is the intermediate representation between YAML/config parsing and `BreachDecision` construction. `toBreachDecision()` resolves durations: `ExtendAction` with null `explicitDuration` uses `fallbackExtensionHours` if non-null, otherwise `defaultExpiryHours`; `EscalateToAction` with null `deadline` uses `Duration.ofHours(defaultExpiryHours)`.
 
 ### SlaDefaultsYamlLoader — Classpath Loader
 
@@ -210,19 +224,21 @@ public class SlaDefaultsYamlLoader {
 
     @Inject WorkItemsConfig config;
 
-    SlaDefaultsConfig loadedConfig;
+    SlaDeclarativeConfig loadedConfig;
 
     @PostConstruct
     void load() {
-        SlaDefaultsConfig yamlConfig = loadFromClasspath();
+        SlaDeclarativeConfig yamlConfig = loadFromClasspath();
         this.loadedConfig = mergeConfigOverrides(yamlConfig);
     }
 }
 ```
 
-**Classpath scanning:** Uses `Thread.currentThread().getContextClassLoader().getResources(RESOURCE_PATH)` to discover all contributors. If multiple JARs contribute YAML, scopes are merged (last-writer-wins for duplicate scope keys, logged at WARN). Defaults from the first resource apply unless overridden by later resources.
+**Classpath scanning:** Uses `Thread.currentThread().getContextClassLoader().getResources(RESOURCE_PATH)` to discover all contributors. Scopes from multiple JARs are merged (last-writer-wins for duplicate scope keys, logged at WARN). **Conflicting defaults are an error:** if more than one resource contributes a `sla.defaults` section, the loader throws `IllegalStateException` at startup — deployment-wide defaults must come from a single source. This prevents silent, environment-dependent behavior when classpath ordering varies.
 
-**Config property merge:** After classpath loading, config properties from `WorkItemsConfig.sla().defaults()` override the defaults section. WARN log emitted for each override.
+**Scope key validation:** When the loader encounters a scope key that fails `Path.parse()`, the exception is caught and re-thrown with a diagnostic message: "Scope key '{key}' is invalid — root scope cannot be addressed in YAML; use the defaults section instead." This guides users who try `""` or `"/"` as a scope key.
+
+**Config property merge:** After classpath loading, config properties from `config.sla().declarative().defaults()` override the defaults section. WARN log emitted for each override.
 
 **Error handling:** Malformed YAML throws `RuntimeException` at startup — fail fast. Invalid action values (unparseable duration, unknown action type) throw `IllegalArgumentException` with the scope path and field name for diagnostics.
 
@@ -236,16 +252,28 @@ New `@ApplicationScoped @Unremovable` bean in `io.casehub.work.runtime.service`:
 public class DeclarativeSlaBreachPolicy implements SlaBreachPolicy {
 
     @Inject SlaDefaultsYamlLoader loader;
-    @Inject Instance<SlaBreachPolicy> policies;
+    @Inject StrategyResolver strategyResolver;
     @Inject WorkItemsConfig config;
+
+    private SlaBreachPolicy fallbackPolicy;
 
     @Override
     public String id() { return "declarative"; }
 
+    @PostConstruct
+    void init() {
+        String fallbackId = config.sla().declarative().fallback();
+        if ("declarative".equals(fallbackId)) {
+            throw new IllegalStateException(
+                "casehub.work.sla.declarative.fallback cannot be 'declarative' — infinite recursion");
+        }
+        this.fallbackPolicy = strategyResolver.resolve(SlaBreachPolicy.class, fallbackId);
+    }
+
     @Override
     public BreachDecision onBreach(SlaBreachContext context) {
-        SlaDefaultsConfig cfg = loader.loadedConfig;
-        if (cfg == null) return delegateToFallback(context);
+        SlaDeclarativeConfig cfg = loader.loadedConfig;
+        if (cfg == null) return fallbackPolicy.onBreach(context);
 
         // 1. Walk scope hierarchy
         BreachAction action = resolveByScope(cfg, context.scope(), context.breachType());
@@ -259,16 +287,16 @@ public class DeclarativeSlaBreachPolicy implements SlaBreachPolicy {
         }
 
         // 3. Delegate to fallback policy
-        if (action == null) return delegateToFallback(context);
+        if (action == null) return fallbackPolicy.onBreach(context);
 
-        int extHours = resolveExtensionHours(cfg, context.scope(), context.breachType());
+        Integer extHours = resolveExtensionHours(cfg, context.scope(), context.breachType());
         return action.toBreachDecision(extHours, config.defaultExpiryHours());
     }
 
-    private BreachAction resolveByScope(SlaDefaultsConfig cfg, Path scope, BreachType type) {
+    private BreachAction resolveByScope(SlaDeclarativeConfig cfg, Path scope, BreachType type) {
         Path current = scope;
         while (current != null && !current.equals(Path.root())) {
-            SlaDefaultsConfig.ScopeConfig sc = cfg.scopes().get(current);
+            SlaDeclarativeConfig.ScopeConfig sc = cfg.scopes().get(current);
             if (sc != null) {
                 BreachAction action = switch (type) {
                     case COMPLETION_EXPIRED -> sc.onCompletionExpiry();
@@ -281,10 +309,10 @@ public class DeclarativeSlaBreachPolicy implements SlaBreachPolicy {
         return null;
     }
 
-    private int resolveExtensionHours(SlaDefaultsConfig cfg, Path scope, BreachType type) {
+    private Integer resolveExtensionHours(SlaDeclarativeConfig cfg, Path scope, BreachType type) {
         Path current = scope;
         while (current != null && !current.equals(Path.root())) {
-            SlaDefaultsConfig.ScopeConfig sc = cfg.scopes().get(current);
+            SlaDeclarativeConfig.ScopeConfig sc = cfg.scopes().get(current);
             if (sc != null) {
                 Integer hours = type == BreachType.CLAIM_EXPIRED
                     ? (sc.claimExtensionHours() != null ? sc.claimExtensionHours() : sc.extensionHours())
@@ -294,21 +322,13 @@ public class DeclarativeSlaBreachPolicy implements SlaBreachPolicy {
             current = current.parent();
         }
         return type == BreachType.CLAIM_EXPIRED
-            ? cfg.claimExtensionHours()
+            ? (cfg.claimExtensionHours() != null ? cfg.claimExtensionHours() : cfg.extensionHours())
             : cfg.extensionHours();
-    }
-
-    private BreachDecision delegateToFallback(SlaBreachContext context) {
-        String fallbackId = config.sla().declarativeFallback();
-        for (SlaBreachPolicy p : policies) {
-            if (p.id().equals(fallbackId) && p != this) return p.onBreach(context);
-        }
-        return new BreachDecision.Fail("no-sla-breach-policy-configured");
     }
 }
 ```
 
-**Self-reference guard:** `delegateToFallback` skips `this` to prevent infinite recursion if `declarative-fallback=declarative` is misconfigured.
+**Startup validation:** `@PostConstruct init()` resolves the fallback policy via `StrategyResolver` — consistent with `ExpiryLifecycleService.init()` (GE-20260810-724b82). Self-reference (`fallback=declarative`) is detected at startup and fails fast. Invalid fallback ids surface via `StrategyResolver.resolve()` throwing `IllegalArgumentException`. No `Instance<SlaBreachPolicy>` — single resolution path for all policy selection.
 
 ### Activation
 
@@ -317,7 +337,7 @@ public class DeclarativeSlaBreachPolicy implements SlaBreachPolicy {
 casehub.work.sla.breach-policy=declarative
 
 # Optional: chain to a custom CDI policy for unmatched scopes
-casehub.work.sla.declarative-fallback=my-custom-policy
+casehub.work.sla.declarative.fallback=my-custom-policy
 ```
 
 No changes to `ExpiryLifecycleService`. No Flyway migration needed (in-memory config, no persistence).
@@ -335,9 +355,9 @@ These are independent concerns: a template says "this task expires in 4 hours"; 
 ### Unit Tests
 
 - **`BreachActionTest`** — parse string shorthands (`fail`, `extend`, `exhausted`); parse object form (`{escalateTo: group, deadline: PT4H}`); parse colon-delimited config values; invalid values throw `IllegalArgumentException`; `toBreachDecision` resolves fallback extension hours correctly
-- **`SlaDefaultsYamlLoaderTest`** — load from classpath resource; merge config property overrides; log WARN on override; multiple YAML resources merge scopes; duplicate scope keys warn; malformed YAML fails fast; variable interpolation (`${env.X}`, `${sys.X}`)
-- **`DeclarativeSlaBreachPolicyTest`** — scope hierarchy resolution (exact → parent → defaults → fallback); root scope goes straight to defaults; missing action at scope level walks to parent; missing defaults delegates to fallback policy; self-reference guard in fallback; extensionHours inheritance through scope hierarchy
-- **`SlaDefaultsConfigTest`** — immutable record construction; scope map with Path keys
+- **`SlaDefaultsYamlLoaderTest`** — load from classpath resource; merge config property overrides; log WARN on override; multiple YAML resources merge scopes; conflicting defaults from multiple resources fail-fast; duplicate scope keys warn; malformed YAML fails fast; invalid scope key gives diagnostic error; variable interpolation (`${env.X}`, `${sys.X}`)
+- **`DeclarativeSlaBreachPolicyTest`** — scope hierarchy resolution (exact → parent → defaults → fallback); root scope goes straight to defaults; missing action at scope level walks to parent; missing defaults delegates to fallback policy; startup validation rejects `fallback=declarative`; extensionHours inheritance through scope hierarchy; null extensionHours falls back to `config.defaultExpiryHours()`
+- **`SlaDeclarativeConfigTest`** — immutable record construction; scope map with Path keys; nullable extensionHours
 
 ### Integration Tests
 
@@ -345,15 +365,15 @@ These are independent concerns: a template says "this task expires in 4 hours"; 
 
 ## Deferred
 
-### Runtime reconfiguration
+### Runtime reconfiguration (#374)
 
 The YAML is loaded at startup and immutable. Hot-reload of SLA defaults (e.g., via config change event) is deferred. For dev mode, Quarkus live-reload restarts the application, which re-triggers the loader.
 
-### Multi-tenancy scoping
+### Multi-tenancy scoping (#375)
 
-The YAML config is deployment-wide, not per-tenant. Per-tenant SLA overrides remain the domain of the `CallbackSlaBreachPolicyDecorator` or a custom `SlaBreachPolicy` bean. If per-tenant YAML config is needed, it would require a tenant-aware YAML discovery mechanism — deferred to a future issue.
+The YAML config is deployment-wide, not per-tenant. Per-tenant SLA overrides remain the domain of the `CallbackSlaBreachPolicyDecorator` or a custom `SlaBreachPolicy` bean. If per-tenant YAML config is needed, it would require a tenant-aware YAML discovery mechanism.
 
-### YAML-declared Chained actions
+### YAML-declared Chained actions (#376)
 
 `Chained` (atomic same-event fallback) is excluded from YAML. The candidateGroups-as-state pattern handles cross-breach sequencing without Chained. If a list-syntax for sequential fallback is needed in YAML, it can be added later without breaking the current schema.
 
