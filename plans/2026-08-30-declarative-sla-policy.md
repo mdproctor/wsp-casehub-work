@@ -207,8 +207,11 @@ public sealed interface BreachAction {
             }
             case EscalateToAction e -> {
                 var decision = BreachDecision.EscalateTo.to(e.group());
-                yield e.deadline() != null ? decision.withDeadline(e.deadline())
-                        : decision.withDeadline(Duration.ofHours(defaultExpiryHours));
+                if (e.deadline() != null) {
+                    yield decision.withDeadline(e.deadline());
+                }
+                int hours = fallbackExtensionHours != null ? fallbackExtensionHours : defaultExpiryHours;
+                yield decision.withDeadline(Duration.ofHours(hours));
             }
             case ExhaustedAction e -> new BreachDecision.Exhausted(e.reason());
         };
@@ -398,7 +401,14 @@ Add to `BreachActionTest`:
     }
 
     @Test
-    void escalateToWithDefaultDeadlineToBreachDecision() {
+    void escalateToWithFallbackHoursDeadlineToBreachDecision() {
+        BreachDecision d = new BreachAction.EscalateToAction("team-leads", null)
+                .toBreachDecision(8, 24);
+        assertThat(d).isEqualTo(BreachDecision.EscalateTo.to("team-leads").withDeadline(Duration.ofHours(8)));
+    }
+
+    @Test
+    void escalateToWithDefaultExpiryHoursDeadlineToBreachDecision() {
         BreachDecision d = new BreachAction.EscalateToAction("team-leads", null)
                 .toBreachDecision(null, 24);
         assertThat(d).isEqualTo(BreachDecision.EscalateTo.to("team-leads").withDeadline(Duration.ofHours(24)));
@@ -1090,6 +1100,27 @@ class DeclarativeSlaBreachPolicyTest {
         assertThat(d).isEqualTo(new BreachDecision.Fail("fallback-fired"));
     }
 
+    // ── Self-detection guard (R1-02) ──
+
+    @Test
+    void escalateToSkippedWhenAlreadyAtTargetGroup() {
+        // candidateGroups already contains "senior-reviewers" → skip EscalateTo, walk to defaults
+        var ctxAtTarget = new SlaBreachContext(BreachType.COMPLETION_EXPIRED,
+                new BreachedTask(UUID.randomUUID(), null, "test", Set.of("senior-reviewers")),
+                Path.parse("casehubio/clinical"), MapPreferences.empty());
+        BreachDecision d = policy.onBreach(ctxAtTarget);
+        // casehubio/clinical has EscalateTo(senior-reviewers) → skipped → defaults: fail
+        assertThat(d).isEqualTo(new BreachDecision.Fail("sla-breach"));
+    }
+
+    @Test
+    void escalateToNotSkippedWhenDifferentGroup() {
+        // candidateGroups has "original-group" → EscalateTo fires normally
+        BreachDecision d = policy.onBreach(ctx("casehubio/clinical", BreachType.COMPLETION_EXPIRED));
+        assertThat(d).isInstanceOf(BreachDecision.EscalateTo.class);
+        assertThat(((BreachDecision.EscalateTo) d).groups()).containsExactly("senior-reviewers");
+    }
+
     // ── extensionHours resolution ──
 
     @Test
@@ -1173,13 +1204,18 @@ public class DeclarativeSlaBreachPolicy implements SlaBreachPolicy {
         SlaDeclarativeConfig cfg = loader.loadedConfig;
         if (cfg == null) return fallbackPolicy().onBreach(context);
 
-        BreachAction action = resolveByScope(cfg, context.scope(), context.breachType());
+        java.util.Set<String> groups = context.task().candidateGroups();
+        BreachAction action = resolveByScope(cfg, context.scope(), context.breachType(), groups);
 
         if (action == null) {
             action = switch (context.breachType()) {
                 case COMPLETION_EXPIRED -> cfg.defaultOnCompletionExpiry();
                 case CLAIM_EXPIRED -> cfg.defaultOnClaimExpiry();
             };
+            if (action instanceof BreachAction.EscalateToAction esc
+                    && groups.contains(esc.group())) {
+                action = null;
+            }
         }
 
         if (action == null) return fallbackPolicy().onBreach(context);
@@ -1188,7 +1224,8 @@ public class DeclarativeSlaBreachPolicy implements SlaBreachPolicy {
         return action.toBreachDecision(extHours, defaultExpiryHours);
     }
 
-    private BreachAction resolveByScope(SlaDeclarativeConfig cfg, Path scope, BreachType type) {
+    private BreachAction resolveByScope(SlaDeclarativeConfig cfg, Path scope, BreachType type,
+                                        java.util.Set<String> candidateGroups) {
         Path current = scope;
         while (current != null && !current.equals(Path.root())) {
             SlaDeclarativeConfig.ScopeConfig sc = cfg.scopes().get(current);
@@ -1197,7 +1234,14 @@ public class DeclarativeSlaBreachPolicy implements SlaBreachPolicy {
                     case COMPLETION_EXPIRED -> sc.onCompletionExpiry();
                     case CLAIM_EXPIRED -> sc.onClaimExpiry();
                 };
-                if (action != null) return action;
+                if (action != null) {
+                    if (action instanceof BreachAction.EscalateToAction esc
+                            && candidateGroups.contains(esc.group())) {
+                        current = current.parent();
+                        continue;
+                    }
+                    return action;
+                }
             }
             current = current.parent();
         }
