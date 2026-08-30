@@ -130,6 +130,8 @@ casehub.work.sla.declarative.defaults.claim-extension-hours=8
 - `exhausted` → `Exhausted("sla-exhausted")`
 - `exhausted:custom-reason` → `Exhausted("custom-reason")`
 
+**Colon limitation:** Group names in config property values must not contain colons — `escalateTo:domain:admins` would misparse `admins` as a duration. Use the YAML surface for groups with colons: `escalateTo: "domain:admins"`.
+
 **Override precedence:** Config properties win over classpath YAML defaults. Scopes always come from classpath YAML — config properties cannot define scopes. When a config property overrides a YAML default, the loader logs at WARN level:
 
 ```
@@ -211,7 +213,11 @@ sealed interface BreachAction {
 
 `BreachAction` is the intermediate representation between YAML/config parsing and `BreachDecision` construction. `toBreachDecision()` resolves durations: `ExtendAction` with null `explicitDuration` uses `fallbackExtensionHours` if non-null, otherwise `defaultExpiryHours`; `EscalateToAction` with null `deadline` uses `Duration.ofHours(defaultExpiryHours)`.
 
-**Extend duration validation:** `BreachAction.parse()` and `parseColon()` reject zero or negative extend durations at parse time. `{extend: PT0S}`, `{extend: -PT1H}`, and `extend:PT0S` all throw `IllegalArgumentException("extend duration must be positive")`. This is consistent with the escalation deadline validation in the #362 spec (`BindingDeserializer`).
+**Duration validation:** `BreachAction.parse()` and `parseColon()` reject zero or negative durations at parse time for both `extend` and `escalateTo`:
+- `{extend: PT0S}`, `{extend: -PT1H}`, `extend:PT0S` → `IllegalArgumentException("extend duration must be positive")`
+- `{escalateTo: group, deadline: PT0S}`, `{escalateTo: group, deadline: -PT1H}`, `escalateTo:group:PT0S` → `IllegalArgumentException("escalateTo deadline must be positive")`
+
+A zero escalation deadline causes immediate re-expiry (`expiresAt = now.plus(Duration.ZERO)`) and infinite re-escalation — the declarative policy matches on `scope` (unchanged by escalation), not `candidateGroups`, so the same rule fires every tick. This validation is consistent with the #362 spec (`BindingDeserializer` escalation deadline validation).
 
 ### SlaDefaultsYamlLoader — Classpath Loader
 
@@ -364,7 +370,7 @@ These are independent concerns: a template says "this task expires in 4 hours"; 
 
 ### Unit Tests
 
-- **`BreachActionTest`** — parse string shorthands (`fail`, `extend`, `exhausted`); parse object form (`{escalateTo: group, deadline: PT4H}`); parse colon-delimited config values; invalid values throw `IllegalArgumentException`; zero and negative extend durations rejected (`{extend: PT0S}`, `{extend: -PT1H}`); `toBreachDecision` resolves fallback extension hours correctly
+- **`BreachActionTest`** — parse string shorthands (`fail`, `extend`, `exhausted`); parse object form (`{escalateTo: group, deadline: PT4H}`); parse colon-delimited config values; invalid values throw `IllegalArgumentException`; zero and negative extend durations rejected (`{extend: PT0S}`, `{extend: -PT1H}`); zero and negative escalation deadlines rejected (`{escalateTo: group, deadline: PT0S}`, `escalateTo:group:PT0S`); `toBreachDecision` resolves fallback extension hours correctly
 - **`SlaDefaultsYamlLoaderTest`** — load from classpath resource; merge config property overrides; log WARN on override; multiple YAML resources merge scopes; conflicting defaults from multiple resources fail-fast; duplicate scope keys warn; malformed YAML fails fast; invalid scope key gives diagnostic error; zero and negative extensionHours rejected at load time; variable interpolation (`${env.X}`, `${sys.X}`)
 - **`DeclarativeSlaBreachPolicyTest`** — scope hierarchy resolution (exact → parent → defaults → fallback); root scope goes straight to defaults; missing action at scope level walks to parent; missing defaults delegates to fallback policy via lazy `fallbackPolicy()`; startup validation rejects `fallback=declarative`; extensionHours inheritance through scope hierarchy; null extensionHours falls back to `config.defaultExpiryHours()`
 - **`SlaDeclarativeConfigTest`** — immutable record construction; scope map with Path keys; nullable extensionHours
