@@ -23,18 +23,19 @@
 **Depends on:** D1 (integration approach)
 **Status:** captured
 
-## D4: Config property override surface — defaults only
+## D4: Config property override surface — defaults only, colon-delimited syntax
 
-**Choice:** Config properties for default actions only: `casehub.work.sla.defaults.on-completion-expiry`, `.on-claim-expiry`, `.claim-extension-hours`, `.extension-hours`. Scopes always come from classpath YAML. When both config properties and classpath YAML exist, config properties win for the defaults section.
+**Choice:** Config properties for default actions: `casehub.work.sla.defaults.on-completion-expiry`, `.on-claim-expiry`, `.claim-extension-hours`, `.extension-hours`. Scopes always come from classpath YAML. Values use colon-delimited syntax: `fail`, `extend`, `exhausted:reason`, `escalateTo:group`, `escalateTo:group:PT4H`. When both config properties and classpath YAML exist, config properties win for the defaults section (logged at WARN level when override occurs).
 **Alternatives:**
 - No config overrides — all config from classpath YAML; tutorials must create a resource file even for basic defaults
-- Full mirror — mirror entire YAML structure in config properties; SmallRye can't handle polymorphic values (string vs object) without custom converters
-**Rationale:** The simplest tutorials need "if unclaimed after 4 hours, escalate to team-leads" without writing a YAML file. Config properties for defaults achieve this. Scopes with compound actions require the full YAML expressiveness and belong in the classpath resource.
-**Trade-offs:** Two config surfaces for the same concern (defaults). Config properties are limited to string shorthands only — object-form actions (escalateTo with deadline) require the classpath YAML.
-**Sources:** WorkItemsConfig.java, issue #372 acceptance criteria ("Tutorial-ready example")
+- Full mirror — mirror entire YAML structure in config properties; SmallRye can't handle polymorphic values without custom converters
+- String shorthands only (no colon syntax) — simple but can't express `escalateTo` with group/deadline, defeating the tutorial use case
+**Rationale:** The simplest tutorials need "if unclaimed after 4 hours, escalate to team-leads" without writing a YAML file. The colon-delimited syntax enables `on-claim-expiry=escalateTo:team-leads:PT4H` as a single config property. Scopes with multiple overrides and complex config belong in the classpath YAML resource.
+**Trade-offs:** Two config surfaces for the same concern (defaults). The colon-delimited syntax is less readable than YAML for compound actions. Override logging mitigates the "silent override" debugging hazard (R1-13).
+**Sources:** WorkItemsConfig.java, issue #372 acceptance criteria ("Tutorial-ready example"), R1-12 (config surface must express primary tutorial case)
 **Exploration:** quick
 **Depends on:** D1, D2 (action syntax)
-**Status:** captured
+**Status:** revised (R1-12, R1-13)
 
 ## D3: Fallback chain mechanism — config property
 
@@ -58,6 +59,19 @@
 **Rationale:** The declarative policy is a `SlaBreachPolicy` implementation, same as `NoOpSlaBreachPolicy`. Same module, same package (`io.casehub.work.runtime.service`). Jackson YAML is already a transitive dependency (used by `WorkItemTemplateYamlLoader`). No new module needed.
 **Trade-offs:** None significant. The runtime module grows by ~3 classes.
 **Sources:** NoOpSlaBreachPolicy.java, WorkItemTemplateYamlLoader.java, docs/MODULES.md
+**Exploration:** quick
+**Depends on:** D1 (integration approach)
+**Status:** captured
+
+## D6: Scope matching algorithm — hierarchical, most-specific wins
+
+**Choice:** Hierarchical scope matching using `Path.parent()` walk. Most-specific match wins. Resolution order: exact scope match → `scope.parent()` → ... → `Path.root()` → YAML defaults → fallback policy.
+**Alternatives:**
+- Exact match only — simpler but forces users to enumerate every scope path; no inheritance
+- Prefix matching (string-based) — fragile; `casehub/cli` would match `casehub/clinical`
+**Rationale:** `Path.parent()` provides correct hierarchical matching. A WorkItem with scope `casehubio/clinical/triage` first checks `casehubio/clinical/triage`, then `casehubio/clinical`, then `casehubio`, then root, then defaults. This matches the PreferenceProvider scope-resolution model, preventing the platform from having two incompatible scope algorithms (R1-18). The YAML scopes are keyed by their full path string.
+**Trade-offs:** Users must understand that a scope `casehubio/clinical` applies to ALL items under that path. A broad scope can unintentionally catch items that should use the default.
+**Sources:** Path.class (parent(), isAncestorOf(), segments()), SlaBreachContext.java, R1-18 (scope matching is architecturally significant)
 **Exploration:** quick
 **Depends on:** D1 (integration approach)
 **Status:** captured
