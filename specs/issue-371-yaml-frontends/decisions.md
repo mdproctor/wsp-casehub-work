@@ -77,3 +77,32 @@
 **Exploration:** quick
 **Depends on:** D1 (integration approach)
 **Status:** captured
+
+---
+
+# Issue #373 — Progress Definition YAML
+
+## D7: Named definition templates — ProgressDefinition + registry
+
+**Choice:** `ProgressDefinition` record (name, shapeType, definition JsonNode) in progress-api. `ProgressDefinitionRegistry` SPI for lookup. `ProgressDefinitionYamlLoader` in progress-runtime loads from `META-INF/work-progress-definitions.yaml`. `ProgressCreateRequest` gains optional `definitionName` field.
+**Alternatives:**
+- New `stage` shape type — adds a shape for what is essentially step + transitions
+- Extend `StepDefinition` with transitions field — changes existing API, mixes concerns
+**Rationale:** Named templates follow the `WorkItemTemplate` pattern. The YAML stages/transitions produce a definition JSON consumed by the step shape. No new shape type needed.
+**Trade-offs:** The transitions map in YAML is stored as part of the definition JSON — not strongly typed at the API level.
+**Sources:** ProgressInstance.java, ProgressCreateRequest.java, StepDefinition.java, WorkItemTemplateYamlLoader pattern
+**Exploration:** quick
+**Status:** captured
+
+## D8: Module placement — progress-api + progress-runtime
+
+**Choice:** `ProgressDefinition` record and `ProgressDefinitionRegistry` in progress-api. `ProgressDefinitionYamlLoader` in progress-runtime.
+**Alternatives:**
+- progress-runtime only — callers can't reference definitions without runtime dependency
+- progress-core — definitions are domain types, not validation logic
+**Rationale:** `ProgressDefinition` is a domain type used by `ProgressCreateRequest`. Following the api/runtime split pattern.
+**Trade-offs:** None significant.
+**Sources:** progress-api module structure, WorkItemTemplate pattern
+**Exploration:** quick
+**Depends on:** D7
+**Status:** captured
