@@ -1,0 +1,15 @@
+# Work Plan — issue-238-saga-compensation
+
+## State
+branch: issue-238-saga-compensation
+state: scaffolded
+project-sha: slot-creation
+date: 2026-08-31
+issue-repo: casehubio/work
+covers: 238
+design-repo: project
+design-section-hashes: 
+flyway-next-v: unknown
+
+## Queue
+- [ ] casehubio/work#238 — Issue #238 ← active
