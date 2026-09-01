@@ -124,6 +124,8 @@ public enum CaseStatus {
 - A COMPENSATING case cannot be SUSPENDED or CANCELLED — compensation must run to completion or fault
 - Sub-cases: compensating a parent case propagates compensation to child cases that are COMPLETED (recursive, depth-first)
 
+**Design note — asymmetric model (D2 vs D7):** Cases use post-terminal transition (COMPLETED → COMPENSATING) while WorkItems use separate entities. This is intentional. A case IS the orchestration being compensated — its state reflects the saga lifecycle. A WorkItem IS work — compensation creates new work (a new entity). The case's `isTerminal()` consumers are fewer and more controlled than WorkItem's, making the post-terminal transition safe at this layer.
+
 ### 5.2 Compensating Bindings
 
 Each Binding in a CasePlanModel can declare an optional compensating binding:
@@ -229,6 +231,12 @@ Key YAML elements:
 - `compensate:` on any binding — references the compensating binding by name
 - `compensation: true` — marks a binding as compensation-only (not executed in normal forward flow)
 - Compensating bindings can target any worker type — a HumanTask binding can be compensated by a capability binding and vice versa
+
+**Validation rules (build-time):**
+- `compensate:` must reference an existing binding name in the same casePlan — build error otherwise
+- A binding with `compensation: true` must be referenced by at least one `compensate:` — warning if orphaned
+- Circular compensation references are rejected (A compensates B compensates A)
+- A binding cannot reference itself as its own compensating binding
 
 ---
 
@@ -373,8 +381,14 @@ public class HumanTaskCompensationHandler implements CompensationBindingHandler 
     public void executeCompensation(PlanItem compensatingItem, PlanItem originalItem,
                                      Binding compensatingBinding, String triggeredBy, String reason) {
         // 1. Find the original WorkItem via callerRef from the original PlanItem
-        // 2. Create a compensating WorkItem via workItemService.compensate()
-        // 3. Wire the compensating PlanItem to observe the new WorkItem's lifecycle
+        //    callerRef format: case:{caseId}/pi:{planItemId}
+        // 2. Build WorkItemCreateRequest from compensatingBinding's HumanTaskTarget
+        // 3. Create a compensating WorkItem via workItemService.compensate()
+        // 4. Set callerRef on the compensating WorkItem to link back to compensatingItem
+        //    — this reuses the existing WorkItemLifecycleAdapter bridge:
+        //    when the compensating WorkItem completes/faults, the adapter fires
+        //    PlanItemCompletedEvent/PlanItemFaultedEvent for the compensating PlanItem,
+        //    which the engine's saga coordinator observes
     }
 }
 ```
