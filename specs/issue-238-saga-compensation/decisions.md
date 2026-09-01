@@ -58,17 +58,18 @@
 **Exploration:** quick
 **Status:** captured
 
-## D6: Compensation failure — COMPENSATION_FAULTED terminal state
+## D6: Compensation failure — COMPENSATION_FAULTED as active intervention-required state
 
-**Choice:** New terminal state COMPENSATION_FAULTED on CaseStatus. When a compensating action fails (FAULTED, REJECTED), the case enters COMPENSATION_FAULTED. Requires human intervention. No automatic retry.
+**Choice:** New non-terminal state COMPENSATION_FAULTED on CaseStatus. When a compensating action fails (FAULTED, REJECTED), the case enters COMPENSATION_FAULTED. `isTerminal()` returns false; `isActive()` returns true (analogous to SUSPENDED — paused, needs external action). Operators can retry compensation from the faulted step (COMPENSATION_FAULTED → COMPENSATING). No automatic retry.
 **Alternatives:**
+- COMPENSATION_FAULTED as terminal — contradicts D13's retry path (a terminal state cannot have outgoing transitions, which is exactly the invariant D2 protects for WorkItemStatus). Terminal means done; COMPENSATION_FAULTED is not done.
 - Retry then fault — configurable retry count, adds complexity
 - Propagate as FAULTED — simpler but loses the distinction between original faults and compensation faults
-**Rationale:** Compensation failure is semantically distinct from execution failure. A case that faulted during execution is different from one that faulted during compensation — the latter is in a partially-compensated state that requires careful intervention.
-**Trade-offs:** New terminal state on CaseStatus. All CaseStatus consumers must handle it. Worth it for the semantic clarity.
-**Sources:** casehub-work#238 open questions ("Can compensation itself fail?")
+**Rationale:** Compensation failure is semantically distinct from execution failure. A case that faulted during execution is different from one that faulted during compensation — the latter is in a partially-compensated state requiring intervention. COMPENSATION_FAULTED is not "done" — the case needs operator attention and can be retried. Terminal means done, forever. This state is active: consumers keep watching, SSE subscribers stay connected, dashboards show it.
+**Trade-offs:** COMPENSATION_FAULTED is active, so timeout monitors and progress trackers will see it. This is correct — it IS a case that needs attention, unlike a truly terminal case that is finished.
+**Sources:** casehub-work#238 open questions ("Can compensation itself fail?"), WorkItemStatus.isTerminal()/isActive() pattern (SUSPENDED is isActive=true), LIFECYCLE.md terminal invariant
 **Exploration:** quick
-**Status:** captured
+**Status:** revised (R2-01: reclassified from terminal to active; terminal states must not have outgoing transitions)
 
 ## D7: Case-level model — new CaseStatus values
 
@@ -177,7 +178,7 @@
 
 ## D15: Engine-work compensation interaction — skip already-compensated
 
-**Choice:** When the engine's `HumanTaskCompensationHandler` encounters a WorkItem whose `compensationStatus` is already COMPENSATED (from prior operator action), it skips creating a new compensating WorkItem and marks the compensating PlanItem as COMPLETED. The engine proceeds to the next step.
+**Choice:** When the engine's `JudgmentCompensationHandler` encounters a WorkItem whose `compensationStatus` is already COMPENSATED (from prior operator action), it skips creating a new compensating WorkItem and marks the compensating PlanItem as COMPLETED. The engine proceeds to the next step.
 **Alternatives:**
 - Fail (unexpected state) — undesirable; operator action is a supported path
 - Create a second compensating WorkItem — creates duplicate compensation
