@@ -34,17 +34,18 @@
 **Exploration:** quick
 **Status:** captured
 
-## D4: Compensation ordering — strict reverse
+## D4: Compensation ordering — topological reverse
 
-**Choice:** Compensating actions execute in strict reverse-completion order. Step N compensated before step N-1.
+**Choice:** Compensating actions execute in reverse topological order of the dependency graph. Dependent steps compensate in reverse dependency order (C→B→A for a chain A→B→C). Independent steps compensate concurrently. Strict reverse-completion order falls out as the degenerate case for a linear chain.
 **Alternatives:**
-- Parallel compensation — all compensating actions created simultaneously, faster but unordered
+- Strict reverse-completion order — simpler but unnecessarily sequential for independent steps; not more correct, only slower
+- Parallel compensation — all compensating actions created simultaneously, faster but unordered; unsafe for dependent steps
 - Configurable per binding — maximum flexibility, adds complexity to case definition model
-**Rationale:** Deterministic, auditable, matches BPMN 2.0 compensation semantics. The engine already tracks PlanItem completion order via EventLog. Reverse ordering ensures causal consistency — later steps that depended on earlier ones are undone first.
-**Trade-offs:** Slower than parallel. For independent steps, reverse ordering is unnecessarily sequential — but correctness trumps speed for compensation.
-**Sources:** BPMN 2.0 compensation semantics, casehub-work#238 issue body (orchestrated saga section)
+**Rationale:** The engine already has dependency information via Binding trigger conditions, produced/consumed keys, and EventLog completion order. A topological sort of the completion graph gives correct ordering for dependent steps (reverse dependency) while allowing concurrency for independent steps. This is more correct than strict reverse for cases with parallel branches — a step that had no causal relationship with another step in forward execution has no ordering constraint in reverse.
+**Trade-offs:** More complex compensation coordinator implementation. Worth it — topological ordering is architecturally correct, not just faster.
+**Sources:** BPMN 2.0 §10.4.3 compensation semantics, casehub-work#238 issue body (orchestrated saga section), Binding.produces/consumes/contextWrite dependency graph
 **Exploration:** quick
-**Status:** captured
+**Status:** revised (R1-04: topological ordering is more correct than strict reverse for independent steps)
 
 ## D5: Partial compensation — full scope only
 
@@ -77,10 +78,11 @@
 - Planner-internal only — hides compensation from case-level observers
 **Rationale:** The case IS the thing being compensated. It makes sense for CaseStatus to reflect this. Unlike WorkItem (where compensation creates new work), case compensation is a state of the orchestration itself.
 **Trade-offs:** COMPLETED → COMPENSATING is a post-terminal transition at the case level. CaseStatus consumers must be audited. This is acceptable because CaseStatus has fewer consumers than WorkItemStatus, and the semantic fit is strong.
+**Prerequisite:** CaseStatus must be registered in LIFECYCLE.md with `isTerminal()` and `isActive()` methods before adding compensation states. CaseStatus is currently unregistered (7 values, no lifecycle methods). Per LIFECYCLE.md §4, new lifecycle enum registration requires: define isTerminal()/isActive(), register in LIFECYCLE.md, audit all consumers, file cross-repo issues. This must be completed as a predecessor task.
 **Depends on:** D6 (COMPENSATION_FAULTED)
-**Sources:** CaseStatus.java (7 values), BPMN 2.0 compensation model
+**Sources:** CaseStatus.java (7 values, no isTerminal/isActive), LIFECYCLE.md (CaseStatus absent from registered state machines), BPMN 2.0 compensation model
 **Exploration:** quick
-**Status:** captured
+**Status:** revised (R1-02: added CaseStatus LIFECYCLE.md registration prerequisite)
 
 ## D8: Worker binding model — compensate: block on any Binding
 
@@ -106,18 +108,19 @@
 **Exploration:** quick
 **Status:** captured
 
-## D10: Qhorus integration — COMPENSATION_REQUESTED speech act
+## D10: Qhorus integration — COMMAND with compensation context
 
-**Choice:** New message type COMPENSATION_REQUESTED on the channel. Agent is notified that their fulfilled commitment is being compensated. CommitmentState stays FULFILLED; a new commitment is created for the compensating work (mirrors WorkItem separate-entity model).
+**Choice:** Use existing COMMAND message type with compensation metadata (a `compensatesCommitmentId` field on the message content or artefactRefs). Agent is notified that their fulfilled commitment is being compensated via a standard COMMAND. CommitmentState stays FULFILLED; a new commitment is created for the compensating work (mirrors WorkItem separate-entity model).
 **Alternatives:**
+- New COMPENSATION_REQUESTED speech act — taxonomically inflating MessageType (currently 11 values) for a distinction that is contextual, not normatively distinct from COMMAND. Every new speech act propagates to MessageType consumers, MCP tools, channel projections, normative audit entries, and dashboards across all repos.
 - CommitmentState gains COMPENSATED — breaks terminal-state invariant (same issue as WorkItem)
 - Defer Qhorus integration — agents won't be notified of compensation
-**Rationale:** Consistent with D2 (separate entity model). The original commitment was fulfilled — that's a historical fact. Compensation is a new obligation requiring a new commitment. The speech act notifies the agent of the context change.
-**Trade-offs:** Agents must handle a new speech act type. The new commitment's lifecycle is standard (OPEN → FULFILLED/DECLINED/etc).
+**Rationale:** A compensation request is semantically a directive — "undo your prior work." COMMAND already has the right normative semantics (creates obligation, requires correlationId). The compensation context is carried as metadata on the message, not as a new speech act type. The agent receives a COMMAND and discovers from context that it's compensating prior work. This avoids extending the speech-act taxonomy while conveying the same information.
+**Trade-offs:** Compensation messages are less immediately distinguishable in audit views (they look like COMMANDs). But the CompensationSupplement on the ledger entry and the metadata on the message provide the context.
 **Depends on:** D2 (separate compensating WorkItem)
-**Sources:** CommitmentState.java (7 values), QhorusWorkItemLifecycleAdapter, casehub-work#238 (Qhorus section)
+**Sources:** MessageType.java (11 values: QUERY, COMMAND, RESPONSE, STATUS, DECLINE, HANDOFF, DONE, FAILURE, PROPOSE, JUDGMENT, EVENT), CommitmentState.java (7 values), QhorusWorkItemLifecycleAdapter
 **Exploration:** quick
-**Status:** captured
+**Status:** revised (R1-05: COMMAND with metadata avoids taxonomy inflation; compensation is a directive, not a new speech act)
 
 ## D11: Visualization — included in spec
 
@@ -139,5 +142,48 @@
 **Trade-offs:** YAML schema must be extended. The yaml-core module from #379 handles variable resolution.
 **Depends on:** D8 (compensate: block on Binding)
 **Sources:** YAML frontends epic (#371), yaml-core migration (#379), user clarification
+**Exploration:** quick
+**Status:** captured
+
+## D13: Compensation idempotency — state-guarded transitions
+
+**Choice:** Compensation trigger is state-guarded and non-reentrant:
+- COMPLETED → COMPENSATING: allowed (the normal trigger)
+- COMPENSATING → reject with IllegalStateException (already compensating)
+- COMPENSATED → reject (compensation complete, no re-compensation)
+- COMPENSATION_FAULTED → allow manual retry (re-enters COMPENSATING from the faulted step)
+- All other states → reject (only COMPLETED and COMPENSATION_FAULTED are valid entry points)
+**Alternatives:**
+- Allow re-compensation of COMPENSATED cases — creates recursive compensation chains; complex state management with no clear use case
+- Reject COMPENSATION_FAULTED retry — leaves the case in a dead-end state with no recovery path
+- Idempotent trigger (concurrent calls are no-ops) — hides race conditions rather than surfacing them
+**Rationale:** COMPENSATION_FAULTED represents a partially-compensated state requiring human intervention. The operator's intervention is retrying from the faulted step. Rejecting retry from COMPENSATION_FAULTED would leave the case permanently stuck. Re-compensation of an already-COMPENSATED case has no semantic basis — the compensation is done.
+**Trade-offs:** The retry path from COMPENSATION_FAULTED requires the engine to track which step faulted and resume from there.
+**Sources:** R1-08 (reviewer-surfaced implicit decision)
+**Exploration:** quick
+**Status:** captured
+
+## D14: Compensating WorkItems cannot be compensated
+
+**Choice:** A compensating WorkItem (one with `compensatesWorkItemId != null`) cannot itself be compensated. `WorkItemService.compensate()` throws IllegalStateException if the target WorkItem has a non-null `compensatesWorkItemId`.
+**Alternatives:**
+- Allow chains (A → compensated by B → compensated by C) — creates recursive state management issues: what is A's compensationStatus when B is being compensated by C? Chain depth tracking and cycle prevention add complexity with no clear use case.
+- Allow with depth limit — reduces but doesn't eliminate the state management complexity
+**Rationale:** Compensation is a reversal of work, not a recursively composable operation. If compensating work itself needs reversal, that's a new forward operation (create a new WorkItem), not a meta-compensation. The `compensatesWorkItemId` link is a pair, not a chain.
+**Trade-offs:** Operators who want to "undo a compensation" must create a new forward WorkItem manually. This is acceptable — the scenario is rare and the manual path is explicit.
+**Sources:** R1-09 (reviewer-surfaced implicit decision)
+**Exploration:** quick
+**Status:** captured
+
+## D15: Engine-work compensation interaction — skip already-compensated
+
+**Choice:** When the engine's `HumanTaskCompensationHandler` encounters a WorkItem whose `compensationStatus` is already COMPENSATED (from prior operator action), it skips creating a new compensating WorkItem and marks the compensating PlanItem as COMPLETED. The engine proceeds to the next step.
+**Alternatives:**
+- Fail (unexpected state) — undesirable; operator action is a supported path
+- Create a second compensating WorkItem — creates duplicate compensation
+- Require operator to use engine path only — removes the escape valve that D3 provides
+**Rationale:** D3 explicitly provides operator single-WorkItem compensation as an escape valve. The engine must handle the case where an operator already compensated a WorkItem before a full-scope case compensation is triggered. Skip-and-proceed is the only semantically correct behavior.
+**Trade-offs:** The engine must read WorkItem compensationStatus via the work adapter. This creates a cross-module query, but it's a simple field read on an entity the handler already references.
+**Sources:** R1-03/R1-12 (reviewer-surfaced implicit decision), D3 operator escape valve, D5 full scope
 **Exploration:** quick
 **Status:** captured
