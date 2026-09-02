@@ -21,10 +21,10 @@ This is the Saga pattern gap. CaseHub is positioned for regulated, compliance-fi
 ## 2. Goals
 
 1. **Engine-level saga coordination** — cases can enter a COMPENSATING state that executes compensating bindings in reverse-completion order
-2. **Worker-agnostic compensation** — any worker type (HTN, Workflow, HumanTask) can declare and execute compensating actions via a `compensate:` block on its Binding
+2. **Worker-agnostic compensation** — any worker type (HTN, Workflow, Judgment) can declare and execute compensating actions via a `compensate:` block on its Binding
 3. **Separate-entity compensation for WorkItems** — compensating WorkItems are new entities linked to originals; the terminal-state invariant is preserved
 4. **Auditable compensation chain** — every compensation action creates a ledger entry with a CompensationSupplement linking it to the original via causedByEntryId
-5. **Agent notification** — Qhorus agents are notified of compensation via a COMPENSATION_REQUESTED speech act
+5. **Agent notification** — Qhorus agents are notified of compensation via a COMMAND with compensation context metadata
 6. **YAML-first declaration** — compensating bindings are declarable in YAML case definitions
 7. **Visualization** — design-time and runtime views of compensation graphs and saga execution
 
@@ -54,7 +54,7 @@ This is the Saga pattern gap. CaseHub is positioned for regulated, compliance-fi
 │                                                                 │
 ├─────────────────┬───────────────────┬───────────────────────────┤
 │                 │                   │                           │
-│  HumanTask      │  Workflow         │  HTN / Extension          │
+│  Judgment       │  Workflow         │  HTN / Extension          │
 │  Worker         │  Worker           │  Worker                   │
 │                 │                   │                           │
 ▼                 ▼                   ▼                           │
@@ -81,8 +81,8 @@ This is the Saga pattern gap. CaseHub is positioned for regulated, compliance-fi
 ┌─────────────────────────┐  ┌──────────────────────────────┐   │
 │    casehub-qhorus       │  │    casehub-connectors        │   │
 │                         │  │                              │   │
-│ COMPENSATION_REQUESTED  │  │ Email/Slack/Teams/Webhook    │   │
-│ speech act on channel   │  │ notification of compensation │   │
+│ COMMAND with compensation│  │ Email/Slack/Teams/Webhook    │   │
+│ context on channel      │  │ notification of compensation │   │
 │ New commitment for      │  │                              │   │
 │ compensating work       │  │                              │   │
 └─────────────────────────┘  └──────────────────────────────┘   │
@@ -115,16 +115,26 @@ public enum CaseStatus {
               compensated    faults       unrecoverable)
                     │           │           │
                     ▼           ▼           ▼
-              COMPENSATED  COMPENSATION  COMPENSATION
-                           _FAULTED     _FAULTED
+              COMPENSATED  COMPENSATION_FAULTED
+              (terminal)   (active, not terminal)
+                                │
+                           operator retry
+                                │
+                                ▼
+                           COMPENSATING
 ```
 
-- COMPENSATING is reachable only from COMPLETED
-- COMPENSATED and COMPENSATION_FAULTED are terminal
+- COMPENSATING is reachable only from COMPLETED or COMPENSATION_FAULTED (retry)
+- COMPENSATED is terminal (`isTerminal()=true, isActive()=false`)
+- COMPENSATING is active (`isTerminal()=false, isActive()=true`)
+- COMPENSATION_FAULTED is active, not terminal (`isTerminal()=false, isActive()=true`) — analogous to SUSPENDED. Intervention required; can be retried (→ COMPENSATING). Terminal means done; COMPENSATION_FAULTED is not done.
 - A COMPENSATING case cannot be SUSPENDED or CANCELLED — compensation must run to completion or fault
 - Sub-cases: compensating a parent case propagates compensation to child cases that are COMPLETED (recursive, depth-first)
+- Idempotency: concurrent compensation triggers on a COMPENSATING case are rejected (IllegalStateException). Re-compensation of a COMPENSATED case is rejected. Retry from COMPENSATION_FAULTED is allowed (re-enters COMPENSATING from the faulted step).
 
-**Design note — asymmetric model (D2 vs D7):** Cases use post-terminal transition (COMPLETED → COMPENSATING) while WorkItems use separate entities. This is intentional. A case IS the orchestration being compensated — its state reflects the saga lifecycle. A WorkItem IS work — compensation creates new work (a new entity). The case's `isTerminal()` consumers are fewer and more controlled than WorkItem's, making the post-terminal transition safe at this layer.
+**Prerequisite — CaseStatus LIFECYCLE.md registration:** CaseStatus is currently unregistered in LIFECYCLE.md and lacks `isTerminal()`/`isActive()` methods. Per LIFECYCLE.md §4, adding compensation states requires: (1) add `isTerminal()` and `isActive()` to CaseStatus, (2) register in LIFECYCLE.md, (3) audit all CaseStatus consumers, (4) file cross-repo issues. This must be completed as a predecessor task before adding COMPENSATING/COMPENSATED/COMPENSATION_FAULTED.
+
+**Design note — asymmetric model (D2 vs D7):** Cases use post-terminal transition (COMPLETED → COMPENSATING) while WorkItems use separate entities. This is intentional. A case IS the orchestration being compensated — its state reflects the saga lifecycle. A WorkItem IS work — compensation creates new work (a new entity). The asymmetry follows from the domain: cases are orchestrations (compensation is a phase), WorkItems are work units (compensation is new work).
 
 ### 5.2 Compensating Bindings
 
@@ -141,14 +151,18 @@ public class Binding {
 
 When compensation is triggered, the engine:
 
-1. Queries EventLog for all COMPLETED PlanItems, ordered by completion timestamp (descending)
-2. For each completed PlanItem whose Binding has a `compensateRef`:
+1. Queries EventLog for all COMPLETED PlanItems whose Binding has a `compensateRef`
+2. Builds a reverse dependency graph from the completion DAG (using Binding.produces/consumes/contextWrite relationships)
+3. Executes compensating bindings in reverse topological order — dependent steps compensate sequentially (in reverse dependency order), independent steps compensate concurrently:
    a. Resolves the compensating Binding
-   b. Fires the compensating binding (creates a new PlanItem with `isCompensation=true`)
-   c. Waits for the compensating PlanItem to reach a terminal state
-   d. If the compensating PlanItem COMPLETES → proceed to the next step
-   e. If the compensating PlanItem FAULTS/REJECTS → case enters COMPENSATION_FAULTED
-3. After all compensating bindings complete → case enters COMPENSATED
+   b. Checks if the underlying work was already compensated (e.g., operator action via D3) — if so, marks the compensating PlanItem COMPLETED and skips
+   c. Fires the compensating binding (creates a new PlanItem with `isCompensation=true`)
+   d. Waits for the compensating PlanItem to reach a terminal state
+   e. If the compensating PlanItem COMPLETES → proceed to the next step(s) in topological order
+   f. If the compensating PlanItem FAULTS/REJECTS → case enters COMPENSATION_FAULTED
+4. After all compensating bindings complete → case enters COMPENSATED
+
+For a linear chain (A→B→C), topological reverse is equivalent to strict reverse (C→B→A). For cases with independent parallel branches, independent steps compensate concurrently.
 
 ### 5.3 PlanItem Compensation Tracking
 
@@ -181,14 +195,14 @@ COMPENSATION_STEP_COMPLETED // individual compensating binding completed
 public interface CaseCompensationService {
     
     /**
-     * Trigger compensation for a completed case. Validates the case is COMPLETED,
-     * transitions to COMPENSATING, and begins executing compensating bindings
-     * in reverse-completion order.
+     * Trigger compensation for a case. Valid entry points:
+     * - COMPLETED → COMPENSATING (initial compensation)
+     * - COMPENSATION_FAULTED → COMPENSATING (retry from faulted step)
      *
      * @param caseId the case to compensate
      * @param triggeredBy actor who triggered compensation (operator ID or "system")
      * @param reason human-readable reason for compensation
-     * @throws IllegalStateException if case is not COMPLETED
+     * @throws IllegalStateException if case is not COMPLETED or COMPENSATION_FAULTED
      */
     void compensate(UUID caseId, String triggeredBy, String reason);
 }
@@ -201,16 +215,16 @@ casePlan:
   bindings:
     - name: irb-review
       target:
-        type: humanTask
+        type: judgment
         title: "IRB Protocol Review"
-        candidateGroups: [irb-reviewers]
+        scope: "casehubio/clinical/irb-review"
       compensate: irb-review-reversal      # ← NEW: reference to compensating binding
 
     - name: irb-review-reversal
       target:
-        type: humanTask
+        type: judgment
         title: "Reverse IRB Protocol Approval"
-        candidateGroups: [irb-senior-reviewers]
+        scope: "casehubio/clinical/irb-reversal"
       compensation: true                    # ← marks this as a compensation-only binding
                                             #    (not executed in normal forward flow)
 
@@ -227,10 +241,14 @@ casePlan:
       compensation: true
 ```
 
+**Note:** YAML examples use `type: judgment` (JudgmentTarget). `type: humanTask` (HumanTaskTarget) is `@Deprecated(forRemoval = true)` and not in the `BindingTarget` sealed permits list. The YAML parser may maintain backward compatibility for `type: humanTask` during the deprecation period, but new definitions should use `type: judgment`.
+
 Key YAML elements:
 - `compensate:` on any binding — references the compensating binding by name
 - `compensation: true` — marks a binding as compensation-only (not executed in normal forward flow)
-- Compensating bindings can target any worker type — a HumanTask binding can be compensated by a capability binding and vice versa
+- Compensating bindings can target any worker type — a JudgmentTarget binding can be compensated by a capability binding and vice versa
+
+**Dormant binding activation prevention:** Bindings marked `compensation: true` are excluded from PlanItem creation during forward execution. The CasePlanModel parser marks these bindings, and the engine's binding activation logic (blackboard evaluation) skips them — no PlanItem is ever created for a compensation-only binding during forward flow. During compensation, the compensation coordinator explicitly creates PlanItems for these bindings on demand. This means compensation PlanItems do not exist in any state during forward execution — there is no "dormant" status to manage.
 
 **Validation rules (build-time):**
 - `compensate:` must reference an existing binding name in the same casePlan — build error otherwise
@@ -293,6 +311,7 @@ public enum CompensationStatus {
  * @return the new compensating WorkItem
  * @throws IllegalStateException if original is not COMPLETED
  * @throws IllegalStateException if original's compensationStatus is not NONE
+ * @throws IllegalStateException if original is itself a compensating WorkItem (compensatesWorkItemId != null)
  */
 public WorkItem compensate(UUID originalId, WorkItemCreateRequest request,
                            String triggeredBy, String reason);
@@ -365,16 +384,16 @@ Add `compensationStatus` and `compensatesWorkItemId` fields with from/toDomain m
 
 ## 7. casehub-work-engine-adapter — Bridge Changes
 
-### 7.1 HumanTaskCompensationHandler
+### 7.1 JudgmentCompensationHandler
 
-New handler that implements the engine's compensation interface for HumanTask bindings:
+New handler that implements the engine's compensation interface for Judgment bindings (the current binding target type — `HumanTaskTarget` is `@Deprecated(forRemoval = true)` and not in the `BindingTarget` sealed permits list; `JudgmentTarget` is the active replacement):
 
 ```java
 @ApplicationScoped
-public class HumanTaskCompensationHandler implements CompensationBindingHandler {
+public class JudgmentCompensationHandler implements CompensationBindingHandler {
     
     /**
-     * Executes a compensating HumanTask binding by creating a compensating WorkItem
+     * Executes a compensating Judgment binding by creating a compensating WorkItem
      * linked to the original WorkItem that was created by the forward binding.
      */
     @Override
@@ -382,9 +401,11 @@ public class HumanTaskCompensationHandler implements CompensationBindingHandler 
                                      Binding compensatingBinding, String triggeredBy, String reason) {
         // 1. Find the original WorkItem via callerRef from the original PlanItem
         //    callerRef format: case:{caseId}/pi:{planItemId}
-        // 2. Build WorkItemCreateRequest from compensatingBinding's HumanTaskTarget
-        // 3. Create a compensating WorkItem via workItemService.compensate()
-        // 4. Set callerRef on the compensating WorkItem to link back to compensatingItem
+        // 2. Check original WorkItem's compensationStatus — if COMPENSATED, skip
+        //    (already compensated by operator action per D3) and mark compensatingItem COMPLETED
+        // 3. Build WorkItemCreateRequest from compensatingBinding's JudgmentTarget
+        // 4. Create a compensating WorkItem via workItemService.compensate()
+        // 5. Set callerRef on the compensating WorkItem to link back to compensatingItem
         //    — this reuses the existing WorkItemLifecycleAdapter bridge:
         //    when the compensating WorkItem completes/faults, the adapter fires
         //    PlanItemCompletedEvent/PlanItemFaultedEvent for the compensating PlanItem,
@@ -429,13 +450,20 @@ When a compensation action is recorded in the ledger:
 
 ```java
 LedgerEntry compensationEntry = new WorkItemLedgerEntry(...);
-compensationEntry.causedByEntryId = originalEntry.id; // causal chain
+compensationEntry.causedByEntryId = triggerEntry.id; // causal chain — immediate trigger
 compensationEntry.attach(new CompensationSupplement(
-    originalEntry.id,
+    originalActionEntry.id, // originalEntryId — the action being reversed
     "Clinical trial withdrawn — IRB approval no longer valid",
     "GDPR Art.17",
     "human-driven"
 ));
+```
+
+**`causedByEntryId` vs `originalEntryId` — these fields serve different purposes and can point to different entries:**
+- `causedByEntryId` traces the **causal chain** — what event triggered this entry. For engine-driven compensation, this points to the COMPENSATION_STEP_STARTED entry (the immediate trigger).
+- `originalEntryId` (on CompensationSupplement) traces the **compensation relationship** — what original action is being reversed. This always points to the original work entry (e.g., "IRB Approved").
+
+In the simple case (operator direct compensation), both point to the same entry. In the engine-driven case, the causal chain goes through intermediate entries (COMPENSATION_STARTED → STEP_STARTED → compensation work), while the compensation relationship skips directly to the original action.
 ```
 
 ### 8.3 Flyway Migration
@@ -461,14 +489,19 @@ Compensation entries are part of the tamper-evident record. The Merkle Mountain 
 
 ## 9. casehub-qhorus — Agent Compensation Notification
 
-### 9.1 New Message Type
+### 9.1 No New Message Type — COMMAND with Compensation Context
+
+No new MessageType value is added. Compensation notifications use the existing `COMMAND` speech act with compensation context metadata:
 
 ```java
-public enum MessageType {
-    // ... existing values ...
-    COMPENSATION_REQUESTED  // ← NEW: notify agent their fulfilled work is being compensated
-}
+MessageDispatch.builder()
+    .type(MessageType.COMMAND)
+    .content("Compensation required: reverse prior IRB approval")
+    .artefactRef("compensation:" + originalCommitmentId)
+    .build();
 ```
+
+The `artefactRef` field carries the compensation context (`compensation:{commitmentId}`) so the agent discovers from context that this COMMAND is compensating prior work. This avoids extending the 11-value MessageType taxonomy for a distinction that is contextual, not normatively distinct from COMMAND.
 
 ### 9.2 Compensation Flow
 
@@ -476,7 +509,7 @@ When a case compensates and an agent was involved:
 
 1. `QhorusCompensationAdapter` observes the engine's COMPENSATION_STEP_STARTED event
 2. Identifies the Qhorus channel associated with the original PlanItem (via callerRef)
-3. Posts a COMPENSATION_REQUESTED message on the channel
+3. Posts a COMMAND message on the channel with compensation context in artefactRef
 4. If the compensating binding is another agent task, a new commitment (OPEN) is created on the channel
 
 The original commitment stays FULFILLED — that's a historical fact. The new commitment tracks the compensating work.
@@ -491,7 +524,7 @@ CommitmentState does not gain new values. The separate-entity model applies: ori
 
 ### 10.1 Compensation Notification Pattern
 
-Follows the existing `casehub-work-notifications` → `casehub-connectors` delegation:
+Follows the existing `WorkItemSubscriptionBridge` → platform subscription engine → `casehub-connectors` delegation (note: `casehub-work-notifications` was deleted in work#315; notifications now flow through the platform subscription engine):
 
 - Email/Slack/Teams notification to affected parties when compensation is triggered
 - Webhook outbound to external systems that need to know about the reversal
@@ -517,7 +550,7 @@ The YAML case definition with `compensate:` references creates a compensation gr
 ```
 ┌──────────────┐      compensate:      ┌──────────────────────┐
 │ irb-review   │──────────────────────►│ irb-review-reversal  │
-│ (humanTask)  │                       │ (humanTask)          │
+│ (judgment)   │                       │ (judgment)           │
 │              │                       │ compensation: true   │
 └──────────────┘                       └──────────────────────┘
 
@@ -584,7 +617,7 @@ Original action:                    Compensation:
 1. Operator/system triggers: CaseCompensationService.compensate(caseId)
 
 2. Engine:
-   a. Validates case is COMPLETED
+   a. Validates case is COMPLETED or COMPENSATION_FAULTED
    b. Transitions case to COMPENSATING
    c. Fires COMPENSATION_STARTED EventLog entry
    d. Queries EventLog for completed PlanItems (reverse order)
@@ -594,11 +627,11 @@ Original action:                    Compensation:
       - Dispatches to worker based on binding target type
 
 3. Worker execution (per worker type):
-   - HumanTask → casehub-work creates compensating WorkItem (new entity)
+   - Judgment → casehub-work creates compensating WorkItem (new entity)
    - Workflow → quarkus-flow executes compensating workflow step
    - HTN/Extension → external system executes compensating action
 
-4. casehub-work (for HumanTask compensation):
+4. casehub-work (for Judgment compensation):
    a. Finds original WorkItem via callerRef
    b. Creates compensating WorkItem (compensatesWorkItemId = original.id)
    c. Sets original.compensationStatus = COMPENSATING
@@ -614,7 +647,7 @@ Original action:                    Compensation:
    d. Hash chain continues forward
 
 6. casehub-qhorus:
-   a. COMPENSATION_REQUESTED posted on agent's channel
+   a. COMMAND with compensation context (artefactRef) posted on agent's channel
    b. New commitment created for compensating work (if agent-executed)
    c. Original commitment stays FULFILLED
 
@@ -656,11 +689,11 @@ The implementation follows a bottom-up dependency order:
 13. **EventLog types** — COMPENSATION_STARTED/COMPLETED/FAULTED/STEP_STARTED/STEP_COMPLETED
 
 ### Phase 4: Bridge
-14. **HumanTaskCompensationHandler** — engine→work compensation bridge
+14. **JudgmentCompensationHandler** — engine→work compensation bridge
 15. **WorkItemLifecycleAdapter** — compensation event propagation back to engine
 
 ### Phase 5: Integration
-16. **Qhorus** — COMPENSATION_REQUESTED MessageType + QhorusCompensationAdapter
+16. **Qhorus** — QhorusCompensationAdapter (COMMAND with compensation context, no new MessageType)
 17. **Connectors** — compensation notification events
 
 ### Phase 6: Visualization
