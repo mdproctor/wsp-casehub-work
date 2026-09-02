@@ -23,37 +23,7 @@ CaseHub had no model for this. The workarounds were ugly: create a manual WorkIt
 
 The term gets thrown around loosely. A saga is a specific thing: a sequence of local transactions where each step has a corresponding compensating transaction. If step N fails, the coordinator invokes compensation for steps N-1, N-2, ..., 1.
 
-<svg viewBox="0 0 700 200" xmlns="http://www.w3.org/2000/svg" style="max-width:700px;font-family:monospace">
-  <defs>
-    <marker id="arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#333"/></marker>
-    <marker id="arr-r" markerWidth="8" markerHeight="6" refX="0" refY="3" orient="auto"><path d="M8,0 L0,3 L8,6" fill="#c0392b"/></marker>
-  </defs>
-  <text x="20" y="30" font-size="13" fill="#666">Forward execution</text>
-  <rect x="20" y="40" width="120" height="40" rx="6" fill="#2ecc71" opacity="0.2" stroke="#27ae60"/>
-  <text x="45" y="65" font-size="12">Step A ✓</text>
-  <line x1="140" y1="60" x2="180" y2="60" stroke="#333" marker-end="url(#arr)"/>
-  <rect x="180" y="40" width="120" height="40" rx="6" fill="#2ecc71" opacity="0.2" stroke="#27ae60"/>
-  <text x="205" y="65" font-size="12">Step B ✓</text>
-  <line x1="300" y1="60" x2="340" y2="60" stroke="#333" marker-end="url(#arr)"/>
-  <rect x="340" y="40" width="120" height="40" rx="6" fill="#2ecc71" opacity="0.2" stroke="#27ae60"/>
-  <text x="365" y="65" font-size="12">Step C ✓</text>
-  <line x1="460" y1="60" x2="500" y2="60" stroke="#333" marker-end="url(#arr)"/>
-  <rect x="500" y="40" width="120" height="40" rx="6" fill="#e74c3c" opacity="0.2" stroke="#c0392b"/>
-  <text x="525" y="65" font-size="12">Step D ✗</text>
-
-  <line x1="560" y1="85" x2="560" y2="120" stroke="#c0392b" stroke-dasharray="4"/>
-  <text x="570" y="115" font-size="11" fill="#c0392b">fault triggers compensation</text>
-
-  <text x="20" y="150" font-size="13" fill="#c0392b">Compensation (reverse)</text>
-  <rect x="340" y="160" width="120" height="35" rx="6" fill="#e74c3c" opacity="0.1" stroke="#c0392b" stroke-dasharray="3"/>
-  <text x="355" y="182" font-size="11" fill="#c0392b">Undo C ✓</text>
-  <line x1="340" y1="177" x2="300" y2="177" stroke="#c0392b" marker-end="url(#arr-r)"/>
-  <rect x="180" y="160" width="120" height="35" rx="6" fill="#e74c3c" opacity="0.1" stroke="#c0392b" stroke-dasharray="3"/>
-  <text x="195" y="182" font-size="11" fill="#c0392b">Undo B ▶</text>
-  <line x1="180" y1="177" x2="140" y2="177" stroke="#c0392b" stroke-dasharray="4" marker-end="url(#arr-r)"/>
-  <rect x="20" y="160" width="120" height="35" rx="6" fill="#fff" stroke="#c0392b" stroke-dasharray="3"/>
-  <text x="40" y="182" font-size="11" fill="#999">Undo A ...</text>
-</svg>
+![Saga forward execution and compensation](images/saga-forward-reverse.svg)
 
 Key properties: each step declares its compensating action upfront. Compensation runs in reverse order. It's idempotent. And it can fail — which is its own problem.
 
@@ -77,37 +47,7 @@ The ledger already models this correctly. `LedgerEntry` has `causedByEntryId` �
 
 So the design: a completed WorkItem stays COMPLETED. A new compensating WorkItem is created with `compensatesWorkItemId` linking back. The original gets a denormalized `compensationStatus` field — NONE, COMPENSATING, COMPENSATED — for query convenience. The terminal invariant is preserved. The compensating WorkItem has its own full lifecycle: PENDING, claim, start, complete or fault.
 
-<svg viewBox="0 0 700 280" xmlns="http://www.w3.org/2000/svg" style="max-width:700px;font-family:monospace">
-  <text x="20" y="25" font-size="14" font-weight="bold">Separate-entity compensation model</text>
-
-  <!-- Original -->
-  <rect x="20" y="45" width="280" height="90" rx="8" fill="#f0f0f0" stroke="#999"/>
-  <text x="30" y="65" font-size="12" font-weight="bold">Original WorkItem</text>
-  <text x="30" y="85" font-size="11" fill="#555">status: COMPLETED (stays terminal)</text>
-  <text x="30" y="105" font-size="11" fill="#c0392b">compensationStatus: COMPENSATING</text>
-  <text x="30" y="125" font-size="11" fill="#666">id: abc-123</text>
-
-  <!-- Arrow -->
-  <line x1="300" y1="90" x2="380" y2="90" stroke="#333" stroke-width="2" marker-end="url(#arr)"/>
-  <text x="310" y="80" font-size="10" fill="#666">creates</text>
-
-  <!-- Compensating -->
-  <rect x="380" y="45" width="280" height="90" rx="8" fill="#fef3e0" stroke="#e67e22"/>
-  <text x="390" y="65" font-size="12" font-weight="bold" fill="#e67e22">Compensating WorkItem</text>
-  <text x="390" y="85" font-size="11" fill="#555">status: PENDING → ... → COMPLETED</text>
-  <text x="390" y="105" font-size="11" fill="#666">compensatesWorkItemId: abc-123</text>
-  <text x="390" y="125" font-size="11" fill="#666">own full lifecycle</text>
-
-  <!-- After completion -->
-  <line x1="520" y1="135" x2="520" y2="170" stroke="#2ecc71" stroke-dasharray="4"/>
-  <line x1="520" y1="170" x2="160" y2="170" stroke="#2ecc71" stroke-dasharray="4"/>
-  <line x1="160" y1="170" x2="160" y2="195" stroke="#2ecc71" stroke-dasharray="4" marker-end="url(#arr)"/>
-  <text x="250" y="165" font-size="10" fill="#27ae60">on completion, observer updates original</text>
-
-  <rect x="20" y="200" width="280" height="55" rx="8" fill="#eafaf1" stroke="#27ae60"/>
-  <text x="30" y="220" font-size="12" font-weight="bold" fill="#27ae60">Original — after compensation</text>
-  <text x="30" y="240" font-size="11" fill="#27ae60">compensationStatus: COMPENSATED</text>
-</svg>
+![Separate-entity compensation model](images/saga-separate-entity.svg)
 
 ## But cases ARE the thing being compensated
 
@@ -117,31 +57,7 @@ A case is an orchestration. When it compensates, the case itself is the coordina
 
 So `CaseStatus` gains three values: COMPENSATING (active, not terminal), COMPENSATED (terminal), and COMPENSATION_FAULTED. That last one is important — it's not terminal either. It's analogous to SUSPENDED: the case needs operator attention and can be retried. Making it terminal would mean a partially-compensated case is "done" with no recovery path. Claude caught this during the decision review — I'd originally classified it as terminal, which contradicts the principle that terminal states have no outgoing transitions.
 
-<svg viewBox="0 0 650 200" xmlns="http://www.w3.org/2000/svg" style="max-width:650px;font-family:monospace">
-  <rect x="20" y="70" width="130" height="40" rx="6" fill="#ddd" stroke="#999"/>
-  <text x="42" y="95" font-size="12">COMPLETED</text>
-
-  <line x1="150" y1="90" x2="210" y2="90" stroke="#333" stroke-width="1.5" marker-end="url(#arr)"/>
-  <text x="155" y="82" font-size="9" fill="#666">compensate</text>
-
-  <rect x="210" y="70" width="150" height="40" rx="6" fill="#3498db" opacity="0.2" stroke="#2980b9"/>
-  <text x="225" y="95" font-size="12" fill="#2980b9">COMPENSATING</text>
-
-  <line x1="360" y1="80" x2="450" y2="50" stroke="#27ae60" marker-end="url(#arr)"/>
-  <text x="380" y="55" font-size="9" fill="#27ae60">all done</text>
-  <rect x="450" y="30" width="150" height="35" rx="6" fill="#2ecc71" opacity="0.2" stroke="#27ae60"/>
-  <text x="470" y="52" font-size="12" fill="#27ae60">COMPENSATED</text>
-  <text x="470" y="75" font-size="9" fill="#27ae60">(terminal)</text>
-
-  <line x1="360" y1="100" x2="450" y2="140" stroke="#c0392b" marker-end="url(#arr)"/>
-  <text x="370" y="135" font-size="9" fill="#c0392b">step faults</text>
-  <rect x="450" y="120" width="180" height="35" rx="6" fill="#e74c3c" opacity="0.1" stroke="#c0392b"/>
-  <text x="460" y="142" font-size="11" fill="#c0392b">COMPENSATION_FAULTED</text>
-  <text x="460" y="165" font-size="9" fill="#c0392b">(active — retry allowed)</text>
-
-  <path d="M 540 155 C 540 185, 285 185, 285 110" stroke="#c0392b" fill="none" stroke-dasharray="4" marker-end="url(#arr)"/>
-  <text x="370" y="190" font-size="9" fill="#c0392b">operator retry</text>
-</svg>
+![CaseStatus compensation state machine](images/saga-case-status.svg)
 
 The asymmetry is deliberate. Cases are orchestrations — compensation is a phase they go through. WorkItems are work units — compensation creates new work.
 
