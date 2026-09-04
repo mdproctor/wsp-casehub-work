@@ -188,3 +188,53 @@
 **Sources:** R1-03/R1-12 (reviewer-surfaced implicit decision), D3 operator escape valve, D5 full scope
 **Exploration:** quick
 **Status:** captured
+
+## D16: WorkItem compensation events — extend existing bridge
+
+**Choice:** Add `COMPENSATION_STARTED` and `COMPENSATION_COMPLETED` to `WorkItemSubscriptionBridge.EMITTED_EVENT_TYPES`. No new event class, no new bridge — the existing infrastructure already forwards all `WorkItemLifecycleEvent` CDI events to the notification DataSource. Only the EventTypeRegistry registration is missing.
+**Alternatives:**
+- New notification event class for work compensation — unnecessary; `WorkItemLifecycleEvent` already implements `SubscribableEvent` and carries all required fields
+- New bridge module — unnecessary; `WorkItemSubscriptionBridge` already does the work, just with an incomplete event type set
+**Rationale:** Exploration revealed that `WorkItemSubscriptionBridge.onWorkItemEvent()` observes ALL `WorkItemLifecycleEvent` CDI events without filtering — events for `COMPENSATION_STARTED` and `COMPENSATION_COMPLETED` already flow to the DataSource. The `EMITTED_EVENT_TYPES` set is only used for `EventTypeRegistry` registration (so the subscription engine knows these event types exist for matching). Adding 2 entries completes the wiring.
+**Trade-offs:** None — this is a gap fix, not a design choice.
+**Sources:** `WorkItemSubscriptionBridge.java` (work/runtime), `WorkEventType.java` (work/api)
+**Exploration:** quick
+**Status:** captured
+
+## D17: Case compensation events — adapter bridge in engine-adapter
+
+**Choice:** Create `CaseCompensationEvent` (a record implementing `SubscribableEvent`) and `CaseCompensationNotifier` (CDI observer for `CaseLifecycleEvent`) in `casehub-work-engine-adapter`. The notifier filters for compensation-related eventTypes and pushes `CaseCompensationEvent` into the notification DataSource.
+**Alternatives:**
+- Make `CaseLifecycleEvent` implement `SubscribableEvent` directly — requires adding `casehub-platform-api` dependency to `casehub-engine-common`, coupling engine internals to the notification system
+- New module `casehub-engine-notification-bridge` — follows the qhorus pattern but the engine-adapter already has all required dependencies; a new module adds build complexity for no benefit
+- Put the bridge in `casehub-connectors/notification-bridge` — wrong layer; connectors notification-bridge is the delivery side (registers `NotificationDeliverer`s), not the event source side
+**Rationale:** The engine-adapter already depends on `casehub-engine` (provides `CaseLifecycleEvent`), `casehub-platform` (provides `DataSourceRegistry`), and `casehub-work-api` (provides `SubscribableEvent` transitively). It bridges engine↔work by design. A thin adapter event keeps engine and platform notification concerns decoupled.
+**Trade-offs:** Engine-adapter gains notification responsibility alongside its existing WorkItem lifecycle bridging. This is acceptable — both are bridges between engine events and platform/work services.
+**Depends on:** D7 (CaseStatus compensation states), D10 (Qhorus uses COMMAND, not a new speech act — consistent approach of reusing existing infrastructure)
+**Sources:** `CaseLifecycleEvent.java` (engine-common), `CaseStatusChangedHandler.java` (engine/runtime), `engine-adapter/pom.xml` (dependency analysis), `QhorusObligationEvent.java` (pattern precedent), boundary-rules.md
+**Exploration:** deep-analysis
+**Status:** captured
+
+## D18: Connectors — no changes needed
+
+**Choice:** The `casehub-connectors` repo requires no code changes for compensation notifications. `ConnectorNotificationDeliverer` is fully generic — it receives `NotificationInput` from the subscription engine and delivers via `Connector.send()`. Once compensation events flow through the subscription engine (via D16 and D17), connectors deliver them automatically through existing channels.
+**Alternatives:**
+- Add compensation-specific templates or rendering — unnecessary; notification templates are configured via `SubscriptionInput.template()` at subscription registration time (D19), not in the deliverer
+**Rationale:** Exploration of `ConnectorNotificationDeliverer.deliver()` confirmed it operates on `NotificationInput` with no event-type-specific logic. Title, body, category, and severity all come from the subscription template. The connectors repo's notification-bridge module (`NotificationBridgeStartup`) registers delivery channels generically.
+**Trade-offs:** No compensation-specific email/Slack formatting. The subscription template provides title patterns and body patterns, which is sufficient for initial implementation. Custom digest formatters can be added later if needed.
+**Sources:** `ConnectorNotificationDeliverer.java` (connectors/notification-bridge), `NotificationBridgeStartup.java`, notifications.md (platform docs)
+**Exploration:** quick
+**Status:** captured
+
+## D19: Default subscriptions — bootstrap in engine-adapter
+
+**Choice:** Create `CompensationSubscriptionBootstrap` in `casehub-work-engine-adapter` to register default system subscriptions for all 5 compensation event types at startup. Follows the `QhorusSubscriptionBootstrap` pattern: idempotent registration, `SubscriptionScope.SYSTEM`, `EVENT_FIELD` target resolution.
+**Alternatives:**
+- Separate bootstraps per module (one in work/runtime for work events, one in engine-adapter for case events) — fragments the registration; compensation subscriptions are a cohesive set that should be managed together
+- No default subscriptions (admin-configured only) — defeats the purpose; compensation notifications must work out-of-box for compliance use cases
+**Rationale:** The engine-adapter already hosts the case compensation bridge (D17). Placing all compensation subscription registrations together — both case-level and work-level — keeps the notification configuration cohesive. The `SubscriptionStore` dependency is available via `casehub-platform`.
+**Trade-offs:** Work-level compensation subscriptions are registered from engine-adapter rather than work/runtime. This means compensation notifications only work when the engine-adapter is on the classpath. This is acceptable — compensation is an engine-driven feature; standalone casehub-work without the engine adapter doesn't have case-driven compensation.
+**Depends on:** D16, D17
+**Sources:** `QhorusSubscriptionBootstrap.java` (qhorus/notification-bridge), `SubscriptionInput` API, `SubscriptionConstants`
+**Exploration:** quick
+**Status:** captured
