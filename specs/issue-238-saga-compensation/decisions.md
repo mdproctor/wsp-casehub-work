@@ -238,3 +238,42 @@
 **Sources:** `QhorusSubscriptionBootstrap.java` (qhorus/notification-bridge), `SubscriptionInput` API, `SubscriptionConstants`
 **Exploration:** quick
 **Status:** captured
+
+## D20: Design-time compensation graph — field on CaseDefinitionType
+
+**Choice:** Add a `compensationGraph` computed field to the existing `CaseDefinitionType` GraphQL type. Returns `CompensationGraph` record containing: nodes (binding name, target type, isCompensation), edges (source binding → compensating binding), and gaps (bindings without compensateRef that are not compensation-only). Computed at query time from the definition's Binding list. Graph computation logic lives in a static utility in `engine-api` (pure function on `List<Binding>`).
+**Alternatives:**
+- Separate top-level `compensationGraph(namespace, name, version)` query — duplicates definition lookup; the graph is a property of the definition, not an independent entity
+- Client-side computation — bindings already serialized via REST, but gap detection and edge extraction would be duplicated in every consumer
+**Rationale:** GraphQL's field-level selection means the graph is only computed when claudony requests it. Placing it on `CaseDefinitionType` is idiomatic — the graph IS a projection of the definition.
+**Trade-offs:** Adds complexity to `CaseDefinitionType`. Minimal — the graph computation is a pure function with no I/O.
+**Depends on:** D11 (visualization included in spec), D8 (compensate: block on Binding)
+**Sources:** `CaseDefinitionType.java` (engine-graphql), `Binding.java` (engine-api), `CaseQueryResolver.java`
+**Exploration:** quick
+**Status:** captured
+
+## D21: Runtime compensation timeline — new GraphQL query
+
+**Choice:** New `compensationTimeline(caseId: UUID!)` query in `CaseQueryResolver` returning `CompensationTimeline`. The timeline has two phases: `forwardSteps` (PlanItems from forward execution, ordered by creation time) and `compensationSteps` (compensating PlanItems, ordered by creation time). Each step carries: bindingName, targetType, status, timestamps, and for compensation steps: the original binding name. Case-level status (COMPENSATING/COMPENSATED/COMPENSATION_FAULTED) is included as the timeline's overall status. Data source: PlanItemStore for live state, EventLog for compensation events and metadata (triggeredBy, reason).
+**Alternatives:**
+- Extend existing `caseEvents` query with `format: TIMELINE` — overloads the query with a fundamentally different response shape; events are flat, timelines are structured
+- SSE stream via ExecutionStateResource — already available for live updates; the timeline query provides the initial snapshot
+**Rationale:** The timeline is a distinct view combining PlanItem state with EventLog metadata. It joins data that `caseEvents` (events only) and the plan API (items only) provide separately. A dedicated query is cleaner than a reformatted event list.
+**Trade-offs:** New query + DTO. Acceptable — the response shape is specific to compensation visualization and doesn't fit existing types.
+**Depends on:** D7 (CaseStatus compensation states), D4 (topological reverse ordering)
+**Sources:** `CaseCompensationServiceImpl.java` (event metadata), `PlanItem.java` (compensation/compensatesItemId), `CaseQueryResolver.java`
+**Exploration:** quick
+**Status:** captured
+
+## D22: Ledger compensation chain — new GraphQL query
+
+**Choice:** New `compensationChain(caseId: UUID!)` query in `CaseQueryResolver` returning `CompensationChain`. The chain contains ledger entries that have a `CompensationSupplement`, structured as a list with causal links (each entry has `causedByEntryId` pointing to the original action). Each entry carries: entryId, timestamp, entryType, causedByEntryId, and the CompensationSupplement fields (originalEntryId, compensationReason, regulatoryBasis, compensationMode). Query delegates to ledger repository filtered by case and supplement type.
+**Alternatives:**
+- Generic `causalChain(entryId)` traversal query — more general-purpose but out of scope for #390; can generalize later
+- Inline on `CaseInstanceType` — the chain is heavy and not always needed; a top-level query with explicit `caseId` is more intentional
+**Rationale:** The compensation chain is a case-level concern. Filtering ledger entries by case + CompensationSupplement gives exactly the data the visualization needs. A case-scoped query is more efficient than a generic graph traversal.
+**Trade-offs:** Limited to compensation entries — not a general causal chain viewer. This is fine for #390; a general `causalChain` query can follow later.
+**Depends on:** D9 (CompensationSupplement), D11 (visualization)
+**Sources:** `LedgerEntry.java` (causedByEntryId), `CompensationSupplement.java`, `CaseQueryResolver.caseEvents()` (pattern)
+**Exploration:** quick
+**Status:** captured
