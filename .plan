@@ -13,10 +13,10 @@ flyway-next-v: none
 
 ## Queue
 - [ ] casehubio/work#396 — Issue #396 ← active
-  - [ ] Batch 1: Expense Reversal
-    - [ ] Task 1: Scenario 18 — expense approval compensation
-  - [ ] Batch 2: Loan Rollback
-    - [ ] Task 2: Scenario 19 — multi-step loan rollback
-  - [ ] Batch 3: Resilience+README
-    - [ ] Task 3: Scenario 20 — guards and lifecycle
-    - [ ] Task 4: Update README and run full suite
+  - [x] Batch 1: Expense Reversal
+    - [x] Task 1: Scenario 18 — expense approval compensation
+  - [x] Batch 2: Loan Rollback
+    - [x] Task 2: Scenario 19 — multi-step loan rollback
+  - [x] Batch 3: Resilience+README
+    - [x] Task 3: Scenario 20 — guards and lifecycle
+    - [x] Task 4: Update README and run full suite
