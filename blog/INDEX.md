@@ -50,3 +50,4 @@
 | [2026-08-25-mdp01-one-model-to-rule-them-all.md](2026-08-25-mdp01-one-model-to-rule-them-all.md) | 2026-08-25 | Generated schema replaces hand-written — single source of truth, cross-repo renames, YAML expansion, TypeScript types end-to-end |
 | [2026-08-25-mdp02-cloudevents-across-the-wire.md](2026-08-25-mdp02-cloudevents-across-the-wire.md) | 2026-08-25 | Distributed HumanTask/ActionGate CloudEvent bridge — shared appliers, CallerRef encoding, transport-agnostic module design |
 | [2026-09-02-mdp01-when-done-isnt-done.md](2026-09-02-mdp01-when-done-isnt-done.md) | 2026-09-02 | Designing saga compensation for CaseHub — the terminal invariant problem, separate-entity vs post-terminal, topological ordering, worker-agnostic bindings |
+| [2026-09-05-mdp01-three-ways-to-undo.md](2026-09-05-mdp01-three-ways-to-undo.md) | 2026-09-05 | Teaching compensation by example — three scenarios at three levels: full lifecycle, multi-step rollback, and guard invariants |
