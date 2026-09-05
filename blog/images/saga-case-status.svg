@@ -1,0 +1,28 @@
+<svg viewBox="0 0 650 200" xmlns="http://www.w3.org/2000/svg" style="font-family:monospace">
+  <defs>
+    <marker id="arr3" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#333"/></marker>
+  </defs>
+  <rect x="20" y="70" width="130" height="40" rx="6" fill="#ddd" stroke="#999"/>
+  <text x="42" y="95" font-size="12">COMPLETED</text>
+
+  <line x1="150" y1="90" x2="210" y2="90" stroke="#333" stroke-width="1.5" marker-end="url(#arr3)"/>
+  <text x="155" y="82" font-size="9" fill="#666">compensate</text>
+
+  <rect x="210" y="70" width="150" height="40" rx="6" fill="#3498db" opacity="0.2" stroke="#2980b9"/>
+  <text x="225" y="95" font-size="12" fill="#2980b9">COMPENSATING</text>
+
+  <line x1="360" y1="80" x2="450" y2="50" stroke="#27ae60" marker-end="url(#arr3)"/>
+  <text x="380" y="55" font-size="9" fill="#27ae60">all done</text>
+  <rect x="450" y="30" width="150" height="35" rx="6" fill="#2ecc71" opacity="0.2" stroke="#27ae60"/>
+  <text x="470" y="52" font-size="12" fill="#27ae60">COMPENSATED</text>
+  <text x="470" y="75" font-size="9" fill="#27ae60">(terminal)</text>
+
+  <line x1="360" y1="100" x2="450" y2="140" stroke="#c0392b" marker-end="url(#arr3)"/>
+  <text x="370" y="135" font-size="9" fill="#c0392b">step faults</text>
+  <rect x="450" y="120" width="180" height="35" rx="6" fill="#e74c3c" opacity="0.1" stroke="#c0392b"/>
+  <text x="460" y="142" font-size="11" fill="#c0392b">COMPENSATION_FAULTED</text>
+  <text x="460" y="165" font-size="9" fill="#c0392b">(active — retry allowed)</text>
+
+  <path d="M 540 155 C 540 185, 285 185, 285 110" stroke="#c0392b" fill="none" stroke-dasharray="4" marker-end="url(#arr3)"/>
+  <text x="370" y="190" font-size="9" fill="#c0392b">operator retry</text>
+</svg>

@@ -1,0 +1,30 @@
+<svg viewBox="0 0 700 280" xmlns="http://www.w3.org/2000/svg" style="font-family:monospace">
+  <defs>
+    <marker id="arr2" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#333"/></marker>
+  </defs>
+  <text x="20" y="25" font-size="14" font-weight="bold">Separate-entity compensation model</text>
+
+  <rect x="20" y="45" width="280" height="90" rx="8" fill="#f0f0f0" stroke="#999"/>
+  <text x="30" y="65" font-size="12" font-weight="bold">Original WorkItem</text>
+  <text x="30" y="85" font-size="11" fill="#555">status: COMPLETED (stays terminal)</text>
+  <text x="30" y="105" font-size="11" fill="#c0392b">compensationStatus: COMPENSATING</text>
+  <text x="30" y="125" font-size="11" fill="#666">id: abc-123</text>
+
+  <line x1="300" y1="90" x2="380" y2="90" stroke="#333" stroke-width="2" marker-end="url(#arr2)"/>
+  <text x="310" y="80" font-size="10" fill="#666">creates</text>
+
+  <rect x="380" y="45" width="280" height="90" rx="8" fill="#fef3e0" stroke="#e67e22"/>
+  <text x="390" y="65" font-size="12" font-weight="bold" fill="#e67e22">Compensating WorkItem</text>
+  <text x="390" y="85" font-size="11" fill="#555">status: PENDING → ... → COMPLETED</text>
+  <text x="390" y="105" font-size="11" fill="#666">compensatesWorkItemId: abc-123</text>
+  <text x="390" y="125" font-size="11" fill="#666">own full lifecycle</text>
+
+  <line x1="520" y1="135" x2="520" y2="170" stroke="#2ecc71" stroke-dasharray="4"/>
+  <line x1="520" y1="170" x2="160" y2="170" stroke="#2ecc71" stroke-dasharray="4"/>
+  <line x1="160" y1="170" x2="160" y2="195" stroke="#2ecc71" stroke-dasharray="4" marker-end="url(#arr2)"/>
+  <text x="250" y="165" font-size="10" fill="#27ae60">on completion, observer updates original</text>
+
+  <rect x="20" y="200" width="280" height="55" rx="8" fill="#eafaf1" stroke="#27ae60"/>
+  <text x="30" y="220" font-size="12" font-weight="bold" fill="#27ae60">Original — after compensation</text>
+  <text x="30" y="240" font-size="11" fill="#27ae60">compensationStatus: COMPENSATED</text>
+</svg>
