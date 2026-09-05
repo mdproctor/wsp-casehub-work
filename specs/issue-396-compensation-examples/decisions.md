@@ -26,3 +26,19 @@
 **Sources:** CancelScenario.java (existing pattern), WorkItemService.compensate/markCompensated (API surface), CompensationStatus enum, CompensationLifecycleObserver
 **Exploration:** deep-analysis
 **Status:** captured
+
+## D3: Transaction model — both patterns across the 3 scenarios
+
+**Choice:** Show both transaction patterns across the scenarios:
+- **Expense Approval Reversal:** single `@Transactional` method. Compensate + complete compensating WorkItem in one call. Auto-`markCompensated` fires within the transaction. Developer sees the end-to-end flow resolving immediately — "here's how it works."
+- **Multi-Step Loan Rollback:** split transactions. Compensate in one call, observe COMPENSATING intermediate state, complete the compensating WorkItem in a separate step. Developer sees what production looks like when compensating work takes time — queries by compensationStatus, the COMPENSATING → COMPENSATED transition across requests.
+- **Compensation Resilience:** inherently split — suspend/resume on the compensating WorkItem requires separate steps. The intermediate lifecycle is the point of the example.
+
+**Alternatives:**
+- All single-transaction — hides the intermediate COMPENSATING state that developers need to handle in production (UI filtering, status polling, queue visibility)
+- All split-transaction — buries the auto-`markCompensated` behavior under ceremony; the "just works" path is the one developers reach for first
+**Rationale:** Developers encounter both patterns. Quick compensation (system-driven reversal) resolves in one transaction. Slow compensation (human-driven reversal) requires observing and querying intermediate state. Teaching both prevents the "it worked in the example but not in production" failure mode.
+**Trade-offs:** Split-transaction examples need either multiple endpoints or a multi-step endpoint. The Loan Rollback scenario uses a step-by-step endpoint with query parameters to advance each phase.
+**Sources:** CompensationLifecycleObserver.java (synchronous CDI @Observes), existing single-POST pattern (CancelScenario.java)
+**Exploration:** quick
+**Status:** captured
