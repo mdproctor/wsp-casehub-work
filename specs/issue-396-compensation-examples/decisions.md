@@ -1,14 +1,14 @@
-## D1: Example module split — work-standalone + engine-integrated
+## D1: Example module split — work-standalone here, engine-integrated in engine repo
 
-**Choice:** Both. Work-standalone examples (3 scenarios) in the existing `examples/` module, engine-integrated examples (2 scenarios) in a new module or the engine repo's examples. Each module targets a distinct developer journey: "I'm using casehub-work in my app" vs "I'm building case-driven workflows with the engine."
+**Choice:** Work-standalone examples (3 scenarios) in the existing `examples/` module of casehub-work. Engine-integrated examples (saga orchestration, notification pipeline) filed as a separate issue in casehubio/engine and built in the engine repo's examples. Engine is downstream of work — engine-integrated examples cannot live in the work repo without creating a circular dependency.
 **Alternatives:**
-- Work-standalone only — leaves engine saga orchestration undocumented in examples. Developers using the full platform miss the orchestration path.
-- Engine-integrated only — skips the fundamental API tutorial. Developers using casehub-work standalone (without engine) have no compensation examples.
-**Rationale:** The compensation API surface is split across two layers by design (D2, D3 in the saga spec). The developer learning journey mirrors this: first learn the work-level mechanics (compensate, guards, lifecycle), then learn how the engine orchestrates it at scale. Examples that blur this boundary misrepresent how the platform works.
-**Trade-offs:** Two sets of examples to maintain. Acceptable — they exercise different layers and would diverge naturally.
-**Sources:** examples/pom.xml (no engine-adapter dependency), WorkItemService.compensate() (work-level API), CaseCompensationService (engine-level orchestration), D2/D3 from saga spec decisions.md
+- New `examples-engine` module in casehub-work — creates circular repo dependency (work → engine). Violates the dependency direction: engine depends on work, never the reverse.
+- Work-standalone only, no engine examples — leaves saga orchestration undocumented. Deferred, not abandoned.
+**Rationale:** The dependency graph is work → platform, engine → work. Engine-integrated examples require engine SNAPSHOTs and engine-adapter — they belong in the downstream repo. This branch (#396) delivers the 3 standalone examples. A follow-up issue in casehubio/engine delivers the orchestration examples.
+**Trade-offs:** Examples split across repos. Acceptable — they match the dependency direction and the developer learning journey (standalone first, engine second).
+**Sources:** examples/pom.xml (no engine dependency), engine-adapter/pom.xml (depends on casehub-work-api), D2/D3 from saga spec decisions.md
 **Exploration:** quick
-**Status:** captured
+**Status:** revised (R1: corrected circular dependency — engine examples belong in engine repo)
 
 ## D2: Work-standalone scenario design — 3 scenarios with layered capability coverage
 
