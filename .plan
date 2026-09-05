@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-238-saga-compensation
-state: scaffolded
+state: active
 project-sha: slot-creation
 date: 2026-08-31
 issue-repo: casehubio/work
