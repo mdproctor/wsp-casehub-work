@@ -13,8 +13,8 @@ flyway-next-v: none
 
 ## Queue
 - [ ] casehubio/work#397 — Issue #397 ← active
-  - [ ] Batch 1: InboundScheduler
-    - [ ] Task 1: InboundWorkItemSchedulerImpl TDD
+  - [x] Batch 1: InboundScheduler
+    - [x] Task 1: InboundWorkItemSchedulerImpl TDD
   - [ ] Batch 2: ActorState
     - [ ] Task 2: WorkActorStateContributor TDD
     - [ ] Task 3: Documentation updates
