@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-397-inbound-scheduler-actor-state
-state: scaffolded
+state: active
 project-sha: 552c7d0e80f6a70781e58967646c9a8431de61ba
 date: 2026-09-06
 issue-repo: casehubio/work
@@ -13,3 +13,8 @@ flyway-next-v: none
 
 ## Queue
 - [ ] casehubio/work#397 — Issue #397 ← active
+  - [ ] Batch 1: InboundScheduler
+    - [ ] Task 1: InboundWorkItemSchedulerImpl TDD
+  - [ ] Batch 2: ActorState
+    - [ ] Task 2: WorkActorStateContributor TDD
+    - [ ] Task 3: Documentation updates
