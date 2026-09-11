@@ -13,3 +13,8 @@ flyway-next-v: none
 
 ## Queue
 - [ ] casehubio/work#399 — Issue #399 ← active
+  - [ ] Batch 1: Add createInTenantContext
+    - [ ] Task 1: Add default method to WorkItemOperations and implement in WorkItemService
+    - [ ] Task 2: Update InboundWorkItemSchedulerImpl to TenantContextRunner
+  - [ ] Batch 2: Delete SPI + docs
+    - [ ] Task 3: Delete TenantContextExecutor and clean up TenantContextRunner and docs
