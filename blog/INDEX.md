@@ -52,3 +52,4 @@
 | [2026-09-02-mdp01-when-done-isnt-done.md](2026-09-02-mdp01-when-done-isnt-done.md) | 2026-09-02 | Designing saga compensation for CaseHub — the terminal invariant problem, separate-entity vs post-terminal, topological ordering, worker-agnostic bindings |
 | [2026-09-05-mdp01-three-ways-to-undo.md](2026-09-05-mdp01-three-ways-to-undo.md) | 2026-09-05 | Teaching compensation by example — three scenarios at three levels: full lifecycle, multi-step rollback, and guard invariants |
 | [2026-09-06-mdp01-the-spi-nobody-injects.md](2026-09-06-mdp01-the-spi-nobody-injects.md) | 2026-09-06 | Bridge modules and the SPI abstraction that nobody injects — tracing TenantContextExecutor to zero callers |
+| [2026-09-11-mdp01-the-spi-nobody-injects-part-2.md](2026-09-11-mdp01-the-spi-nobody-injects-part-2.md) | 2026-09-11 | Cross-repo SPI dependency discovered during cleanup — TenantContextExecutor absorbed into WorkItemOperations |
