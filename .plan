@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-399-remove-tenant-context-executor-spi
-state: scaffolded
+state: active
 project-sha: f044301fbfb3b41f0800f3f359d3446c6b06582c
 date: 2026-09-11
 issue-repo: casehubio/work
@@ -13,8 +13,8 @@ flyway-next-v: none
 
 ## Queue
 - [ ] casehubio/work#399 — Issue #399 ← active
-  - [ ] Batch 1: Add createInTenantContext
-    - [ ] Task 1: Add default method to WorkItemOperations and implement in WorkItemService
-    - [ ] Task 2: Update InboundWorkItemSchedulerImpl to TenantContextRunner
-  - [ ] Batch 2: Delete SPI + docs
-    - [ ] Task 3: Delete TenantContextExecutor and clean up TenantContextRunner and docs
+  - [x] Batch 1: Add createInTenantContext
+    - [x] Task 1: Add default method to WorkItemOperations and implement in WorkItemService
+    - [x] Task 2: Update InboundWorkItemSchedulerImpl to TenantContextRunner
+  - [x] Batch 2: Delete SPI + docs
+    - [x] Task 3: Delete TenantContextExecutor and clean up TenantContextRunner and docs
