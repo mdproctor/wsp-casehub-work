@@ -53,6 +53,7 @@ public List<RetrievedChunk> retrieve(
         QueryExtractionStrategy strategy,
         List<CorpusRef> corpora,
         int maxResults) {
+    if (corpora.isEmpty()) return List.of();
     RetrievalQuery query = strategy.extractQuery(caseContext);
     if (query == null) return List.of();
     return retrieve(query, corpora, maxResults);
