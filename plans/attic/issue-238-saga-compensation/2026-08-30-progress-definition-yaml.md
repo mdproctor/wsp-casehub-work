@@ -251,7 +251,7 @@ Refs #373"
 - Test: `progress-runtime/src/test/java/io/casehub/work/progress/runtime/service/ProgressDefinitionYamlLoaderTest.java`
 
 **Interfaces:**
-- Consumes: `ProgressDefinitionRegistry.register()` (Task 1), `StepDefinition`, `StepDefinitionValidator`
+- Consumes: `ProgressDefinitionRegistry.register()` (Task 1), `Declaration`, `StepDefinitionValidator`
 - Produces: `ProgressDefinitionYamlLoader` — `@Startup` bean, `loadFromClasspath()` (package-private for testing)
 
 - [ ] **Step 1: Create test fixture YAML**

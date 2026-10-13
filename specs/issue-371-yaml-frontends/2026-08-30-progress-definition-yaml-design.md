@@ -7,7 +7,7 @@
 
 ## Motivation
 
-`ProgressDefinition` (structured progress stages and transitions) is currently programmatic — callers build a `StepDefinition` list as `JsonNode` and pass it inline via `ProgressCreateRequest.definition()`. Tutorials need declarative progress definitions without Java.
+`ProgressDefinition` (structured progress stages and transitions) is currently programmatic — callers build a `Declaration` list as `JsonNode` and pass it inline via `ProgressCreateRequest.definition()`. Tutorials need declarative progress definitions without Java.
 
 ## YAML Format (D7)
 
@@ -39,14 +39,14 @@ progressDefinitions:
 |-------|------|----------|---------|-------|
 | `name` | String | yes | — | Unique identifier for the definition |
 | `shapeType` | String | no | `step` if `stages` present, else required | Shape type discriminator |
-| `stages` | List | no | — | Maps to `StepDefinition` records. Each entry: `name` (required), `optional` (default false), `dependsOn` (list), `condition` (string) |
+| `stages` | List | no | — | Maps to `Declaration` records. Each entry: `name` (required), `optional` (default false), `dependsOn` (list), `condition` (string) |
 | `transitions` | Map<String, List<String>> | no | — | Allowed state transitions. Stored in definition JSON alongside step definitions |
 | `rollbackPolicy` | String | no | — | Default rollback policy for instances created from this definition |
 | `visualisationMode` | String | no | — | Default visualisation mode |
 
 ### Stage-to-StepDefinition Mapping
 
-Each stage entry maps to a `StepDefinition` record:
+Each stage entry maps to a `Declaration` record:
 
 ```yaml
 stages:
@@ -172,7 +172,7 @@ public class ProgressDefinitionYamlLoader {
 **Classpath scanning:** Uses `Thread.currentThread().getContextClassLoader().getResources(RESOURCE_PATH)`. Multiple JARs can contribute definitions. Duplicate names: WARN log, last-writer-wins.
 
 **YAML-to-definition mapping:**
-1. Parse YAML stages into `StepDefinition` records
+1. Parse YAML stages into `Declaration` records
 2. Validate via `StepDefinitionValidator`
 3. Build definition JSON (steps array + transitions map)
 4. Construct `ProgressDefinition` with resolved shapeType, definition JSON, and optional defaults

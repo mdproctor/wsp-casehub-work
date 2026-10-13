@@ -48,7 +48,7 @@ Create the `ActionGateScheduler` SPI (symmetric with `HumanTaskScheduler`), rena
 
 ```java
 // runtime/src/test/java/io/casehub/engine/internal/worker/NoOpActionGateSchedulerTest.java
-package io.casehub.engine.internal.worker;
+package io.casehub.engine.runtime.worker;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -98,7 +98,7 @@ Verify all references updated (one production site in `WorkflowExecutionComplete
 
 ```java
 // runtime/src/main/java/io/casehub/engine/internal/worker/NoOpActionGateScheduler.java
-package io.casehub.engine.internal.worker;
+package io.casehub.engine.runtime.worker;
 
 import io.casehub.engine.common.spi.ActionGateScheduleRequest;
 import io.casehub.engine.common.spi.ActionGateScheduler;

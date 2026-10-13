@@ -87,12 +87,12 @@
 **Choice:** `ProgressDefinition` record (name, shapeType, definition JsonNode) in progress-api. `ProgressDefinitionRegistry` SPI for lookup. `ProgressDefinitionYamlLoader` in progress-runtime loads from `META-INF/work-progress-definitions.yaml`. `ProgressCreateRequest` gains optional `definitionName` field.
 **Alternatives:**
 - New `stage` shape type — adds a shape for what is essentially step + transitions
-- Extend `StepDefinition` with transitions field — changes existing API, mixes concerns
-**Rationale:** Named templates follow the `WorkItemTemplate` pattern. The YAML stages/transitions produce a definition JSON consumed by the step shape. No new shape type needed.
-**Trade-offs:** The transitions map in YAML is stored as part of the definition JSON — not strongly typed at the API level.
-**Sources:** ProgressInstance.java, ProgressCreateRequest.java, StepDefinition.java, WorkItemTemplateYamlLoader pattern
-**Exploration:** quick
-**Status:** captured
+- Extend `Declaration` with transitions field — changes existing API, mixes concerns
+  **Rationale:** Named templates follow the `WorkItemTemplate` pattern. The YAML stages/transitions produce a definition JSON consumed by the step shape. No new shape type needed.
+  **Trade-offs:** The transitions map in YAML is stored as part of the definition JSON — not strongly typed at the API level.
+  **Sources:** ProgressInstance.java, ProgressCreateRequest.java, StepDefinition.java, WorkItemTemplateYamlLoader pattern
+  **Exploration:** quick
+  **Status:** captured
 
 ## D8: Module placement — progress-api + progress-runtime
 
