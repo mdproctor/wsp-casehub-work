@@ -20,7 +20,7 @@ resolution.
 ## Solution
 
 Add a `MatchPolicy` enum to control how `KeyLookupStrategy` resolves
-multiple records sharing the same key. Add `STICKY_LAST` to
+multiple records sharing the same key. Add `CLAMP` to
 `ExhaustionPolicy` for conversation-safe exhaustion.
 
 ## Strategy Landscape (after change)
@@ -31,6 +31,11 @@ multiple records sharing the same key. Add `STICKY_LAST` to
 | `KeyLookupStrategy` + `FIRST` | Yes | First match per key (default, backward-compat) |
 | `KeyLookupStrategy` + `RANDOM` | Yes | Random pick from matching records |
 | `KeyLookupStrategy` + `SEQUENTIAL` | Yes | Per-key cursor, configurable exhaustion |
+| `RecordedReplayStrategy` | Yes | Key match → first record; key MISS → sequential fallback |
+
+Note: `RecordedReplayStrategy` falls through to sequential on key MISS;
+`MatchPolicy.SEQUENTIAL` iterates when key MATCHES multiple records.
+These are orthogonal capabilities.
 
 ## Module Changes
 
@@ -47,18 +52,19 @@ public enum MatchPolicy {
 }
 ```
 
-**ExhaustionPolicy: add `STICKY_LAST`**
+**ExhaustionPolicy: add `CLAMP`**
 
 ```java
 public enum ExhaustionPolicy {
-    WRAP,        // cycle back to first record
-    THROW,       // throw when exhausted
-    STICKY_LAST  // repeat last record forever
+    WRAP,   // cycle back to first record
+    THROW,  // throw when exhausted
+    CLAMP   // clamp index to [0, size-1], repeating last record
 }
 ```
 
-`STICKY_LAST` is available to both `KeyLookupStrategy` (SEQUENTIAL mode)
-and `SequentialStrategy`. Safe default for conversations.
+`CLAMP` is available to both `KeyLookupStrategy` (SEQUENTIAL mode)
+and `SequentialStrategy`. Safe default for conversations. Named after
+`Math.clamp` (Java 21) — consistent with WRAP/THROW mechanism-focused naming.
 
 **SimulationCorpus: add `lookupAllByKey` default method**
 
@@ -81,7 +87,7 @@ efficiency.
 
 New fields:
 - `MatchPolicy matchPolicy` (default: `FIRST`)
-- `ExhaustionPolicy exhaustionPolicy` (default: `STICKY_LAST`, only used for SEQUENTIAL)
+- `ExhaustionPolicy exhaustionPolicy` (default: `CLAMP`, only used for SEQUENTIAL)
 - `ConcurrentHashMap<String, AtomicInteger> cursors` (lazy, only created for SEQUENTIAL)
 
 Constructor changes:
@@ -94,7 +100,7 @@ Constructor changes:
 - **RANDOM:** `corpus.lookupAllByKey(qn, key)` → `ThreadLocalRandom` pick, throw if empty
 - **SEQUENTIAL:** `corpus.lookupAllByKey(qn, key)` → index by cursor, advance cursor
   - Cursor key: `qualifiedName + ":" + extractedKey`
-  - STICKY_LAST: clamp index to `size - 1`
+  - CLAMP: clamp index to `size - 1`
   - WRAP: `index % size`
   - THROW: throw `SimulationKeyNotFoundException` when `index >= size`
 
@@ -102,11 +108,15 @@ Constructor changes:
 
 `dataRealism()`: unchanged — `DOMAIN_PLAUSIBLE`.
 
-**SequentialStrategy: add STICKY_LAST support**
+**SequentialStrategy: add CLAMP support + exhaustive switch**
 
-Current code uses `index % size` for WRAP and throws for THROW. Add
-STICKY_LAST: clamp to `size - 1` when `index >= size`. Small addition
-to existing switch/if.
+Current code uses `if` chains to dispatch on ExhaustionPolicy. Convert
+to an exhaustive `switch` (no default) so that adding enum values is
+a compile error rather than a silent behavioral degradation. Add CLAMP
+case: clamp to `size - 1` when `index >= size`.
+
+When CLAMP activates (cursor exceeds corpus size), emit an INFO-level
+log statement to make exhaustion visible without breaking the flow.
 
 ### simulation-inmem
 
@@ -138,7 +148,7 @@ When creating `KeyLookupStrategy` from config:
 - `match` absent or `first` → `MatchPolicy.FIRST`
 - `match: random` → `MatchPolicy.RANDOM`
 - `match: sequential` → `MatchPolicy.SEQUENTIAL`
-  - If `exhaustion-policy` not set, default to `STICKY_LAST`
+  - If `exhaustion-policy` not set, default to `CLAMP`
   - If `exhaustion-policy` set, use that value
 
 YAML example:
@@ -149,7 +159,7 @@ strategies:
     strategy: key-lookup
     key-extractor: sessionId
     match: sequential
-    exhaustion-policy: sticky-last
+    exhaustion-policy: clamp
     corpus:
       - key: "order-help"
         output: "What's your order number?"
@@ -172,19 +182,19 @@ strategies:
 
 - All existing configs unchanged — `match` defaults to `FIRST`
 - Existing 3-arg `KeyLookupStrategy` constructor preserved
-- `ExhaustionPolicy.STICKY_LAST` is additive — no existing code uses it
+- `ExhaustionPolicy.CLAMP` is additive — no existing code uses it
 - `lookupAllByKey` is a default method — no implementor changes required
-- `SequentialStrategy` gains STICKY_LAST support but WRAP/THROW unchanged
+- `SequentialStrategy` gains CLAMP support but WRAP/THROW unchanged
 
 ## Testing
 
 - `KeyLookupStrategyTest`: FIRST returns same record always, RANDOM returns
   varying records, SEQUENTIAL advances through records in order
-- SEQUENTIAL exhaustion: STICKY_LAST repeats last, WRAP cycles, THROW throws
+- SEQUENTIAL exhaustion: CLAMP repeats last, WRAP cycles, THROW throws
 - Single-record per key: all three policies behave identically
 - Empty key: throws `SimulationKeyNotFoundException` regardless of policy
 - Thread-safety: concurrent SEQUENTIAL resolve produces monotonic advancement
-- `SequentialStrategy` STICKY_LAST: existing tests + new sticky-last case
+- `SequentialStrategy` CLAMP: existing tests + new clamp case
 - `InMemorySimulationCorpus`: lookupAllByKey returns all records in
   insertion order, empty list for missing key
 - YAML config parsing: `match` field maps correctly to MatchPolicy
