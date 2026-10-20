@@ -1,0 +1,15 @@
+# Work Plan — issue-417-restore-queue-integration-tests
+
+## State
+branch: issue-417-restore-queue-integration-tests
+state: scaffolded
+project-sha: 
+date: 
+issue-repo: casehubio/work
+covers: 417,418
+design-repo: 
+design-section-hashes: 
+flyway-next-v: 
+
+## Queue
+- [ ] casehubio/work#417 — Issue #417 ← active
