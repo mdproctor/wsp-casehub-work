@@ -9,7 +9,7 @@ status: draft
 series: issue-60-unified-execution-model
 ---
 
-*Part of a series on [#60 — unified execution model](https://github.com/casehubio/blocks/issues/60). Previous: [Two Primitives, One Graph](2026-07-26-two-primitives-one-graph.md).*
+*Part of a series on [#60 — unified execution model](https://github.com/casehubio/agency/issues/60). Previous: [Two Primitives, One Graph](2026-07-26-two-primitives-one-graph.md).*
 
 Two phases of the unified execution model landed today, both following the same principle: if two things are structurally identical, one of them shouldn't exist.
 
