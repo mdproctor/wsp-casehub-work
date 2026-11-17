@@ -13,3 +13,17 @@ flyway-next-v:
 
 ## Queue
 - [ ] casehubio/work#423 — Issue #423 ← active
+  - [ ] Batch 1: TDD
+    - [ ] Task 1: Write failing principal identity test
+  - [ ] Batch 2: API surface
+    - [ ] Task 2: Remove actor/claimant from WorkItemLifecycleApi
+    - [ ] Task 3: Remove actor from request records and queue SPI
+  - [ ] Batch 3: Wiring
+    - [ ] Task 4: Wire CurrentPrincipal in DefaultWorkItemLifecycleApi
+    - [ ] Task 5: Wire CurrentPrincipal in queue and bulk APIs
+  - [ ] Batch 4: Rebuild
+    - [ ] Task 6: Regenerate REST/GraphQL and fix SpiInterfaceTest
+  - [ ] Batch 5: Test migration
+    - [ ] Task 7: Migrate rest tests to principal-based identity
+    - [ ] Task 8: Migrate queues tests
+    - [ ] Task 9: Full build verification
