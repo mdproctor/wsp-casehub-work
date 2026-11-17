@@ -23,7 +23,7 @@ flyway-next-v:
     - [x] Task 5: Wire CurrentPrincipal in queue and bulk APIs
   - [x] Batch 4: Rebuild
     - [x] Task 6: Regenerate REST/GraphQL and fix SpiInterfaceTest
-  - [ ] Batch 5: Test migration
+  - [x] Batch 5: Test migration
     - [x] Task 7: Migrate rest tests to principal-based identity
     - [x] Task 8: Migrate queues tests
-    - [ ] Task 9: Full build verification
+    - [x] Task 9: Full build verification
