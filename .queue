@@ -1,26 +1,16 @@
-- [x] casehubio/work#423 — Issue #423
-  - [x] Batch 1: TDD
-    - [x] Task 1: Write failing principal identity test
-  - [x] Batch 2: API surface
-    - [x] Task 2: Remove actor/claimant from WorkItemLifecycleApi
-    - [x] Task 3: Remove actor from request records and queue SPI
-  - [x] Batch 3: Wiring
-    - [x] Task 4: Wire CurrentPrincipal in DefaultWorkItemLifecycleApi
-    - [x] Task 5: Wire CurrentPrincipal in queue and bulk APIs
-  - [x] Batch 4: Rebuild
-    - [x] Task 6: Regenerate REST/GraphQL and fix SpiInterfaceTest
-  - [x] Batch 5: Test migration
-    - [x] Task 7: Migrate rest tests to principal-based identity
-    - [x] Task 8: Migrate queues tests
-    - [x] Task 9: Full build verification
+# Work Plan —
 
 ## State
-branch: issue-423-playbook-direction-work
+branch: issue-425-candidate-check-on-claim
 issue-repo: casehubio/work
-status: drained
-covers: 423
+status: active
+covers: 425
 project-sha: 
 date: 
 design-repo: 
 design-section-hashes: 
 flyway-next-v: 
+
+## Queue
+- [x] casehubio/work#423 — Issue #423
+- [ ] casehubio/work#425 — W2: Candidate check on claim
