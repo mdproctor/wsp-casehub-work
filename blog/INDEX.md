@@ -53,3 +53,4 @@
 | [2026-09-05-mdp01-three-ways-to-undo.md](2026-09-05-mdp01-three-ways-to-undo.md) | 2026-09-05 | Teaching compensation by example — three scenarios at three levels: full lifecycle, multi-step rollback, and guard invariants |
 | [2026-09-06-mdp01-the-spi-nobody-injects.md](2026-09-06-mdp01-the-spi-nobody-injects.md) | 2026-09-06 | Bridge modules and the SPI abstraction that nobody injects — tracing TenantContextExecutor to zero callers |
 | [2026-09-11-mdp01-the-spi-nobody-injects-part-2.md](2026-09-11-mdp01-the-spi-nobody-injects-part-2.md) | 2026-09-11 | Cross-repo SPI dependency discovered during cleanup — TenantContextExecutor absorbed into WorkItemOperations |
+| [2026-11-17-mdp01-identity-at-the-gate.md](2026-11-17-mdp01-identity-at-the-gate.md) | 2026-11-17 | W1: fixing the identity gap in WorkItems — actor/claimant from principal, not query params |
