@@ -1,18 +1,4 @@
-# Work Plan — issue-423-playbook-direction-work
-
-## State
-branch: issue-423-playbook-direction-work
-status: active
-project-sha: 
-date: 
-issue-repo: casehubio/work
-covers: 423
-design-repo: 
-design-section-hashes: 
-flyway-next-v: 
-
-## Queue
-- [ ] casehubio/work#423 — Issue #423 ← active
+- [x] casehubio/work#423 — Issue #423
   - [x] Batch 1: TDD
     - [x] Task 1: Write failing principal identity test
   - [x] Batch 2: API surface
@@ -27,3 +13,14 @@ flyway-next-v:
     - [x] Task 7: Migrate rest tests to principal-based identity
     - [x] Task 8: Migrate queues tests
     - [x] Task 9: Full build verification
+
+## State
+branch: issue-423-playbook-direction-work
+issue-repo: casehubio/work
+status: drained
+covers: 423
+project-sha: 
+date: 
+design-repo: 
+design-section-hashes: 
+flyway-next-v: 
