@@ -19,5 +19,5 @@ flyway-next-v:
 - [x] casehubio/work#428 — Migrate old-style REST endpoints to principal
 - [x] casehubio/work#429 — TenantContextRunner groups threading
 - [x] casehubio/work#431 — Remove_duplicate_NoOpGroupMembershipProvider
-- [ ] casehubio/work#432 — Clean_up_FederationProxy_orphaned_params
-- [ ] casehubio/work#433 — Consolidate_MutableCurrentPrincipal
+- [x] casehubio/work#432 — Clean_up_FederationProxy_orphaned_params
+- [x] casehubio/work#433 — Consolidate_MutableCurrentPrincipal
