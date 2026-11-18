@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: issue-432-federation-proxy-cleanup
+branch: issue-430-ledger-cdi-reenable
 issue-repo: casehubio/work
 status: active
-covers: 432
+covers: 430
 project-sha: 
 date: 
 design-repo: 
@@ -21,3 +21,4 @@ flyway-next-v:
 - [x] casehubio/work#431 — Remove_duplicate_NoOpGroupMembershipProvider
 - [x] casehubio/work#432 — Clean_up_FederationProxy_orphaned_params
 - [x] casehubio/work#433 — Consolidate_MutableCurrentPrincipal
+- [x] casehubio/work#430 — Fix_ledger_CDI_ambiguity_re-enable_tests
