@@ -5,7 +5,7 @@ date: 2026-11-18
 entry_type: note
 subtype: diary
 projects: [casehubio/work]
-tags: [quarkus, cdi, multi-module, identity, human-task]
+tags: [quarkus, cdi, multi-module, identity, human-task, testing]
 ---
 
 # The @DefaultBean That Multiplied
@@ -67,3 +67,15 @@ This is the kind of gap that's invisible until it matters. The candidate check w
 The other half of this branch migrated `WorkItemClient` and all test suites from the old query-parameter identity model (`?claimant=X`, `?actor=Y`) to the generated principal-based API. The old `/workitems/{id}/claim` endpoints were deleted months ago but test code still referenced them. The migration touched every module that makes lifecycle calls — reports, AI, ledger, integration tests — plus the federation client. Each test now controls identity through a `MutableCurrentPrincipal` CDI bean instead of URL parameters.
 
 The practical effect: identity flows through one mechanism everywhere. No more `?actor=` on some paths and `CurrentPrincipal` on others. The assignee guards work correctly because the same identity source feeds both the guard check and the lifecycle operation.
+
+## Seven copies of the same bean
+
+The migration left `MutableCurrentPrincipal` — the `@Alternative @Priority(200)` test bean that controls `CurrentPrincipal` identity — duplicated across seven modules. Each module had its own copy because Maven test classes can't be shared across modules without a dedicated artifact. Two of the copies were simplified versions missing the `crossTenantAdmin` field. If a test ever needed that field, it would fail silently — `isCrossTenantAdmin()` hardcoded to `false` with no setter.
+
+A `casehub-work-test-support` module with Jandex indexing fixes this. One canonical class, seven `test`-scoped dependencies, seven deleted copies. The Jandex index is the detail that matters — without it, Quarkus CDI won't discover the `@Alternative` bean inside the dependency jar, and every test that injects `CurrentPrincipal` falls back to the platform's `@DefaultBean` instead of the mutable test bean. The tests would pass but identity control would be broken: `setActorId()` would have no effect. Jandex makes the bean visible to arc's bean discovery without requiring `beans.xml`.
+
+## The ledger tests that weren't running
+
+The ledger module had `<maven.test.skip>true</maven.test.skip>` in its pom — a workaround for the CDI ambiguity that the `@DefaultBean` fix resolved. Removing the skip surfaced three things: a stale SNAPSHOT dependency from the remote that lacked a recently-added column, an endpoint that moved from `/workitems/actors/{actorId}/trust` to the generated `/api/work/actor-trust/get-actor-trust/{actorId}`, and an API behavior change where posting an attestation for an unknown entry now returns 400 instead of 404. All fixable. Sixty-six tests, all green.
+
+Skipped tests are invisible debt. The module compiled, it contributed to the reactor build, it looked healthy in CI. But its test suite hadn't run in weeks. The CDI fix landed in a peer repo and the work repo's tests didn't know because they were off. The longer tests stay skipped, the more fixes accumulate when they're turned back on.
