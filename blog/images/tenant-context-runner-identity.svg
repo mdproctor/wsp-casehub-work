@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 340" font-family="system-ui, -apple-system, sans-serif" font-size="13">
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="#555"/>
+    </marker>
+    <marker id="arrow-red" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="#c44"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="720" height="340" fill="#fafafa" rx="4"/>
+
+  <!-- Title -->
+  <text x="360" y="28" text-anchor="middle" font-size="15" font-weight="600" fill="#222">TenantContextRunner — Identity Threading</text>
+
+  <!-- REST path (top) -->
+  <rect x="30" y="50" width="130" height="40" rx="6" fill="#e8f0fe" stroke="#4285f4" stroke-width="1.5"/>
+  <text x="95" y="74" text-anchor="middle" font-weight="500" fill="#1a56db">REST Request</text>
+
+  <line x1="160" y1="70" x2="210" y2="70" stroke="#555" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+  <rect x="215" y="50" width="150" height="40" rx="6" fill="#e8f0fe" stroke="#4285f4" stroke-width="1.5"/>
+  <text x="290" y="74" text-anchor="middle" font-weight="500" fill="#1a56db">SecurityContext</text>
+
+  <line x1="365" y1="70" x2="420" y2="70" stroke="#555" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+  <rect x="425" y="50" width="150" height="40" rx="6" fill="#e8f0fe" stroke="#4285f4" stroke-width="1.5"/>
+  <text x="500" y="68" text-anchor="middle" font-weight="500" fill="#1a56db">CurrentPrincipal</text>
+  <text x="500" y="82" text-anchor="middle" font-size="11" fill="#666">actor + groups + tenant</text>
+
+  <line x1="575" y1="70" x2="630" y2="70" stroke="#555" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+  <rect x="635" y="50" width="60" height="40" rx="6" fill="#d4edda" stroke="#28a745" stroke-width="1.5"/>
+  <text x="665" y="74" text-anchor="middle" font-weight="600" fill="#155724">✓</text>
+
+  <!-- Background path — before (middle, red) -->
+  <text x="30" y="130" font-size="11" fill="#888" font-style="italic">Before:</text>
+
+  <rect x="30" y="140" width="130" height="40" rx="6" fill="#fff3e0" stroke="#e65100" stroke-width="1.5"/>
+  <text x="95" y="164" text-anchor="middle" font-weight="500" fill="#bf360c">Timer / Event</text>
+
+  <line x1="160" y1="160" x2="210" y2="160" stroke="#555" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+  <rect x="215" y="140" width="150" height="40" rx="6" fill="#fff3e0" stroke="#e65100" stroke-width="1.5"/>
+  <text x="290" y="158" text-anchor="middle" font-weight="500" fill="#bf360c">TenantContextRunner</text>
+  <text x="290" y="172" text-anchor="middle" font-size="11" fill="#888">sets actor + tenant</text>
+
+  <line x1="365" y1="160" x2="420" y2="160" stroke="#555" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+  <rect x="425" y="140" width="150" height="40" rx="6" fill="#fff3e0" stroke="#e65100" stroke-width="1.5"/>
+  <text x="500" y="158" text-anchor="middle" font-weight="500" fill="#bf360c">TenantHolder</text>
+  <text x="500" y="172" text-anchor="middle" font-size="11" fill="#c44">groups = ∅</text>
+
+  <line x1="575" y1="160" x2="630" y2="160" stroke="#c44" stroke-width="1.2" marker-end="url(#arrow-red)"/>
+
+  <rect x="635" y="140" width="60" height="40" rx="6" fill="#f8d7da" stroke="#c44" stroke-width="1.5"/>
+  <text x="665" y="164" text-anchor="middle" font-weight="600" fill="#721c24">✗</text>
+
+  <text x="695" y="195" text-anchor="end" font-size="11" fill="#c44">CLAIM_NOT_CANDIDATE</text>
+
+  <!-- Background path — after (bottom, green) -->
+  <text x="30" y="230" font-size="11" fill="#888" font-style="italic">After:</text>
+
+  <rect x="30" y="240" width="130" height="40" rx="6" fill="#e8f5e9" stroke="#2e7d32" stroke-width="1.5"/>
+  <text x="95" y="264" text-anchor="middle" font-weight="500" fill="#1b5e20">Timer / Event</text>
+
+  <line x1="160" y1="260" x2="210" y2="260" stroke="#555" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+  <rect x="215" y="240" width="150" height="40" rx="6" fill="#e8f5e9" stroke="#2e7d32" stroke-width="1.5"/>
+  <text x="290" y="254" text-anchor="middle" font-weight="500" fill="#1b5e20">TenantContextRunner</text>
+  <text x="290" y="268" text-anchor="middle" font-size="11" fill="#2e7d32">actor + tenant + groups</text>
+
+  <line x1="365" y1="260" x2="420" y2="260" stroke="#555" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+  <rect x="425" y="240" width="150" height="40" rx="6" fill="#e8f5e9" stroke="#2e7d32" stroke-width="1.5"/>
+  <text x="500" y="254" text-anchor="middle" font-weight="500" fill="#1b5e20">TenantHolder</text>
+  <text x="500" y="268" text-anchor="middle" font-size="11" fill="#2e7d32">groups = {legal, review}</text>
+
+  <line x1="575" y1="260" x2="630" y2="260" stroke="#555" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+  <rect x="635" y="240" width="60" height="40" rx="6" fill="#d4edda" stroke="#28a745" stroke-width="1.5"/>
+  <text x="665" y="264" text-anchor="middle" font-weight="600" fill="#155724">✓</text>
+
+  <!-- Legend -->
+  <text x="360" y="320" text-anchor="middle" font-size="11" fill="#888">REST path threads all three identity fields automatically; background path needed the groups fix.</text>
+</svg>
