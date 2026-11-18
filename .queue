@@ -4,7 +4,7 @@
 branch: issue-426-assignee-check-lifecycle
 issue-repo: casehubio/work
 status: active
-covers: 428
+covers: 431
 project-sha: 
 date: 
 design-repo: 
@@ -16,5 +16,6 @@ flyway-next-v:
 - [x] casehubio/work#425 — W2: Candidate check on claim
 - [x] casehubio/work#426 — W2: Assignee check on lifecycle transitions
 - [x] casehubio/work#427 — Test quality: improve existing tests
-- [ ] casehubio/work#428 — Migrate old-style REST endpoints to principal
+- [x] casehubio/work#428 — Migrate old-style REST endpoints to principal
 - [ ] casehubio/work#429 — TenantContextRunner groups threading
+- [ ] casehubio/work#431 — Remove_duplicate_NoOpGroupMembershipProvider

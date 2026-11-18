@@ -1,0 +1,19 @@
+# Work Plan — issue-426-assignee-check-lifecycle
+
+## State
+branch: issue-426-assignee-check-lifecycle
+issue-repo: casehubio/work
+status: active
+covers: 426
+project-sha: 
+date: 
+design-repo: 
+design-section-hashes: 
+flyway-next-v: 
+state: active
+
+## Queue
+- [ ] casehubio/work#426 — W2: Assignee check on lifecycle transitions ← active
+- [ ] casehubio/work#427 — Test quality: improve existing tests
+- [ ] casehubio/work#428 — Migrate old-style REST endpoints to principal
+- [ ] casehubio/work#429 — TenantContextRunner groups threading
