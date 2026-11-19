@@ -3,6 +3,9 @@ title: "The Gate That Blocked Everything"
 date: 2026-08-02
 author: Mark Proctor
 tags: [casehub, engine, lifecycle-scopes, architecture, design]
+entry_type: note
+subtype: diary
+projects: [casehubio/work]
 ---
 
 # The Gate That Blocked Everything

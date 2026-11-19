@@ -4,6 +4,9 @@ date: 2026-08-10
 type: diary
 status: draft
 tags: [normative-layer, experiment-design, multi-agent-coordination, speech-acts]
+entry_type: note
+subtype: diary
+projects: [casehubio/work]
 ---
 
 # Designing the Normative Layer Experiment

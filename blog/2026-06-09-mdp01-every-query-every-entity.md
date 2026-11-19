@@ -3,6 +3,9 @@ title: "Every Query, Every Entity"
 date: 2026-06-09
 author: mdp
 tags: [casehub-work, multi-tenancy, architecture, CDI, quartz]
+entry_type: note
+subtype: diary
+projects: [casehubio/work]
 ---
 
 casehub-work had zero tenant scoping. Every WorkItem, every template, every audit entry — visible to every tenant. The platform foundation was ready (CurrentPrincipal.tenancyId() has existed since casehub-engine's multi-tenancy work), but casehub-work hadn't started.

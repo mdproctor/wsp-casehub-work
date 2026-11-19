@@ -1,3 +1,12 @@
+---
+layout: post
+title: "Stale Snapshots and Eviction Rethink"
+date: 2026-06-25
+entry_type: note
+subtype: diary
+projects: [casehubio/work]
+---
+
 ## Stale SNAPSHOTs and an eviction rethink
 
 The devtown session reported three breaking changes in published SNAPSHOTs — `ConflictResolverStrategy.DEEP_MERGE` removed, `SubjectSequenceStats` constructor mismatch, `ChannelService.create()` signature change. Two of the three turned out to be phantom failures: DEEP_MERGE is still in the schema enum and has tests, `SubjectSequenceStats` is now a record with the right constructor shape. The real problem was stale JARs in `~/.m2`, not API changes. A local `mvn install -DskipTests` through the full dependency chain — parent through engine — cleared all three.
