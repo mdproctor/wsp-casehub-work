@@ -50,10 +50,12 @@ export interface ProviderBrand {
 
 **credential.ts:**
 ```typescript
+export type AuthenticatorTransport = 'usb' | 'ble' | 'nfc' | 'internal' | 'hybrid';
+
 export interface WebAuthnCredential {
   readonly credentialId: string;
   readonly displayName: string;
-  readonly transports: readonly string[];
+  readonly transports: readonly AuthenticatorTransport[];
   readonly discoverable: boolean;
   readonly createdAt: string;
   readonly lastUsedAt: string | null;
@@ -68,23 +70,38 @@ Both re-exported from `mosaic-core/src/types/index.ts`.
 
 Single package exporting all primitives and the connection management page.
 
+**Custom element names:**
+| Class | Tag |
+|-------|-----|
+| `ProviderStatusRow` | `mosaic-provider-status-row` |
+| `ConnectButton` | `mosaic-connect-button` |
+| `ScopeList` | `mosaic-scope-list` |
+| `PasskeyRow` | `mosaic-passkey-row` |
+| `PasskeyRegisterButton` | `mosaic-passkey-register` |
+| `PasskeyAuthenticateButton` | `mosaic-passkey-authenticate` |
+| `ConnectionManagementPage` | `mosaic-connection-management` |
+| `LoginPage` | `mosaic-login-page` |
+
 **File structure:**
 ```
 components/connection-manager/
   src/
     primitives/
-      provider-status-row.ts     # single provider: icon, name, status, scopes, action
-      connect-button.ts          # branded "Connect with X" button
-      scope-list.ts              # expandable granted/missing scope list
-      passkey-row.ts             # single passkey: device, last used, transports, revoke
-      passkey-register-button.ts # triggers WebAuthn registration ceremony
+      provider-status-row.ts        # single provider: icon, name, status, scopes, action
+      connect-button.ts             # branded "Connect with X" button
+      scope-list.ts                 # expandable granted/missing scope list
+      passkey-row.ts                # single passkey: device, last used, transports, revoke
+      passkey-register-button.ts    # triggers WebAuthn registration ceremony
+      passkey-authenticate-button.ts # triggers WebAuthn authentication ceremony
     controllers/
-      oauth-flow-controller.ts   # popup + redirect fallback, state verification
-      provider-brand-registry.ts # provider → { icon, color, displayName }
-    connection-management-page.ts  # pre-configured page composing all primitives
-    index.ts                       # re-exports everything
-    types.ts                       # component-local types (event payloads, internal state)
+      oauth-flow-controller.ts      # popup + redirect fallback, state verification
+      provider-brand-registry.ts    # provider → { icon, color, displayName }
+    connection-management-page.ts   # pre-configured page composing all primitives
+    topics.ts                       # ConnectionManagerTopics constant
+    index.ts                        # re-exports everything
+    types.ts                        # component-local types (event payloads, internal state)
   demo.html
+  TRADEMARK-NOTICE.md
 ```
 
 **Exports:**
@@ -106,7 +123,7 @@ components/login-page/
   demo.html
 ```
 
-Imports `connect-button` and `passkey-register-button` from `connection-manager`.
+Imports `connect-button` and `passkey-authenticate-button` from `connection-manager`.
 
 ### Primitives — Detail
 
@@ -198,6 +215,34 @@ Triggers the WebAuthn registration ceremony (browser-native prompt).
 
 ARIA: `role="button"`, `aria-label="Register a passkey"`.
 
+#### `passkey-authenticate-button`
+
+Triggers the WebAuthn authentication ceremony (`navigator.credentials.get()`). Used on the login page for "Sign in with passkey."
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `challengeOptions` | `object \| null` | PublicKeyCredentialRequestOptions from server. When set, clicking triggers `navigator.credentials.get()` |
+| `disabled` | `boolean` | Disabled state |
+
+| Event | Payload | When |
+|-------|---------|------|
+| `passkey.authenticate-request` | `{}` | Clicked without challengeOptions (host should fetch challenge) |
+| `passkey.authenticated` | `{ credential: PublicKeyCredential }` | Authentication completed |
+| `passkey.authenticate-error` | `{ error: string }` | Authentication failed or cancelled |
+
+ARIA: `role="button"`, `aria-label="Sign in with passkey"`.
+
+### Component State Management
+
+All interactive primitives support loading and error states:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `loading` | `boolean` | Shows spinner, disables interaction |
+| `error` | `string \| null` | Displays error message below the component |
+
+Loading state applies to: `connect-button` (during OAuth flow), `passkey-register-button` (during ceremony), `passkey-authenticate-button` (during ceremony), `provider-status-row` (during connect/disconnect/consent).
+
 ### Controllers — Detail
 
 #### `OAuthFlowController`
@@ -208,8 +253,9 @@ Non-visual class managing the OAuth popup/redirect lifecycle.
 interface OAuthFlowOptions {
   authorizationUrl: string;
   state: string;
-  popupWidth?: number;   // default 500
-  popupHeight?: number;  // default 600
+  expectedOrigin: string; // origin to verify on postMessage — REQUIRED for security
+  popupWidth?: number;    // default 500
+  popupHeight?: number;   // default 600
   redirectFallback?: boolean; // default true
 }
 
@@ -228,9 +274,10 @@ class OAuthFlowController {
 1. Open popup window with `authorizationUrl`
 2. If popup blocked and `redirectFallback` is true, navigate current page (save return URL in sessionStorage)
 3. Listen for `postMessage` from popup with authorization code
-4. Verify `state` matches
-5. Resolve promise with `{ code, state }`
-6. On error or cancel, reject with descriptive error
+4. **Verify `event.origin` matches `expectedOrigin`** — reject messages from other origins (XSS/CSRF defense)
+5. Verify `state` matches the value passed in options
+6. Resolve promise with `{ code, state }`
+7. On error or cancel, reject with descriptive error
 
 **Return from redirect:** On page load, check sessionStorage for pending OAuth state. If found, extract code from URL params, clean up, and emit result via event.
 
@@ -239,17 +286,15 @@ class OAuthFlowController {
 Static registry mapping provider IDs to branding.
 
 ```typescript
-interface ProviderBrandEntry {
-  displayName: string;
-  icon: string;        // inline SVG
-  brandColor: string;  // hex color
+class ProviderBrandRegistry {
+  constructor(defaults?: Map<string, ProviderBrand>);  // ships built-in providers
+  get(providerId: string): ProviderBrand | null;
+  register(providerId: string, brand: ProviderBrand): void;
+  has(providerId: string): boolean;
 }
 
-class ProviderBrandRegistry {
-  static get(providerId: string): ProviderBrandEntry | null;
-  static register(providerId: string, entry: ProviderBrandEntry): void;
-  static has(providerId: string): boolean;
-}
+// Default instance with built-in providers; components use this unless overridden via property
+const defaultBrandRegistry = new ProviderBrandRegistry();
 ```
 
 **Built-in providers:** google, github, slack, discord. Each with official SVG mark and brand color.
@@ -307,7 +352,8 @@ Authentication-context page with social login and passkey sign-in.
 | Event | Payload | When |
 |-------|---------|------|
 | `connection.connect` | `{ provider: string }` | Social login button clicked |
-| `passkey.authenticate` | `{}` | Passkey sign-in initiated |
+| `passkey.authenticate-request` | `{}` | Passkey sign-in button clicked (host should fetch challenge) |
+| `passkey.authenticated` | `{ credential: PublicKeyCredential }` | Passkey authentication completed |
 
 **Layout:**
 ```
@@ -328,7 +374,27 @@ ARIA: `role="main"` with `aria-label="Sign in"`. Buttons in `role="group"` with 
 
 ### Event Protocol
 
-All events use `emitPagesEvent` from `@casehubio/pages-data`. Event topics:
+All events use `emitPagesEvent` from `@casehubio/pages-data`.
+
+**Topics constant** (exported from `topics.ts`, follows approval-gate pattern):
+```typescript
+export const ConnectionManagerTopics = {
+  CONNECT: 'connection.connect',
+  DISCONNECT: 'connection.disconnect',
+  CONSENT: 'connection.consent',
+  OAUTH_COMPLETE: 'oauth.complete',
+  OAUTH_ERROR: 'oauth.error',
+  PASSKEY_REGISTER_REQUEST: 'passkey.register-request',
+  PASSKEY_REGISTERED: 'passkey.registered',
+  PASSKEY_REGISTER_ERROR: 'passkey.register-error',
+  PASSKEY_AUTHENTICATE_REQUEST: 'passkey.authenticate-request',
+  PASSKEY_AUTHENTICATED: 'passkey.authenticated',
+  PASSKEY_AUTHENTICATE_ERROR: 'passkey.authenticate-error',
+  PASSKEY_REVOKE: 'passkey.revoke',
+} as const;
+```
+
+Event topics:
 
 | Topic | Payload | Source |
 |-------|---------|--------|
@@ -341,7 +407,9 @@ All events use `emitPagesEvent` from `@casehubio/pages-data`. Event topics:
 | `passkey.registered` | `{ credential: PublicKeyCredential }` | passkey-register-button |
 | `passkey.register-error` | `{ error: string }` | passkey-register-button |
 | `passkey.revoke` | `{ credentialId: string }` | passkey-row |
-| `passkey.authenticate` | `{}` | login-page |
+| `passkey.authenticate-request` | `{}` | passkey-authenticate-button |
+| `passkey.authenticated` | `{ credential: PublicKeyCredential }` | passkey-authenticate-button |
+| `passkey.authenticate-error` | `{ error: string }` | passkey-authenticate-button |
 
 ### Styling
 
