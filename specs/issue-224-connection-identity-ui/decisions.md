@@ -70,6 +70,18 @@
 **Exploration:** quick
 **Status:** captured
 
+## D6a: Packaging — single component package
+
+**Choice:** Primitives are internal modules within a single `components/connection-manager/` package. Pre-configured pages are peer exports. Login page is a separate `components/login-page/` package.
+**Alternatives:**
+- Separate packages per primitive — 7+ new packages for one epic, inconsistent with mosaic convention
+**Rationale:** Existing mosaic components are each a standalone package under `components/`. Primitives are internal building blocks, not independently consumable. Consumers import from `connection-manager` and get both primitives and the management page.
+**Trade-offs:** Primitives can't be tree-shaken independently. Acceptable — they're small.
+**Depends on:** D6 (fine-grained primitives + pages)
+**Sources:** mosaic component structure (approval-gate, service-card patterns)
+**Exploration:** quick (decision-review refinement)
+**Status:** captured
+
 ## D7: Standalone OAuthFlowController
 
 **Choice:** OAuthFlowController as a standalone non-visual class. connect-button uses it internally. Any component can instantiate it directly.
