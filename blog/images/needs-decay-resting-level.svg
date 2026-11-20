@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 760 360" xmlns="http://www.w3.org/2000/svg">
+  <rect width="760" height="360" fill="#1a1b26" rx="8"/>
+
+  <!-- Grid -->
+  <line x1="80" y1="30" x2="80" y2="300" stroke="#24283b" stroke-width="1"/>
+  <line x1="80" y1="300" x2="720" y2="300" stroke="#24283b" stroke-width="1"/>
+  <!-- Horizontal grid lines -->
+  <line x1="80" y1="60" x2="720" y2="60" stroke="#24283b" stroke-width="0.5" stroke-dasharray="4,4"/>
+  <line x1="80" y1="120" x2="720" y2="120" stroke="#24283b" stroke-width="0.5" stroke-dasharray="4,4"/>
+  <line x1="80" y1="180" x2="720" y2="180" stroke="#24283b" stroke-width="0.5" stroke-dasharray="4,4"/>
+  <line x1="80" y1="240" x2="720" y2="240" stroke="#24283b" stroke-width="0.5" stroke-dasharray="4,4"/>
+
+  <!-- Y axis labels -->
+  <text x="70" y="64" text-anchor="end" fill="#565f89" font-family="sans-serif" font-size="10">1.0</text>
+  <text x="70" y="124" text-anchor="end" fill="#565f89" font-family="sans-serif" font-size="10">0.8</text>
+  <text x="70" y="184" text-anchor="end" fill="#565f89" font-family="sans-serif" font-size="10">0.6</text>
+  <text x="70" y="244" text-anchor="end" fill="#565f89" font-family="sans-serif" font-size="10">0.4</text>
+  <text x="70" y="304" text-anchor="end" fill="#565f89" font-family="sans-serif" font-size="10">0.2</text>
+
+  <!-- X axis label -->
+  <text x="400" y="330" text-anchor="middle" fill="#565f89" font-family="sans-serif" font-size="11">Consolidation cycles →</text>
+
+  <!-- Resting level lines (dashed) -->
+  <line x1="80" y1="156" x2="720" y2="156" stroke="#f7768e" stroke-width="1" stroke-dasharray="6,4" opacity="0.4"/>
+  <text x="725" y="152" text-anchor="start" fill="#f7768e" font-family="sans-serif" font-size="9" opacity="0.6">rest: 0.6</text>
+
+  <line x1="80" y1="252" x2="720" y2="252" stroke="#ff9e64" stroke-width="1" stroke-dasharray="6,4" opacity="0.4"/>
+  <text x="725" y="248" text-anchor="start" fill="#ff9e64" font-family="sans-serif" font-size="9" opacity="0.6">rest: 0.3</text>
+
+  <line x1="80" y1="228" x2="720" y2="228" stroke="#7aa2f7" stroke-width="1" stroke-dasharray="6,4" opacity="0.4"/>
+  <text x="725" y="224" text-anchor="start" fill="#7aa2f7" font-family="sans-serif" font-size="9" opacity="0.6">rest: 0.4</text>
+
+  <!-- Starting point: all at 0.5 -->
+  <!-- Safety (starts 0.5, rises to 0.6) - RED -->
+  <polyline points="80,180 140,172 200,165 260,160 320,158 380,157 440,156 500,156 560,156 620,156" fill="none" stroke="#f7768e" stroke-width="2"/>
+
+  <!-- Negative event drops Safety at cycle 8 -->
+  <polyline points="620,156 630,240" fill="none" stroke="#f7768e" stroke-width="2" stroke-dasharray="4,2"/>
+  <circle cx="630" cy="240" r="4" fill="#f7768e"/>
+  <text x="640" y="238" fill="#f7768e" font-family="sans-serif" font-size="9">threat!</text>
+
+  <!-- Recovery after threat -->
+  <polyline points="630,240 660,220 690,200 720,185" fill="none" stroke="#f7768e" stroke-width="2"/>
+
+  <!-- Tasks (starts 0.5, falls to 0.3) - ORANGE -->
+  <polyline points="80,180 140,190 200,200 260,210 280,215 320,225 380,235 440,242 500,247 560,250 620,251 680,251 720,252" fill="none" stroke="#ff9e64" stroke-width="2"/>
+
+  <!-- Understanding (starts 0.5, slowly falls to 0.4) - BLUE -->
+  <polyline points="80,180 140,181 200,183 260,186 320,190 380,196 440,202 500,208 560,214 620,218 680,222 720,225" fill="none" stroke="#7aa2f7" stroke-width="2"/>
+
+  <!-- Legend -->
+  <line x1="100" y1="345" x2="130" y2="345" stroke="#f7768e" stroke-width="2"/>
+  <text x="135" y="349" fill="#f7768e" font-family="sans-serif" font-size="10">Safety (rest: 0.6)</text>
+
+  <line x1="280" y1="345" x2="310" y2="345" stroke="#ff9e64" stroke-width="2"/>
+  <text x="315" y="349" fill="#ff9e64" font-family="sans-serif" font-size="10">Tasks (rest: 0.3)</text>
+
+  <line x1="460" y1="345" x2="490" y2="345" stroke="#7aa2f7" stroke-width="2"/>
+  <text x="495" y="349" fill="#7aa2f7" font-family="sans-serif" font-size="10">Understanding (rest: 0.4)</text>
+</svg>

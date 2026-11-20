@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520" font-family="Inter, system-ui, sans-serif" font-size="13">
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="#555"/>
+    </marker>
+    <marker id="arrow-blue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="#2563eb"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="400" y="28" text-anchor="middle" font-size="16" font-weight="600" fill="#1e293b">Attractor Strength = Settled Activation + Disposition Baseline</text>
+  <text x="400" y="48" text-anchor="middle" font-size="11" fill="#64748b">Read et al. (2010): "baseline activation of specific motives" as personality differentiation</text>
+
+  <!-- Left panel: Competitive -->
+  <rect x="20" y="70" width="370" height="430" rx="8" fill="#fef2f2" stroke="#fca5a5" stroke-width="1"/>
+  <text x="205" y="95" text-anchor="middle" font-size="14" font-weight="600" fill="#991b1b">Competitive / Bold / Confrontational</text>
+
+  <!-- INPUT layer -->
+  <rect x="50" y="115" width="100" height="32" rx="4" fill="#e0e7ff" stroke="#818cf8"/>
+  <text x="100" y="136" text-anchor="middle" font-size="11" fill="#3730a3">INPUT: 0.45</text>
+
+  <!-- MEDIATING layer -->
+  <rect x="50" y="185" width="130" height="32" rx="4" fill="#fef3c7" stroke="#f59e0b"/>
+  <text x="115" y="201" text-anchor="middle" font-size="10" fill="#92400e">BAS_activation</text>
+  <text x="115" y="213" text-anchor="middle" font-size="10" font-weight="600" fill="#92400e">resting: +0.5</text>
+
+  <rect x="200" y="185" width="130" height="32" rx="4" fill="#fef3c7" stroke="#f59e0b"/>
+  <text x="265" y="201" text-anchor="middle" font-size="10" fill="#92400e">social_comparison</text>
+  <text x="265" y="213" text-anchor="middle" font-size="10" font-weight="600" fill="#92400e">resting: +0.3</text>
+
+  <!-- OUTPUT layer -->
+  <rect x="50" y="265" width="120" height="40" rx="4" fill="#dcfce7" stroke="#22c55e" stroke-width="2"/>
+  <text x="110" y="282" text-anchor="middle" font-size="11" font-weight="600" fill="#166534">approach</text>
+  <text x="110" y="296" text-anchor="middle" font-size="10" fill="#166534">baseline: +0.35</text>
+
+  <rect x="190" y="265" width="120" height="40" rx="4" fill="#f1f5f9" stroke="#94a3b8"/>
+  <text x="250" y="282" text-anchor="middle" font-size="11" fill="#475569">withdraw</text>
+  <text x="250" y="296" text-anchor="middle" font-size="10" fill="#475569">baseline: 0.0</text>
+
+  <!-- Strength boxes -->
+  <rect x="50" y="335" width="120" height="55" rx="4" fill="#166534"/>
+  <text x="110" y="355" text-anchor="middle" font-size="11" fill="white">settled: 0.58</text>
+  <text x="110" y="370" text-anchor="middle" font-size="11" fill="white">+ baseline: 0.35</text>
+  <text x="110" y="385" text-anchor="middle" font-size="12" font-weight="700" fill="#bbf7d0">= 0.93 deeply ingrained</text>
+
+  <rect x="190" y="335" width="120" height="55" rx="4" fill="#64748b"/>
+  <text x="250" y="355" text-anchor="middle" font-size="11" fill="white">settled: 0.55</text>
+  <text x="250" y="370" text-anchor="middle" font-size="11" fill="white">+ baseline: 0.0</text>
+  <text x="250" y="385" text-anchor="middle" font-size="12" font-weight="700" fill="#e2e8f0">= 0.55 noticeable</text>
+
+  <!-- Arrows left panel -->
+  <line x1="100" y1="147" x2="100" y2="183" stroke="#555" marker-end="url(#arrow)"/>
+  <line x1="115" y1="217" x2="110" y2="263" stroke="#555" marker-end="url(#arrow)"/>
+  <line x1="265" y1="217" x2="250" y2="263" stroke="#555" marker-end="url(#arrow)"/>
+
+  <!-- Right panel: Cooperative -->
+  <rect x="410" y="70" width="370" height="430" rx="8" fill="#eff6ff" stroke="#93c5fd" stroke-width="1"/>
+  <text x="595" y="95" text-anchor="middle" font-size="14" font-weight="600" fill="#1e3a8a">Cooperative / Conservative / Avoidant</text>
+
+  <!-- INPUT layer -->
+  <rect x="440" y="115" width="100" height="32" rx="4" fill="#e0e7ff" stroke="#818cf8"/>
+  <text x="490" y="136" text-anchor="middle" font-size="11" fill="#3730a3">INPUT: 0.45</text>
+
+  <!-- MEDIATING layer -->
+  <rect x="440" y="185" width="130" height="32" rx="4" fill="#fef3c7" stroke="#f59e0b"/>
+  <text x="505" y="201" text-anchor="middle" font-size="10" fill="#92400e">BIS_activation</text>
+  <text x="505" y="213" text-anchor="middle" font-size="10" font-weight="600" fill="#92400e">resting: +0.3</text>
+
+  <rect x="590" y="185" width="130" height="32" rx="4" fill="#fef3c7" stroke="#f59e0b"/>
+  <text x="655" y="201" text-anchor="middle" font-size="10" fill="#92400e">other_reliability</text>
+  <text x="655" y="213" text-anchor="middle" font-size="10" font-weight="600" fill="#92400e">resting: +0.45</text>
+
+  <!-- OUTPUT layer -->
+  <rect x="440" y="265" width="120" height="40" rx="4" fill="#f1f5f9" stroke="#94a3b8"/>
+  <text x="500" y="282" text-anchor="middle" font-size="11" fill="#475569">approach</text>
+  <text x="500" y="296" text-anchor="middle" font-size="10" fill="#475569">baseline: 0.0</text>
+
+  <rect x="580" y="265" width="140" height="40" rx="4" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <text x="650" y="282" text-anchor="middle" font-size="11" font-weight="600" fill="#1e3a8a">cautious_approach</text>
+  <text x="650" y="296" text-anchor="middle" font-size="10" fill="#1e3a8a">baseline: +0.35</text>
+
+  <!-- Strength boxes -->
+  <rect x="440" y="335" width="120" height="55" rx="4" fill="#64748b"/>
+  <text x="500" y="355" text-anchor="middle" font-size="11" fill="white">settled: 0.55</text>
+  <text x="500" y="370" text-anchor="middle" font-size="11" fill="white">+ baseline: 0.0</text>
+  <text x="500" y="385" text-anchor="middle" font-size="12" font-weight="700" fill="#e2e8f0">= 0.55 noticeable</text>
+
+  <rect x="580" y="335" width="140" height="55" rx="4" fill="#1e3a8a"/>
+  <text x="650" y="355" text-anchor="middle" font-size="11" fill="white">settled: 0.56</text>
+  <text x="650" y="370" text-anchor="middle" font-size="11" fill="white">+ baseline: 0.35</text>
+  <text x="650" y="385" text-anchor="middle" font-size="12" font-weight="700" fill="#bfdbfe">= 0.91 deeply ingrained</text>
+
+  <!-- Arrows right panel -->
+  <line x1="490" y1="147" x2="490" y2="183" stroke="#555" marker-end="url(#arrow)"/>
+  <line x1="505" y1="217" x2="500" y2="263" stroke="#555" marker-end="url(#arrow)"/>
+  <line x1="655" y1="217" x2="650" y2="263" stroke="#555" marker-end="url(#arrow)"/>
+
+  <!-- Legend -->
+  <text x="400" y="440" text-anchor="middle" font-size="12" fill="#475569">Same situation input (0.45) produces different dominant attractors.</text>
+  <text x="400" y="458" text-anchor="middle" font-size="12" fill="#475569">Settling gives the situational response. Disposition gives the personality baseline.</text>
+  <text x="400" y="476" text-anchor="middle" font-size="11" fill="#94a3b8">Gray (1982) BIS/BAS sensitivity | Mischel &amp; Shoda (1995) unit accessibility | Read et al. (2010) baseline activations</text>
+
+  <!-- Tier legend -->
+  <rect x="100" y="490" width="10" height="10" rx="2" fill="#166534"/>
+  <text x="115" y="500" font-size="10" fill="#475569">&gt; 0.7: deeply ingrained</text>
+  <rect x="280" y="490" width="10" height="10" rx="2" fill="#64748b"/>
+  <text x="295" y="500" font-size="10" fill="#475569">0.4–0.7: noticeable</text>
+  <rect x="430" y="490" width="10" height="10" rx="2" fill="#cbd5e1"/>
+  <text x="445" y="500" font-size="10" fill="#475569">0.1–0.4: emerging</text>
+  <rect x="570" y="490" width="10" height="10" rx="2" fill="#f1f5f9"/>
+  <text x="585" y="500" font-size="10" fill="#475569">&lt; 0.1: filtered</text>
+</svg>

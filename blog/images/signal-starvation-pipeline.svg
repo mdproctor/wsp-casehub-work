@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 520" font-family="'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif">
+  <defs>
+    <style>
+      .title { font-size: 15px; fill: #111827; font-weight: 700; }
+      .subtitle { font-size: 11px; fill: #9CA3AF; }
+      .stage-label { font-size: 13px; fill: #374151; font-weight: 600; }
+      .reaches { fill: #059669; }
+      .dead { fill: #DC2626; }
+      .partial { fill: #D97706; }
+      .item-text { font-size: 10px; fill: #fff; font-weight: 500; }
+      .note { font-size: 10px; fill: #6B7280; }
+      .stage-box { fill: #F3F4F6; stroke: #D1D5DB; stroke-width: 1; }
+      .arrow { stroke: #9CA3AF; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead); }
+      .dead-arrow { stroke: #FCA5A5; stroke-width: 1.5; fill: none; stroke-dasharray: 4,3; }
+    </style>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#9CA3AF"/>
+    </marker>
+  </defs>
+
+  <text x="440" y="28" text-anchor="middle" class="title">Personality Data Propagation — What Reaches the LLM</text>
+  <text x="440" y="44" text-anchor="middle" class="subtitle">14 data types enter the cognitive pipeline. 5 reach the prompt. 9 hit dead ends.</text>
+
+  <!-- Pipeline stages -->
+  <rect x="30" y="65" width="150" height="30" rx="6" class="stage-box"/>
+  <text x="105" y="85" text-anchor="middle" class="stage-label">Raw Data</text>
+
+  <path d="M 180 80 L 220 80" class="arrow"/>
+
+  <rect x="220" y="65" width="120" height="30" rx="6" class="stage-box"/>
+  <text x="280" y="85" text-anchor="middle" class="stage-label">INFER</text>
+
+  <path d="M 340 80 L 380 80" class="arrow"/>
+
+  <rect x="380" y="65" width="140" height="30" rx="6" class="stage-box"/>
+  <text x="450" y="85" text-anchor="middle" class="stage-label">PROPAGATE</text>
+
+  <path d="M 520 80 L 560 80" class="arrow"/>
+
+  <rect x="560" y="65" width="120" height="30" rx="6" class="stage-box"/>
+  <text x="620" y="85" text-anchor="middle" class="stage-label">SELECT</text>
+
+  <path d="M 680 80 L 720 80" class="arrow"/>
+
+  <rect x="720" y="65" width="130" height="30" rx="6" class="stage-box"/>
+  <text x="785" y="85" text-anchor="middle" class="stage-label">LLM Prompt</text>
+
+  <!-- Reaches LLM (green) -->
+  <text x="60" y="125" class="stage-label">Reaches the LLM</text>
+
+  <rect x="30" y="138" width="190" height="24" rx="4" class="reaches"/>
+  <text x="125" y="154" text-anchor="middle" class="item-text">Personality facet origins</text>
+
+  <rect x="30" y="168" width="190" height="24" rx="4" class="reaches"/>
+  <text x="125" y="184" text-anchor="middle" class="item-text">Attachment style</text>
+
+  <rect x="30" y="198" width="190" height="24" rx="4" class="reaches"/>
+  <text x="125" y="214" text-anchor="middle" class="item-text">Beliefs (with LLM revision)</text>
+
+  <rect x="30" y="228" width="190" height="24" rx="4" class="reaches"/>
+  <text x="125" y="244" text-anchor="middle" class="item-text">Norms (context-filtered)</text>
+
+  <rect x="30" y="258" width="190" height="24" rx="4" class="reaches"/>
+  <text x="125" y="274" text-anchor="middle" class="item-text">Goals</text>
+
+  <!-- Dead ends (red) -->
+  <text x="340" y="125" class="stage-label">Dies in transit</text>
+
+  <rect x="290" y="138" width="260" height="24" rx="4" class="dead"/>
+  <text x="420" y="154" text-anchor="middle" class="item-text">CAPS behavioural attractors — section disabled</text>
+
+  <rect x="290" y="168" width="260" height="24" rx="4" class="dead"/>
+  <text x="420" y="184" text-anchor="middle" class="item-text">Formation memories — method never called</text>
+
+  <rect x="290" y="198" width="260" height="24" rx="4" class="dead"/>
+  <text x="420" y="214" text-anchor="middle" class="item-text">Disposition axes — seeder never called</text>
+
+  <rect x="290" y="228" width="260" height="24" rx="4" class="dead"/>
+  <text x="420" y="244" text-anchor="middle" class="item-text">Relationship overlays — seeder never called</text>
+
+  <rect x="290" y="258" width="260" height="24" rx="4" class="dead"/>
+  <text x="420" y="274" text-anchor="middle" class="item-text">Drives — no rendering path exists</text>
+
+  <rect x="290" y="288" width="260" height="24" rx="4" class="dead"/>
+  <text x="420" y="304" text-anchor="middle" class="item-text">AMPD facet scores — dropped silently</text>
+
+  <rect x="290" y="318" width="260" height="24" rx="4" class="dead"/>
+  <text x="420" y="334" text-anchor="middle" class="item-text">Drive adaptation — phase is no-op</text>
+
+  <rect x="290" y="348" width="260" height="24" rx="4" class="partial"/>
+  <text x="420" y="364" text-anchor="middle" class="item-text">Relational schemas — nearby agents only</text>
+
+  <rect x="290" y="378" width="260" height="24" rx="4" class="dead"/>
+  <text x="420" y="394" text-anchor="middle" class="item-text">Tendencies — empty for derived profiles</text>
+
+  <!-- Annotations -->
+  <text x="620" y="155" class="note">Each dead end had working code</text>
+  <text x="620" y="170" class="note">on both sides of the gap.</text>
+  <text x="620" y="195" class="note">The machinery existed.</text>
+  <text x="620" y="210" class="note">The wiring didn't.</text>
+
+  <text x="620" y="260" class="note">Fix: 5 method calls,</text>
+  <text x="620" y="275" class="note">1 config flag,</text>
+  <text x="620" y="290" class="note">1 new rendering section.</text>
+  <text x="620" y="315" class="note">Zero new prompt text.</text>
+
+  <!-- Legend -->
+  <rect x="250" y="430" width="14" height="14" rx="2" class="reaches"/>
+  <text x="270" y="442" class="note">Reaches the LLM (5 types)</text>
+
+  <rect x="420" y="430" width="14" height="14" rx="2" class="dead"/>
+  <text x="440" y="442" class="note">Dead end (8 types)</text>
+
+  <rect x="580" y="430" width="14" height="14" rx="2" class="partial"/>
+  <text x="600" y="442" class="note">Partial (1 type)</text>
+
+  <!-- Summary -->
+  <text x="440" y="480" text-anchor="middle" class="stage-label">The richest personality data — drives, memories, CAPS attractors, disposition — all hit dead ends.</text>
+  <text x="440" y="500" text-anchor="middle" class="note">The LLM only saw adjectives and context norms. Everything that makes a personality distinctive was invisible.</text>
+</svg>

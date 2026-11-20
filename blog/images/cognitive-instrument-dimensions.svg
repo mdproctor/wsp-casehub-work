@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 520" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <style>
+      .title { font-size: 16px; font-weight: 600; fill: #1a1a2e; }
+      .section-title { font-size: 13px; font-weight: 600; fill: #1a1a2e; }
+      .label { font-size: 12px; fill: #333; }
+      .score { font-size: 12px; font-weight: 600; }
+      .good { fill: #2d6a4f; }
+      .ok { fill: #e9a820; }
+      .low { fill: #9b2226; }
+      .na { fill: #aaa; }
+      .bar { rx: 2; ry: 2; }
+      .bar-bg { fill: #e8e8e8; rx: 2; ry: 2; }
+      .bar-fill-5 { fill: #2d6a4f; rx: 2; ry: 2; }
+      .bar-fill-4 { fill: #52b788; rx: 2; ry: 2; }
+      .bar-fill-3 { fill: #e9a820; rx: 2; ry: 2; }
+      .bar-fill-2 { fill: #e07a5f; rx: 2; ry: 2; }
+      .bar-fill-1 { fill: #9b2226; rx: 2; ry: 2; }
+      .divider { stroke: #ddd; stroke-width: 1; }
+      .box { rx: 6; ry: 6; fill: #f8f9fa; stroke: #dee2e6; stroke-width: 1; }
+    </style>
+  </defs>
+
+  <text x="360" y="28" text-anchor="middle" class="title">Comprehensive Cognitive Instrument — 8+8 Dimensions</text>
+
+  <!-- Per-drive section -->
+  <rect x="20" y="45" width="680" height="195" class="box"/>
+  <text x="40" y="68" class="section-title">Per-Drive Scores (4 dimensions × N drives)</text>
+
+  <!-- Headers -->
+  <text x="40" y="92" class="label" font-weight="600">Dimension</text>
+  <text x="280" y="92" class="label" font-weight="600">HC Solo</text>
+  <text x="370" y="92" class="label" font-weight="600">HC Crowd</text>
+  <text x="460" y="92" class="label" font-weight="600">DD Dialogue</text>
+  <text x="560" y="92" class="label" font-weight="600">DD Wounded</text>
+
+  <line x1="40" y1="98" x2="680" y2="98" class="divider"/>
+
+  <!-- Quality -->
+  <text x="40" y="118" class="label">Quality</text>
+  <text x="300" y="118" class="score good">4-5</text>
+  <text x="390" y="118" class="score good">4-5</text>
+  <text x="490" y="118" class="score good">4-5</text>
+  <text x="580" y="118" class="score good">4-5</text>
+
+  <!-- Differentiation -->
+  <text x="40" y="142" class="label">Differentiation</text>
+  <text x="300" y="142" class="score good">3-5</text>
+  <text x="390" y="142" class="score good">4-5</text>
+  <text x="490" y="142" class="score good">4-5</text>
+  <text x="580" y="142" class="score good">4-5</text>
+
+  <!-- Register -->
+  <text x="40" y="166" class="label">Register</text>
+  <text x="300" y="166" class="score good">5</text>
+  <text x="390" y="166" class="score good">4-5</text>
+  <text x="490" y="166" class="score good">5</text>
+  <text x="580" y="166" class="score good">5</text>
+
+  <!-- Relevance -->
+  <text x="40" y="190" class="label">Relevance</text>
+  <text x="300" y="190" class="score good">4/4</text>
+  <text x="390" y="190" class="score good">4/4</text>
+  <text x="490" y="190" class="score good">4/4</text>
+  <text x="580" y="190" class="label na">gloating ✓ suppressed</text>
+
+  <!-- Cognitive quality section -->
+  <rect x="20" y="255" width="680" height="250" class="box"/>
+  <text x="40" y="278" class="section-title">Cross-Cutting Cognitive Dimensions (8 holistic scores)</text>
+
+  <text x="40" y="302" class="label" font-weight="600">Dimension</text>
+  <text x="280" y="302" class="label" font-weight="600">HC Solo</text>
+  <text x="370" y="302" class="label" font-weight="600">HC Crowd</text>
+  <text x="460" y="302" class="label" font-weight="600">DD Kitchen</text>
+  <text x="560" y="302" class="label" font-weight="600">DD Wounded</text>
+
+  <line x1="40" y1="308" x2="680" y2="308" class="divider"/>
+
+  <text x="40" y="328" class="label">Channel coverage</text>
+  <text x="300" y="328" class="score good">5</text>
+  <text x="390" y="328" class="score good">5</text>
+  <text x="490" y="328" class="score good">5</text>
+  <text x="580" y="328" class="score good">5</text>
+
+  <text x="40" y="348" class="label">Attachment coloring</text>
+  <text x="300" y="348" class="score good">4</text>
+  <text x="390" y="348" class="score good">4</text>
+  <text x="490" y="348" class="score good">4</text>
+  <text x="580" y="348" class="score good">5</text>
+
+  <text x="40" y="368" class="label">Theory of mind</text>
+  <text x="300" y="368" class="score ok">3</text>
+  <text x="390" y="368" class="score good">5</text>
+  <text x="490" y="368" class="score good">4</text>
+  <text x="580" y="368" class="score good">5</text>
+
+  <text x="40" y="388" class="label">Formation echo</text>
+  <text x="300" y="388" class="score good">4</text>
+  <text x="390" y="388" class="score good">4</text>
+  <text x="490" y="388" class="score good">5</text>
+  <text x="580" y="388" class="score good">5</text>
+
+  <text x="40" y="408" class="label">Performance cost</text>
+  <text x="300" y="408" class="score good">4</text>
+  <text x="390" y="408" class="score good">5</text>
+  <text x="490" y="408" class="score ok">3</text>
+  <text x="580" y="408" class="score good">4</text>
+
+  <text x="40" y="428" class="label">Person-specific shifts</text>
+  <text x="300" y="428" class="score low">2</text>
+  <text x="390" y="428" class="score good">5</text>
+  <text x="490" y="428" class="score good">4</text>
+  <text x="580" y="428" class="score good">5</text>
+
+  <text x="40" y="448" class="label">Drive blending</text>
+  <text x="300" y="448" class="score good">4</text>
+  <text x="390" y="448" class="score good">4</text>
+  <text x="490" y="448" class="score good">4</text>
+  <text x="580" y="448" class="score good">4</text>
+
+  <text x="40" y="468" class="label">Spatial grounding</text>
+  <text x="300" y="468" class="score good">5</text>
+  <text x="390" y="468" class="score good">5</text>
+  <text x="490" y="468" class="score good">4</text>
+  <text x="580" y="468" class="score good">5</text>
+
+  <!-- Legend -->
+  <text x="40" y="500" class="label na">Scores: green ≥4 (pass) | amber =3 (borderline) | red ≤2 (correctly low — solo/no audience)</text>
+</svg>

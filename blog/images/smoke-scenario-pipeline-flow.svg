@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 400" font-family="'Segoe UI', system-ui, sans-serif">
+  <defs>
+    <linearGradient id="bg2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f8f9fa"/>
+      <stop offset="100%" style="stop-color:#e9ecef"/>
+    </linearGradient>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#495057"/>
+    </marker>
+  </defs>
+  <rect width="720" height="400" rx="8" fill="url(#bg2)"/>
+
+  <!-- Title -->
+  <text x="360" y="30" text-anchor="middle" font-size="15" font-weight="600" fill="#212529">What One Tick Does</text>
+
+  <!-- Tick loop label -->
+  <rect x="40" y="50" width="640" height="330" rx="8" fill="none" stroke="#adb5bd" stroke-width="1" stroke-dasharray="6,3"/>
+  <text x="56" y="68" font-size="11" fill="#868e96">× 25 ticks · 3 agents per tick</text>
+
+  <!-- Phase 1: Cognitive Tick -->
+  <rect x="60" y="85" width="160" height="70" rx="6" fill="#d0ebff" stroke="#339af0" stroke-width="1.5"/>
+  <text x="140" y="107" text-anchor="middle" font-size="12" font-weight="600" fill="#1864ab">Cognitive Tick</text>
+  <text x="140" y="123" text-anchor="middle" font-size="10" fill="#495057">Appraisal · Regulation</text>
+  <text x="140" y="137" text-anchor="middle" font-size="10" fill="#495057">Drives · Mood · MindMap</text>
+
+  <!-- Arrow 1→2 -->
+  <line x1="220" y1="120" x2="250" y2="120" stroke="#495057" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Phase 2: Render Observation -->
+  <rect x="250" y="85" width="160" height="70" rx="6" fill="#d3f9d8" stroke="#51cf66" stroke-width="1.5"/>
+  <text x="330" y="107" text-anchor="middle" font-size="12" font-weight="600" fill="#2b8a3e">Render Observation</text>
+  <text x="330" y="123" text-anchor="middle" font-size="10" fill="#495057">Beliefs · Drives · Norms</text>
+  <text x="330" y="137" text-anchor="middle" font-size="10" fill="#495057">Memories · Theory of Mind</text>
+
+  <!-- Arrow 2→3 -->
+  <line x1="410" y1="120" x2="440" y2="120" stroke="#495057" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Phase 3: LLM Query -->
+  <rect x="440" y="85" width="150" height="70" rx="6" fill="#fff3bf" stroke="#fab005" stroke-width="1.5"/>
+  <text x="515" y="107" text-anchor="middle" font-size="12" font-weight="600" fill="#e67700">LLM Query</text>
+  <text x="515" y="123" text-anchor="middle" font-size="10" fill="#495057">SessionPipeline</text>
+  <text x="515" y="137" text-anchor="middle" font-size="10" fill="#495057">Character response</text>
+
+  <!-- Arrow 3→4 -->
+  <line x1="515" y1="155" x2="515" y2="185" stroke="#495057" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Phase 4: Action Resolution -->
+  <rect x="440" y="185" width="150" height="55" rx="6" fill="#e5dbff" stroke="#7950f2" stroke-width="1.5"/>
+  <text x="515" y="207" text-anchor="middle" font-size="12" font-weight="600" fill="#5f3dc4">Action Resolution</text>
+  <text x="515" y="223" text-anchor="middle" font-size="10" fill="#495057">Move · Take · Interact</text>
+
+  <!-- Arrow 4→5 -->
+  <line x1="440" y1="212" x2="410" y2="212" stroke="#495057" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Phase 5: Record -->
+  <rect x="250" y="185" width="160" height="55" rx="6" fill="#ffe8cc" stroke="#fd7e14" stroke-width="1.5"/>
+  <text x="330" y="207" text-anchor="middle" font-size="12" font-weight="600" fill="#e8590c">Record Transcript</text>
+  <text x="330" y="223" text-anchor="middle" font-size="10" fill="#495057">classify_emotions.py format</text>
+
+  <!-- Arrow 5→6 -->
+  <line x1="250" y1="212" x2="220" y2="212" stroke="#495057" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Phase 6: Experience Ingest -->
+  <rect x="60" y="185" width="160" height="55" rx="6" fill="#ffd8d8" stroke="#fa5252" stroke-width="1.5"/>
+  <text x="140" y="207" text-anchor="middle" font-size="12" font-weight="600" fill="#c92a2a">Experience Ingest</text>
+  <text x="140" y="223" text-anchor="middle" font-size="10" fill="#495057">Memory · Reflection</text>
+
+  <!-- Loop arrow back to Cognitive Tick -->
+  <path d="M 100 240 L 100 268 Q 100 278 110 278 L 600 278 Q 610 278 610 268 L 610 155 L 610 85 Q 610 75 600 75 L 230 75 Q 220 75 220 85 L 220 85" stroke="#adb5bd" stroke-width="1.5" fill="none" stroke-dasharray="4,3" marker-end="url(#arr)"/>
+  <text x="400" y="295" text-anchor="middle" font-size="10" fill="#868e96">Next tick — MindMap evolved, memories accumulated</text>
+
+  <!-- Scripted Events -->
+  <rect x="60" y="310" width="280" height="55" rx="6" fill="#f1f3f5" stroke="#adb5bd" stroke-width="1"/>
+  <text x="200" y="330" text-anchor="middle" font-size="12" font-weight="500" fill="#495057">Scripted Events (6 beats)</text>
+  <text x="200" y="348" text-anchor="middle" font-size="10" fill="#868e96">Arrival → Discovery → Suspicion → Confrontation → Threat → Resolution</text>
+
+  <!-- LLM Judge -->
+  <rect x="380" y="310" width="280" height="55" rx="6" fill="#fff9db" stroke="#fab005" stroke-width="1"/>
+  <text x="520" y="330" text-anchor="middle" font-size="12" font-weight="500" fill="#e67700">LLM Judge (post-run)</text>
+  <text x="520" y="348" text-anchor="middle" font-size="10" fill="#868e96">15 sampled events · drive coherence 1-5 · mean ≥ 3.5</text>
+</svg>

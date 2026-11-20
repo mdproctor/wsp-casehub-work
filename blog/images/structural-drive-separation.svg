@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520">
+  <defs>
+    <style>
+      text { font-family: -apple-system, 'Segoe UI', sans-serif; }
+      .title { font-size: 14px; font-weight: 600; fill: #1a1a2e; }
+      .label { font-size: 11px; fill: #4a4a6a; }
+      .score { font-size: 13px; font-weight: 700; }
+      .score-bad { fill: #c0392b; }
+      .score-good { fill: #27ae60; }
+      .score-great { fill: #1a8a4a; }
+      .prose { font-size: 10px; fill: #5a5a7a; font-style: italic; }
+      .annotation { font-size: 10px; fill: #7a7a9a; }
+    </style>
+  </defs>
+
+  <!-- Column headers -->
+  <text x="130" y="30" class="title" text-anchor="middle">Flat Prose</text>
+  <text x="400" y="30" class="title" text-anchor="middle">Paragraph + Bold Anchor</text>
+  <text x="670" y="30" class="title" text-anchor="middle">Woven Thread</text>
+
+  <!-- Flat prose block -->
+  <rect x="20" y="50" width="220" height="340" rx="6" fill="#f5f0eb" stroke="#d4c5b5" stroke-width="1.5"/>
+  <rect x="30" y="60" width="200" height="40" rx="3" fill="#e8d5c4" opacity="0.6"/>
+  <text x="130" y="84" class="prose" text-anchor="middle">dominance + gloating + scheming</text>
+  <rect x="30" y="108" width="200" height="40" rx="3" fill="#e8d5c4" opacity="0.6"/>
+  <text x="130" y="132" class="prose" text-anchor="middle">all drives interleaved...</text>
+  <rect x="30" y="156" width="200" height="40" rx="3" fill="#e8d5c4" opacity="0.6"/>
+  <text x="130" y="180" class="prose" text-anchor="middle">...in one continuous block</text>
+  <rect x="30" y="204" width="200" height="40" rx="3" fill="#e8d5c4" opacity="0.6"/>
+  <text x="130" y="228" class="prose" text-anchor="middle">classifier can't segment</text>
+  <rect x="30" y="260" width="200" height="30" rx="3" fill="#fadbd8" stroke="#c0392b" stroke-width="1"/>
+  <text x="130" y="280" class="prose" text-anchor="middle">self-pres: generic monitoring</text>
+
+  <text x="130" y="330" class="label" text-anchor="middle">Gloating D = 3.0–3.5</text>
+  <text x="130" y="348" class="label" text-anchor="middle">Self-pres Q = 4.1</text>
+  <text x="130" y="370" class="score score-bad" text-anchor="middle">D stuck below 4.0</text>
+
+  <!-- Paragraph + bold anchor -->
+  <rect x="280" y="50" width="240" height="340" rx="6" fill="#eef5ee" stroke="#b5d4b5" stroke-width="1.5"/>
+  <rect x="290" y="60" width="220" height="55" rx="3" fill="#c8e6c8" stroke="#27ae60" stroke-width="1.5"/>
+  <text x="300" y="78" class="prose" font-weight="700">**My spine settles**</text>
+  <text x="300" y="95" class="prose">dominance paragraph</text>
+
+  <rect x="290" y="125" width="220" height="55" rx="3" fill="#d5f0d5" stroke="#27ae60" stroke-width="1.5"/>
+  <text x="300" y="143" class="prose" font-weight="700">**Behind my sternum**</text>
+  <text x="300" y="160" class="prose">gloating paragraph + contrast</text>
+
+  <rect x="290" y="190" width="220" height="55" rx="3" fill="#c8e6c8" stroke="#27ae60" stroke-width="1.5"/>
+  <text x="300" y="208" class="prose" font-weight="700">**My weight shifts**</text>
+  <text x="300" y="225" class="prose">scheming paragraph</text>
+
+  <rect x="290" y="260" width="220" height="30" rx="3" fill="#fadbd8" stroke="#c0392b" stroke-width="1"/>
+  <text x="400" y="280" class="prose" text-anchor="middle">self-pres: own paragraph</text>
+
+  <text x="400" y="330" class="label" text-anchor="middle">Gloating D = 4.8–5.0</text>
+  <text x="400" y="348" class="label" text-anchor="middle">Self-pres Q = 3.9</text>
+  <text x="400" y="370" class="score score-good" text-anchor="middle">D fixed, Q dropped</text>
+
+  <!-- Woven thread -->
+  <rect x="550" y="50" width="240" height="340" rx="6" fill="#eeeef8" stroke="#b5b5d8" stroke-width="1.5"/>
+
+  <rect x="560" y="60" width="220" height="65" rx="3" fill="#d0d0f0" stroke="#6a6aaa" stroke-width="1.5"/>
+  <text x="570" y="78" class="prose" font-weight="700">**My spine settles**</text>
+  <text x="570" y="95" class="prose">dominance paragraph</text>
+  <text x="570" y="110" class="prose" fill="#c0392b">...ears reading the silence</text>
+
+  <rect x="560" y="135" width="220" height="65" rx="3" fill="#d8d8f4" stroke="#6a6aaa" stroke-width="1.5"/>
+  <text x="570" y="153" class="prose" font-weight="700">**Behind my sternum**</text>
+  <text x="570" y="170" class="prose">gloating paragraph + contrast</text>
+  <text x="570" y="185" class="prose" fill="#c0392b">...hearing holds the door</text>
+
+  <rect x="560" y="210" width="220" height="65" rx="3" fill="#d0d0f0" stroke="#6a6aaa" stroke-width="1.5"/>
+  <text x="570" y="228" class="prose" font-weight="700">**My weight shifts**</text>
+  <text x="570" y="245" class="prose">scheming paragraph</text>
+  <text x="570" y="260" class="prose" fill="#c0392b">...awareness confirming</text>
+
+  <text x="560" y="300" class="annotation">No self-pres paragraph.</text>
+  <text x="560" y="314" class="annotation">Self-pres woven as subordinate</text>
+  <text x="560" y="328" class="annotation">clauses in every paragraph.</text>
+
+  <text x="670" y="360" class="label" text-anchor="middle">Gloating D = 4.0–4.5</text>
+  <text x="670" y="378" class="label" text-anchor="middle">Self-pres Q = 4.0</text>
+  <text x="670" y="400" class="score score-great" text-anchor="middle">Both above 4.0</text>
+
+  <!-- Arrows -->
+  <path d="M 245 220 L 275 220" stroke="#888" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <path d="M 525 220 L 545 220" stroke="#888" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="#888"/>
+    </marker>
+  </defs>
+
+  <!-- Bottom summary -->
+  <text x="400" y="470" class="title" text-anchor="middle">The structural progression: how format changes what a classifier sees</text>
+  <text x="400" y="492" class="annotation" text-anchor="middle">Red text = self-preservation woven as subordinate clauses (the pervasive drive pattern)</text>
+  <text x="400" y="508" class="annotation" text-anchor="middle">Bold anchors = body-location markers that signal drive boundaries to the classifier</text>
+</svg>

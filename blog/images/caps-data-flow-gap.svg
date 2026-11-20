@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 800 520" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="520" fill="#1a1b26" rx="8"/>
+
+  <defs>
+    <marker id="arrRed" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10" fill="none" stroke="#f7768e" stroke-width="1.5"/>
+    </marker>
+    <marker id="arrGreen" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10" fill="none" stroke="#9ece6a" stroke-width="1.5"/>
+    </marker>
+    <marker id="arrDim" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10" fill="none" stroke="#565f89" stroke-width="1.5"/>
+    </marker>
+    <marker id="arrBlue" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10" fill="none" stroke="#7aa2f7" stroke-width="1.5"/>
+    </marker>
+  </defs>
+
+  <!-- ===== BEFORE (top half) ===== -->
+  <text x="400" y="30" text-anchor="middle" fill="#f7768e" font-family="sans-serif" font-size="14" font-weight="bold">BEFORE — biographical patterns are inert</text>
+
+  <!-- LLM Enrichment -->
+  <rect x="30" y="55" width="150" height="44" rx="6" fill="#1a1b26" stroke="#7aa2f7" stroke-width="1.5"/>
+  <text x="105" y="73" text-anchor="middle" fill="#7aa2f7" font-family="sans-serif" font-size="11" font-weight="bold">LLM Enrichment</text>
+  <text x="105" y="88" text-anchor="middle" fill="#565f89" font-family="sans-serif" font-size="9">free-form terms</text>
+
+  <!-- Arrow -->
+  <path d="M 180 77 L 218 77" fill="none" stroke="#7aa2f7" stroke-width="1.5" marker-end="url(#arrBlue)"/>
+
+  <!-- Narrative Pattern -->
+  <rect x="225" y="55" width="200" height="44" rx="6" fill="#1a1b26" stroke="#e0af68" stroke-width="1.5"/>
+  <text x="325" y="73" text-anchor="middle" fill="#e0af68" font-family="sans-serif" font-size="10" font-weight="bold">CapsPattern</text>
+  <text x="325" y="88" text-anchor="middle" fill="#565f89" font-family="sans-serif" font-size="9">pattern: "betrayal → ..."</text>
+
+  <!-- Arrow -->
+  <path d="M 425 77 L 463 77" fill="none" stroke="#e0af68" stroke-width="1.5" marker-end="url(#arrDim)"/>
+
+  <!-- Flat Properties -->
+  <rect x="470" y="55" width="180" height="44" rx="6" fill="#1a1b26" stroke="#565f89" stroke-width="1.5"/>
+  <text x="560" y="73" text-anchor="middle" fill="#565f89" font-family="sans-serif" font-size="10" font-weight="bold">MindMap Node Props</text>
+  <text x="560" y="88" text-anchor="middle" fill="#414868" font-family="sans-serif" font-size="9">caps-pattern-0-pattern=...</text>
+
+  <!-- Dead end X -->
+  <path d="M 650 77 L 688 77" fill="none" stroke="#565f89" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="710" y="82" text-anchor="middle" fill="#f7768e" font-family="sans-serif" font-size="18" font-weight="bold">&#x2717;</text>
+
+  <!-- CAPS Engine (unreached) -->
+  <rect x="600" y="120" width="170" height="44" rx="6" fill="#1a1b26" stroke="#414868" stroke-width="1" stroke-dasharray="4 3"/>
+  <text x="685" y="138" text-anchor="middle" fill="#414868" font-family="sans-serif" font-size="10">CapsEngine</text>
+  <text x="685" y="153" text-anchor="middle" fill="#414868" font-family="sans-serif" font-size="9">never called</text>
+
+  <!-- Agent State (blank) -->
+  <rect x="600" y="180" width="170" height="44" rx="6" fill="#1a1b26" stroke="#414868" stroke-width="1" stroke-dasharray="4 3"/>
+  <text x="685" y="198" text-anchor="middle" fill="#414868" font-family="sans-serif" font-size="10">AgentCapsState</text>
+  <text x="685" y="213" text-anchor="middle" fill="#414868" font-family="sans-serif" font-size="9">blank slate every run</text>
+
+  <!-- Divider -->
+  <line x1="20" y1="250" x2="780" y2="250" stroke="#414868" stroke-width="1" stroke-dasharray="6 4"/>
+
+  <!-- ===== AFTER (bottom half) ===== -->
+  <text x="400" y="280" text-anchor="middle" fill="#9ece6a" font-family="sans-serif" font-size="14" font-weight="bold">AFTER — biographical patterns seed connection weights</text>
+
+  <!-- LLM Enrichment (constrained) -->
+  <rect x="30" y="305" width="150" height="54" rx="6" fill="#1a1b26" stroke="#7aa2f7" stroke-width="1.5"/>
+  <text x="105" y="323" text-anchor="middle" fill="#7aa2f7" font-family="sans-serif" font-size="11" font-weight="bold">LLM Enrichment</text>
+  <text x="105" y="338" text-anchor="middle" fill="#9ece6a" font-family="sans-serif" font-size="9">constrained to</text>
+  <text x="105" y="350" text-anchor="middle" fill="#9ece6a" font-family="sans-serif" font-size="9">30 topology node IDs</text>
+
+  <!-- Arrow -->
+  <path d="M 180 332 L 218 332" fill="none" stroke="#9ece6a" stroke-width="1.5" marker-end="url(#arrGreen)"/>
+
+  <!-- CapsPattern (enriched) -->
+  <rect x="225" y="300" width="200" height="64" rx="6" fill="#1a1b26" stroke="#9ece6a" stroke-width="1.5"/>
+  <text x="325" y="318" text-anchor="middle" fill="#9ece6a" font-family="sans-serif" font-size="10" font-weight="bold">CapsPattern</text>
+  <text x="325" y="333" text-anchor="middle" fill="#c0caf5" font-family="sans-serif" font-size="9">pattern: "betrayal → ..."</text>
+  <text x="325" y="348" text-anchor="middle" fill="#9ece6a" font-family="sans-serif" font-size="9" font-weight="bold">inputActivations:</text>
+  <text x="325" y="358" text-anchor="middle" fill="#9ece6a" font-family="sans-serif" font-size="8">{betrayal: 0.9, abandonment: 0.6}</text>
+
+  <!-- Arrow -->
+  <path d="M 425 332 L 463 332" fill="none" stroke="#9ece6a" stroke-width="1.5" marker-end="url(#arrGreen)"/>
+
+  <!-- EntityEnrichmentHandler -->
+  <rect x="470" y="305" width="140" height="54" rx="6" fill="#1a1b26" stroke="#e0af68" stroke-width="1.5"/>
+  <text x="540" y="323" text-anchor="middle" fill="#e0af68" font-family="sans-serif" font-size="10" font-weight="bold">Handler</text>
+  <text x="540" y="338" text-anchor="middle" fill="#c0caf5" font-family="sans-serif" font-size="8">initializeAgent()</text>
+  <text x="540" y="351" text-anchor="middle" fill="#c0caf5" font-family="sans-serif" font-size="8">updateWeights() ×N</text>
+
+  <!-- Arrow -->
+  <path d="M 610 332 L 638 332" fill="none" stroke="#9ece6a" stroke-width="1.5" marker-end="url(#arrGreen)"/>
+
+  <!-- CapsEngine -->
+  <rect x="645" y="305" width="130" height="54" rx="6" fill="#1a1b26" stroke="#9ece6a" stroke-width="2"/>
+  <text x="710" y="323" text-anchor="middle" fill="#9ece6a" font-family="sans-serif" font-size="11" font-weight="bold">CapsEngine</text>
+  <text x="710" y="340" text-anchor="middle" fill="#c0caf5" font-family="sans-serif" font-size="9">Hebbian learning</text>
+  <text x="710" y="353" text-anchor="middle" fill="#c0caf5" font-family="sans-serif" font-size="9">weight update</text>
+
+  <!-- Arrow down -->
+  <path d="M 710 359 L 710 390" fill="none" stroke="#9ece6a" stroke-width="1.5" marker-end="url(#arrGreen)"/>
+
+  <!-- AgentCapsState (seeded) -->
+  <rect x="620" y="395" width="180" height="54" rx="6" fill="#1a1b26" stroke="#bb9af7" stroke-width="2"/>
+  <text x="710" y="413" text-anchor="middle" fill="#bb9af7" font-family="sans-serif" font-size="11" font-weight="bold">AgentCapsState</text>
+  <text x="710" y="428" text-anchor="middle" fill="#c0caf5" font-family="sans-serif" font-size="9">biographical weights</text>
+  <text x="710" y="441" text-anchor="middle" fill="#c0caf5" font-family="sans-serif" font-size="9">shape first settling</text>
+
+  <!-- Disposition arrow into handler -->
+  <rect x="340" y="400" width="140" height="40" rx="6" fill="#1a1b26" stroke="#bb9af7" stroke-width="1.5"/>
+  <text x="410" y="418" text-anchor="middle" fill="#bb9af7" font-family="sans-serif" font-size="10" font-weight="bold">DispositionAxes</text>
+  <text x="410" y="432" text-anchor="middle" fill="#565f89" font-family="sans-serif" font-size="8">cooperative, bold, ...</text>
+  <path d="M 480 410 Q 520 370 540 359" fill="none" stroke="#bb9af7" stroke-width="1.2" marker-end="url(#arrDim)"/>
+
+  <!-- Caption -->
+  <text x="400" y="490" text-anchor="middle" fill="#565f89" font-family="sans-serif" font-size="11">Disposition provides the temperament baseline. Biography seeds the learned patterns.</text>
+  <text x="400" y="507" text-anchor="middle" fill="#565f89" font-family="sans-serif" font-size="11">Both feed the same weight matrix through different mechanisms.</text>
+</svg>

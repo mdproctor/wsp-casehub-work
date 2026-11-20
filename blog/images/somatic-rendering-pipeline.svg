@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 360" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <style>
+      .box { rx: 8; ry: 8; stroke-width: 2; }
+      .box-label { font-size: 12px; font-weight: 600; fill: #1a1a2e; }
+      .box-detail { font-size: 10px; fill: #555; }
+      .arrow { stroke: #94a3b8; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+      .phase-label { font-size: 10px; fill: #94a3b8; font-weight: 600; letter-spacing: 1px; }
+      .example { font-size: 10px; fill: #059669; font-family: 'SF Mono', 'Fira Code', monospace; }
+      .vs { font-size: 11px; fill: #dc2626; font-weight: 600; }
+    </style>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#94a3b8"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="360" y="28" text-anchor="middle" font-size="16" font-weight="700" fill="#1a1a2e">From Drive Data to Somatic Prose</text>
+
+  <!-- Phase labels -->
+  <text x="110" y="58" text-anchor="middle" class="phase-label">CONSOLIDATION</text>
+  <text x="350" y="58" text-anchor="middle" class="phase-label">RENDER-TIME</text>
+  <text x="590" y="58" text-anchor="middle" class="phase-label">LLM OUTPUT</text>
+
+  <!-- Phase dividers -->
+  <line x1="230" y1="48" x2="230" y2="240" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+  <line x1="470" y1="48" x2="470" y2="240" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+
+  <!-- Box 1: Drive Data -->
+  <rect x="20" y="70" width="180" height="65" class="box" fill="#fef3c7" stroke="#d97706"/>
+  <text x="110" y="92" text-anchor="middle" class="box-label">P22: Description Generation</text>
+  <text x="110" y="108" text-anchor="middle" class="box-detail">Body territory constraint</text>
+  <text x="110" y="121" text-anchor="middle" class="box-detail">Channel emphasis + contrast</text>
+
+  <!-- Arrow 1 -->
+  <path d="M 200 102 L 240 102" class="arrow"/>
+
+  <!-- Box 2: Generated Description -->
+  <rect x="245" y="70" width="220" height="65" class="box" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="355" y="92" text-anchor="middle" class="box-label">Body-Location Anchored Prompt</text>
+  <text x="355" y="108" text-anchor="middle" class="example">**sternum, breastbone** — GLOATING</text>
+  <text x="355" y="121" text-anchor="middle" class="example">Behind your sternum, warmth pools...</text>
+
+  <!-- Arrow 2 -->
+  <path d="M 465 102 L 480 102" class="arrow"/>
+
+  <!-- Box 3: LLM Thinking -->
+  <rect x="485" y="70" width="220" height="65" class="box" fill="#dcfce7" stroke="#16a34a"/>
+  <text x="595" y="92" text-anchor="middle" class="box-label">Character Thinking (target)</text>
+  <text x="595" y="108" text-anchor="middle" class="example">My chest settles into that</text>
+  <text x="595" y="121" text-anchor="middle" class="example">architectural stillness...</text>
+
+  <!-- Bottom comparison -->
+  <rect x="20" y="175" width="680" height="80" rx="10" ry="10" fill="#fef2f2" stroke="#fca5a5" stroke-width="1"/>
+  <text x="360" y="198" text-anchor="middle" font-size="12" font-weight="600" fill="#991b1b">The Compliance Gap</text>
+
+  <text x="40" y="220" font-size="11" fill="#555" font-weight="600">Prompt says:</text>
+  <text x="140" y="220" font-size="10" fill="#059669" font-family="'SF Mono', monospace">"give each pull its own paragraph starting with its bold body-location anchor"</text>
+
+  <text x="40" y="240" font-size="11" fill="#555" font-weight="600">LLM writes:</text>
+  <text x="140" y="240" font-size="10" fill="#dc2626" font-family="'SF Mono', monospace">"The entrance hall. Dusty, grand, full of people I need to manage."</text>
+
+  <!-- Register trajectory -->
+  <text x="360" y="290" text-anchor="middle" font-size="13" font-weight="600" fill="#1a1a2e">Register Recovery</text>
+
+  <!-- Simple bar chart -->
+  <rect x="100" y="305" width="106" height="20" rx="4" fill="#fecaca"/>
+  <text x="95" y="319" text-anchor="end" font-size="10" fill="#555">Era 5 baseline</text>
+  <text x="210" y="319" font-size="10" font-weight="600" fill="#991b1b">3.13</text>
+
+  <rect x="100" y="330" width="133" height="20" rx="4" fill="#fed7aa"/>
+  <text x="95" y="344" text-anchor="end" font-size="10" fill="#555">+ body anchors</text>
+  <text x="237" y="344" font-size="10" font-weight="600" fill="#92400e">3.33</text>
+
+  <rect x="100" y="355" width="147" height="20" rx="4" fill="#bbf7d0"/>
+  <text x="95" y="369" text-anchor="end" font-size="10" fill="#555">+ contrast verbs</text>
+  <text x="251" y="369" font-size="10" font-weight="600" fill="#166534">3.47</text>
+
+  <!-- Golden target marker -->
+  <line x1="520" y1="300" x2="520" y2="380" stroke="#d97706" stroke-width="2" stroke-dasharray="6 3"/>
+  <text x="524" y="312" font-size="10" font-weight="600" fill="#d97706">Golden: 4.20</text>
+</svg>

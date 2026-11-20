@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 320" font-family="'Segoe UI', system-ui, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f8f9fa"/>
+      <stop offset="100%" style="stop-color:#e9ecef"/>
+    </linearGradient>
+  </defs>
+  <rect width="720" height="320" rx="8" fill="url(#bg)"/>
+
+  <!-- Title -->
+  <text x="360" y="32" text-anchor="middle" font-size="15" font-weight="600" fill="#212529">The Testing Landscape</text>
+
+  <!-- Axis labels -->
+  <text x="360" y="296" text-anchor="middle" font-size="11" fill="#868e96">Pipeline Fidelity →</text>
+  <text x="24" y="170" text-anchor="middle" font-size="11" fill="#868e96" transform="rotate(-90 24 170)">Runtime →</text>
+
+  <!-- Grid line -->
+  <line x1="60" y1="270" x2="690" y2="270" stroke="#dee2e6" stroke-width="1"/>
+  <line x1="60" y1="270" x2="60" y2="50" stroke="#dee2e6" stroke-width="1"/>
+
+  <!-- Unit tests box -->
+  <rect x="80" y="220" width="140" height="40" rx="6" fill="#d0ebff" stroke="#339af0" stroke-width="1.5"/>
+  <text x="150" y="237" text-anchor="middle" font-size="12" font-weight="500" fill="#1864ab">Unit Tests</text>
+  <text x="150" y="253" text-anchor="middle" font-size="10" fill="#495057">Stubs · ~30s · 712 tests</text>
+
+  <!-- Pipeline coherence box -->
+  <rect x="230" y="200" width="140" height="40" rx="6" fill="#d3f9d8" stroke="#51cf66" stroke-width="1.5"/>
+  <text x="300" y="217" text-anchor="middle" font-size="12" font-weight="500" fill="#2b8a3e">Coherence Eval</text>
+  <text x="300" y="233" text-anchor="middle" font-size="10" fill="#495057">Counting stub · ~2 min</text>
+
+  <!-- GAP annotation -->
+  <rect x="370" y="110" width="120" height="60" rx="20" fill="#fff3bf" stroke="#fab005" stroke-width="2" stroke-dasharray="6,3"/>
+  <text x="430" y="137" text-anchor="middle" font-size="13" font-weight="600" fill="#e67700">THE GAP</text>
+  <text x="430" y="155" text-anchor="middle" font-size="10" fill="#495057">No real pipeline test</text>
+
+  <!-- Smoke scenario box (filled gap) -->
+  <rect x="380" y="120" width="140" height="50" rx="6" fill="#ffe066" stroke="#fab005" stroke-width="2" opacity="0"/>
+  <rect x="508" y="130" width="150" height="50" rx="6" fill="#fff9db" stroke="#fab005" stroke-width="2"/>
+  <text x="583" y="150" text-anchor="middle" font-size="12" font-weight="600" fill="#e67700">Smoke Scenario</text>
+  <text x="583" y="166" text-anchor="middle" font-size="10" fill="#495057">Real pipeline · ~45 min</text>
+
+  <!-- 300-tick box -->
+  <rect x="560" y="65" width="120" height="40" rx="6" fill="#e5dbff" stroke="#7950f2" stroke-width="1.5"/>
+  <text x="620" y="82" text-anchor="middle" font-size="12" font-weight="500" fill="#5f3dc4">300-Tick Run</text>
+  <text x="620" y="98" text-anchor="middle" font-size="10" fill="#495057">Full scenario · ~4 hrs</text>
+
+  <!-- Arrow from gap to smoke -->
+  <path d="M 490 140 L 508 145" stroke="#fab005" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#fab005"/>
+    </marker>
+  </defs>
+</svg>

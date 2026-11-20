@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#555"/>
+    </marker>
+    <marker id="arrow-blue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#2563eb"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="400" y="30" text-anchor="middle" font-size="16" font-weight="bold" fill="#1a1a1a">Cognitive Pipeline — Coping Layer Position</text>
+
+  <!-- Appraisal box -->
+  <rect x="50" y="60" width="220" height="80" rx="8" fill="#f0f4ff" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="160" y="85" text-anchor="middle" font-size="13" font-weight="600" fill="#1e293b">Scherer Appraisal</text>
+  <text x="160" y="103" text-anchor="middle" font-size="10" fill="#64748b">4 SEC checks: relevance,</text>
+  <text x="160" y="116" text-anchor="middle" font-size="10" fill="#64748b">implication, coping, normative</text>
+  <text x="160" y="131" text-anchor="middle" font-size="10" fill="#64748b">Produces: emotions + SEC dimensions</text>
+
+  <!-- Arrow down -->
+  <line x1="160" y1="140" x2="160" y2="168" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Safety Gate -->
+  <rect x="80" y="170" width="160" height="36" rx="6" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+  <text x="160" y="192" text-anchor="middle" font-size="11" font-weight="500" fill="#92400e">Pre-Coping Safety Gate</text>
+
+  <!-- Arrow down -->
+  <line x1="160" y1="206" x2="160" y2="234" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- COPING MICRO-LOOP - the new layer -->
+  <rect x="30" y="236" width="340" height="180" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2.5" stroke-dasharray="none"/>
+  <text x="200" y="258" text-anchor="middle" font-size="14" font-weight="700" fill="#1d4ed8">COPING MICRO-LOOP (NEW)</text>
+
+  <!-- Inner loop steps -->
+  <rect x="50" y="270" width="140" height="32" rx="5" fill="#dbeafe" stroke="#60a5fa" stroke-width="1"/>
+  <text x="120" y="290" text-anchor="middle" font-size="10" fill="#1e40af">CAPS Attractor</text>
+
+  <rect x="210" y="270" width="140" height="32" rx="5" fill="#dbeafe" stroke="#60a5fa" stroke-width="1"/>
+  <text x="280" y="290" text-anchor="middle" font-size="10" fill="#1e40af">Strategy Predictor</text>
+
+  <rect x="50" y="314" width="300" height="32" rx="5" fill="#bfdbfe" stroke="#3b82f6" stroke-width="1"/>
+  <text x="200" y="334" text-anchor="middle" font-size="10" font-weight="600" fill="#1e40af">LLM: Select Strategy + Reinterpret Narrative</text>
+
+  <rect x="50" y="358" width="300" height="32" rx="5" fill="#dbeafe" stroke="#60a5fa" stroke-width="1"/>
+  <text x="200" y="378" text-anchor="middle" font-size="10" fill="#1e40af">Keyword SEC Re-evaluation + Convergence Check</text>
+
+  <!-- Loop arrow -->
+  <path d="M355,378 Q380,378 380,334 Q380,290 355,290" fill="none" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+  <text x="388" y="338" font-size="9" fill="#2563eb" transform="rotate(90,388,338)">iterate</text>
+
+  <!-- Arrow down from coping -->
+  <line x1="200" y1="416" x2="200" y2="444" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Regulation Execution -->
+  <rect x="440" y="290" width="220" height="70" rx="8" fill="#f0fdf4" stroke="#86efac" stroke-width="1.5"/>
+  <text x="550" y="315" text-anchor="middle" font-size="13" font-weight="600" fill="#166534">Regulation Execution</text>
+  <text x="550" y="333" text-anchor="middle" font-size="10" fill="#4ava6b">Receives coping strategy</text>
+  <text x="550" y="346" text-anchor="middle" font-size="10" fill="#4ava6b">Executes HOW, not WHAT</text>
+
+  <!-- Arrow from coping to regulation -->
+  <line x1="370" y1="340" x2="435" y2="325" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="398" y="322" font-size="9" fill="#64748b">regulation-</text>
+  <text x="398" y="332" font-size="9" fill="#64748b">routed</text>
+
+  <!-- Direct effects box -->
+  <rect x="440" y="380" width="220" height="56" rx="8" fill="#fdf4ff" stroke="#d8b4fe" stroke-width="1.5"/>
+  <text x="550" y="402" text-anchor="middle" font-size="13" font-weight="600" fill="#6b21a8">Direct Effects</text>
+  <text x="550" y="420" text-anchor="middle" font-size="10" fill="#7e22ce">Goals, drives, attention</text>
+
+  <!-- Arrow from coping to direct -->
+  <line x1="370" y1="380" x2="435" y2="400" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="398" y="398" font-size="9" fill="#64748b">direct</text>
+
+  <!-- Dispatch box -->
+  <rect x="120" y="446" width="340" height="50" rx="8" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="290" y="468" text-anchor="middle" font-size="12" font-weight="500" fill="#334155">Dispatch: Drive Modulation + Goal Lifecycle + CAPS Update</text>
+  <text x="290" y="484" text-anchor="middle" font-size="10" fill="#64748b">Accumulated effects dispatched after convergence</text>
+
+  <!-- Legend -->
+  <rect x="580" y="60" width="12" height="12" rx="2" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+  <text x="598" y="71" font-size="10" fill="#334155">New (this work)</text>
+  <rect x="580" y="80" width="12" height="12" rx="2" fill="#f0f4ff" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="598" y="91" font-size="10" fill="#334155">Existing (modified)</text>
+  <rect x="580" y="100" width="12" height="12" rx="2" fill="#f0fdf4" stroke="#86efac" stroke-width="1.5"/>
+  <text x="598" y="111" font-size="10" fill="#334155">Existing (refactored)</text>
+</svg>

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 800 480" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="480" fill="#1a1b26" rx="8"/>
+
+  <!--
+    Pyramid geometry: apex (400, 50), base-left (70, 430), base-right (730, 430)
+    Left edge:  x = 70 + 330 * (430 - y) / 380
+    Right edge: x = 730 - 330 * (430 - y) / 380
+    5 tiers, 76px each: y = 430, 354, 278, 202, 126, 50
+  -->
+
+  <!-- Tier 1: SAFETY (y=430 to y=354) -->
+  <polygon points="70,430 730,430 673,354 127,354"
+           fill="#f7768e" fill-opacity="0.15" stroke="#f7768e" stroke-width="1.5"/>
+
+  <!-- Tier 2: TASKS (y=354 to y=278) -->
+  <polygon points="127,354 673,354 616,278 184,278"
+           fill="#ff9e64" fill-opacity="0.15" stroke="#ff9e64" stroke-width="1.5"/>
+
+  <!-- Tier 3: SOCIAL (y=278 to y=202) -->
+  <polygon points="184,278 616,278 559,202 241,202"
+           fill="#e0af68" fill-opacity="0.15" stroke="#e0af68" stroke-width="1.5"/>
+
+  <!-- Tier 4: SELF-EXPRESSION (y=202 to y=126) -->
+  <polygon points="241,202 559,202 502,126 298,126"
+           fill="#9ece6a" fill-opacity="0.15" stroke="#9ece6a" stroke-width="1.5"/>
+
+  <!-- Tier 5: UNDERSTANDING (y=126 to y=50) — apex triangle -->
+  <polygon points="298,126 502,126 400,50"
+           fill="#7aa2f7" fill-opacity="0.15" stroke="#7aa2f7" stroke-width="1.5"/>
+
+  <!-- Tier labels — centred vertically in each tier -->
+  <text x="400" y="398" text-anchor="middle" fill="#f7768e" font-family="sans-serif" font-size="15" font-weight="bold">SAFETY</text>
+  <text x="400" y="322" text-anchor="middle" fill="#ff9e64" font-family="sans-serif" font-size="15" font-weight="bold">TASKS</text>
+  <text x="400" y="246" text-anchor="middle" fill="#e0af68" font-family="sans-serif" font-size="15" font-weight="bold">SOCIAL</text>
+  <text x="400" y="170" text-anchor="middle" fill="#9ece6a" font-family="sans-serif" font-size="13" font-weight="bold">SELF-EXPRESSION</text>
+  <text x="400" y="96" text-anchor="middle" fill="#7aa2f7" font-family="sans-serif" font-size="12" font-weight="bold">UNDERSTANDING</text>
+
+  <!-- Descriptions — right side, outside the pyramid -->
+  <text x="740" y="398" text-anchor="start" fill="#565f89" font-family="sans-serif" font-size="11">avoid threats</text>
+  <text x="682" y="322" text-anchor="start" fill="#565f89" font-family="sans-serif" font-size="11">duties, commitments</text>
+  <text x="624" y="246" text-anchor="start" fill="#565f89" font-family="sans-serif" font-size="11">trust, belonging</text>
+  <text x="566" y="170" text-anchor="start" fill="#565f89" font-family="sans-serif" font-size="11">identity, values</text>
+  <text x="510" y="96" text-anchor="start" fill="#565f89" font-family="sans-serif" font-size="11">curiosity, sense-making</text>
+
+  <!-- Decay rate arrow — left side -->
+  <line x1="40" y1="100" x2="40" y2="420" stroke="#565f89" stroke-width="1.5" marker-end="url(#arrowDown)"/>
+  <defs><marker id="arrowDown" viewBox="0 0 10 10" refX="5" refY="10" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 5 10 L 10 0" fill="none" stroke="#565f89" stroke-width="1.5"/></marker></defs>
+  <text x="38" y="90" text-anchor="middle" fill="#565f89" font-family="sans-serif" font-size="10">SLOW</text>
+  <text x="38" y="445" text-anchor="middle" fill="#565f89" font-family="sans-serif" font-size="10">FAST</text>
+  <text x="38" y="260" text-anchor="middle" fill="#565f89" font-family="sans-serif" font-size="10" transform="rotate(-90, 38, 260)">DECAY RATE</text>
+
+  <!-- Title -->
+  <text x="400" y="470" text-anchor="middle" fill="#c0caf5" font-family="sans-serif" font-size="13">Agent Needs Pyramid — simulation-pragmatic tiers</text>
+</svg>

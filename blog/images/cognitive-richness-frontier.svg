@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 440" font-family="'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif">
+  <defs>
+    <style>
+      .title { font-size: 15px; fill: #111827; font-weight: 700; }
+      .subtitle { font-size: 11px; fill: #9CA3AF; }
+      .section-label { font-size: 12px; fill: #374151; font-weight: 600; }
+      .done { fill: #059669; }
+      .done-text { font-size: 10px; fill: #fff; font-weight: 500; }
+      .open { fill: #DC2626; }
+      .open-text { font-size: 10px; fill: #fff; font-weight: 500; }
+      .frontier { fill: #7C3AED; }
+      .frontier-text { font-size: 10px; fill: #fff; font-weight: 500; }
+      .note { font-size: 10px; fill: #6B7280; }
+      .connector { stroke: #D1D5DB; stroke-width: 1; fill: none; }
+    </style>
+  </defs>
+
+  <text x="400" y="28" text-anchor="middle" class="title">Cognitive Agent Architecture — What's Done vs What Matters</text>
+  <text x="400" y="44" text-anchor="middle" class="subtitle">Issue archaeology: 60% of "open" structural work was already complete</text>
+
+  <!-- DONE column -->
+  <text x="120" y="80" text-anchor="middle" class="section-label">Done (pipeline plumbing)</text>
+
+  <rect x="20" y="95" width="200" height="28" rx="4" class="done"/>
+  <text x="120" y="113" text-anchor="middle" class="done-text">CAPS settling fix (#510)</text>
+
+  <rect x="20" y="130" width="200" height="28" rx="4" class="done"/>
+  <text x="120" y="148" text-anchor="middle" class="done-text">Pipeline tuning (#511)</text>
+
+  <rect x="20" y="165" width="200" height="28" rx="4" class="done"/>
+  <text x="120" y="183" text-anchor="middle" class="done-text">Constant externalization (#518/#519)</text>
+
+  <rect x="20" y="200" width="200" height="28" rx="4" class="done"/>
+  <text x="120" y="218" text-anchor="middle" class="done-text">Observability interfaces (#762)</text>
+
+  <rect x="20" y="235" width="200" height="28" rx="4" class="done"/>
+  <text x="120" y="253" text-anchor="middle" class="done-text">Async consolidation (#774)</text>
+
+  <rect x="20" y="270" width="200" height="28" rx="4" class="done"/>
+  <text x="120" y="288" text-anchor="middle" class="done-text">Experience recall (#738)</text>
+
+  <rect x="20" y="305" width="200" height="28" rx="4" class="done"/>
+  <text x="120" y="323" text-anchor="middle" class="done-text">Session clear (#689)</text>
+
+  <rect x="20" y="340" width="200" height="28" rx="4" class="done"/>
+  <text x="120" y="358" text-anchor="middle" class="done-text">Retriever integration (#750)</text>
+
+  <!-- Remaining structural -->
+  <text x="400" y="80" text-anchor="middle" class="section-label">Remaining (structural)</text>
+
+  <rect x="300" y="95" width="200" height="28" rx="4" class="open"/>
+  <text x="400" y="113" text-anchor="middle" class="open-text">Disposition modifiers (#783)</text>
+
+  <rect x="300" y="130" width="200" height="28" rx="4" class="open"/>
+  <text x="400" y="148" text-anchor="middle" class="open-text">Cache drift detection (#784)</text>
+
+  <text x="400" y="185" class="note">2 items — both S-scale, both planned</text>
+
+  <!-- Frontier -->
+  <text x="680" y="80" text-anchor="middle" class="section-label">Frontier (cognitive richness)</text>
+
+  <rect x="580" y="95" width="200" height="28" rx="4" class="frontier"/>
+  <text x="680" y="113" text-anchor="middle" class="frontier-text">Dynamic drive activation (#734)</text>
+
+  <rect x="580" y="130" width="200" height="28" rx="4" class="frontier"/>
+  <text x="680" y="148" text-anchor="middle" class="frontier-text">Cognitive dissonance (#593)</text>
+
+  <rect x="580" y="165" width="200" height="28" rx="4" class="frontier"/>
+  <text x="680" y="183" text-anchor="middle" class="frontier-text">Defence mechanisms (#604)</text>
+
+  <rect x="580" y="200" width="200" height="28" rx="4" class="frontier"/>
+  <text x="680" y="218" text-anchor="middle" class="frontier-text">Narrative identity (#599)</text>
+
+  <rect x="580" y="235" width="200" height="28" rx="4" class="frontier"/>
+  <text x="680" y="253" text-anchor="middle" class="frontier-text">Shadow archetypes (#712)</text>
+
+  <text x="680" y="290" text-anchor="middle" class="note">These make characters think better,</text>
+  <text x="680" y="303" text-anchor="middle" class="note">not just speak better</text>
+
+  <!-- Arrows -->
+  <path d="M 220 200 Q 260 200 300 140" class="connector" stroke-dasharray="4,3"/>
+  <path d="M 500 130 Q 540 160 580 160" class="connector" stroke-dasharray="4,3"/>
+
+  <!-- Legend -->
+  <rect x="200" y="400" width="14" height="14" rx="2" class="done"/>
+  <text x="220" y="412" class="note">Complete</text>
+
+  <rect x="310" y="400" width="14" height="14" rx="2" class="open"/>
+  <text x="330" y="412" class="note">Remaining structural</text>
+
+  <rect x="470" y="400" width="14" height="14" rx="2" class="frontier"/>
+  <text x="490" y="412" class="note">Cognitive richness frontier</text>
+</svg>

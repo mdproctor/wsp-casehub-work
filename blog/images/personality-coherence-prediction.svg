@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 340">
+  <style>
+    text { font-family: -apple-system, 'Segoe UI', sans-serif; }
+    .title { font-size: 14px; font-weight: bold; fill: #1a1a2e; }
+    .label { font-size: 11px; fill: #333; }
+    .small { font-size: 10px; fill: #666; }
+    .score { font-size: 13px; font-weight: bold; }
+    .good { fill: #2d6a4f; }
+    .bad { fill: #9b2226; }
+    .neutral { fill: #666; }
+  </style>
+
+  <text x="360" y="24" text-anchor="middle" class="title">Personality Coherence Determines Prediction Quality</text>
+
+  <!-- Coherent column -->
+  <rect x="30" y="40" width="310" height="270" rx="8" fill="#e8f5e9" stroke="#2d6a4f" stroke-width="1.5"/>
+  <text x="185" y="62" text-anchor="middle" class="title good">Coherent Personalities</text>
+  <text x="185" y="78" text-anchor="middle" class="small">All signals point one direction</text>
+
+  <text x="50" y="105" class="label">Suppressor + ANGER → RM</text>
+  <text x="290" y="105" text-anchor="end" class="score good">4/5</text>
+
+  <text x="50" y="130" class="label">Reappraiser + ANGER → CC</text>
+  <text x="290" y="130" text-anchor="end" class="score good">5/5</text>
+
+  <text x="50" y="155" class="label">Reappraiser + REPROACH → CC</text>
+  <text x="290" y="155" text-anchor="end" class="score good">4/5</text>
+
+  <text x="50" y="180" class="label">Reappraiser + SHAME → CC</text>
+  <text x="290" y="180" text-anchor="end" class="score good">5/5</text>
+
+  <text x="50" y="205" class="label">Any personality + FEAR → AD</text>
+  <text x="290" y="205" text-anchor="end" class="score good">5/5</text>
+
+  <text x="185" y="240" text-anchor="middle" class="small">Floor: 4 · Mean: 4.6</text>
+  <text x="185" y="258" text-anchor="middle" class="small">Every prediction scores "good" or better</text>
+
+  <!-- Incoherent column -->
+  <rect x="380" y="40" width="310" height="270" rx="8" fill="#fce4ec" stroke="#9b2226" stroke-width="1.5"/>
+  <text x="535" y="62" text-anchor="middle" class="title bad">Incoherent Personalities</text>
+  <text x="535" y="78" text-anchor="middle" class="small">Mixed signals — avoidant BUT flexible</text>
+
+  <text x="400" y="105" class="label">Suppressor + SHAME → RM</text>
+  <text x="640" y="105" text-anchor="end" class="score bad">2/5</text>
+
+  <text x="400" y="130" class="label">Suppressor + SHAME → CC</text>
+  <text x="640" y="130" text-anchor="end" class="score bad">3/5</text>
+
+  <text x="400" y="155" class="label">Suppressor + SHAME → AD</text>
+  <text x="640" y="155" text-anchor="end" class="score bad">3/5</text>
+
+  <text x="400" y="180" class="label">Competitive+avoidant → RM</text>
+  <text x="640" y="180" text-anchor="end" class="score bad">3/5</text>
+
+  <text x="400" y="205" class="label">Competitive+avoidant → CC</text>
+  <text x="640" y="205" text-anchor="end" class="score bad">2/5</text>
+
+  <text x="535" y="240" text-anchor="middle" class="small">No strategy reliably scores 4+</text>
+  <text x="535" y="258" text-anchor="middle" class="small">These personalities fall through to LLM</text>
+
+  <text x="360" y="330" text-anchor="middle" class="small">Scores from LLM judge evaluating psychological appropriateness (Petter 2025 framework)</text>
+</svg>

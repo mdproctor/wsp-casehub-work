@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 380" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <style>
+      .title { font-size: 15px; font-weight: 600; fill: #1a1a2e; }
+      .tier-label { font-size: 13px; font-weight: 600; fill: #1a1a2e; }
+      .desc { font-size: 11px; fill: #444; }
+      .detail { font-size: 10px; fill: #666; }
+      .box { rx: 8; ry: 8; stroke-width: 1.5; }
+      .tier1 { fill: #e8f5e9; stroke: #81c784; }
+      .tier2 { fill: #e3f2fd; stroke: #64b5f6; }
+      .tier3 { fill: #fce4ec; stroke: #e57373; }
+      .logs { fill: #f5f5f5; stroke: #bbb; rx: 4; ry: 4; }
+      .arrow { fill: none; stroke: #888; stroke-width: 1.5; marker-end: url(#arrowhead); }
+      .arrow-label { font-size: 9px; fill: #888; }
+      .context-box { fill: #fff3e0; stroke: #ffb74d; rx: 6; ry: 6; stroke-width: 1.5; }
+    </style>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="#888"/>
+    </marker>
+  </defs>
+
+  <text x="350" y="24" text-anchor="middle" class="title">Three-Tier Context Memory After Reset</text>
+
+  <!-- LLM Context (what the character sees) -->
+  <rect x="30" y="45" width="200" height="120" class="context-box"/>
+  <text x="130" y="68" text-anchor="middle" class="tier-label">LLM Context</text>
+  <text x="130" y="85" text-anchor="middle" class="detail">(after clear)</text>
+  <text x="45" y="105" class="desc">1. Barrett instruction</text>
+  <text x="45" y="120" class="desc">2. P22 descriptions</text>
+  <text x="45" y="135" class="desc">3. Structured brief ←</text>
+  <text x="45" y="150" class="desc">4. Current scene</text>
+
+  <!-- Tier 1 -->
+  <rect x="280" y="45" width="390" height="80" class="box tier1"/>
+  <text x="475" y="68" text-anchor="middle" class="tier-label">Tier 1: Structured Brief</text>
+  <text x="295" y="88" class="desc">Who was where · Key events · Feelings · Active plans</text>
+  <text x="295" y="105" class="detail">Generated async during consolidation (Haiku) · In character voice</text>
+  <text x="295" y="118" class="detail">Compact enough for every clear · References anchor points in Tier 2</text>
+
+  <path d="M280,85 L235,110" class="arrow"/>
+  <text x="250" y="92" class="arrow-label">always</text>
+
+  <!-- Tier 2 -->
+  <rect x="280" y="145" width="390" height="80" class="box tier2"/>
+  <text x="475" y="168" text-anchor="middle" class="tier-label">Tier 2: RAG over Chat Logs</text>
+  <text x="295" y="188" class="desc">Windowed access · Query by time, room, person, entity</text>
+  <text x="295" y="205" class="detail">"What did Clara say in the library?" → returns just that window</text>
+  <text x="295" y="218" class="detail">Never pulls full conversation · Exposed as character tool</text>
+
+  <path d="M280,185 L235,150" class="arrow"/>
+  <text x="240" y="168" class="arrow-label">on demand</text>
+
+  <!-- Tier 3 -->
+  <rect x="280" y="245" width="390" height="80" class="box tier3"/>
+  <text x="475" y="268" text-anchor="middle" class="tier-label">Tier 3: Sub-Agent Deep Dive</text>
+  <text x="295" y="288" class="desc">Cross-references multiple conversations · Synthesises answer</text>
+  <text x="295" y="305" class="detail">"Have I seen Marsh near the inscription more than once?"</text>
+  <text x="295" y="318" class="detail">Dispatched async · Result injected as memory/thought</text>
+
+  <path d="M280,285 L235,155" class="arrow"/>
+  <text x="240" y="240" class="arrow-label">rare</text>
+
+  <!-- Timestamped logs (foundation) -->
+  <rect x="30" y="340" width="640" height="30" class="logs"/>
+  <text x="350" y="360" text-anchor="middle" class="detail">Foundation: Full timestamped, entity-referenced chat logs (all ticks, all characters)</text>
+
+  <path d="M475,325 L475,340" class="arrow"/>
+</svg>

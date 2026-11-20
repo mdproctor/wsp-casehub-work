@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 320" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <style>
+      .title { font-size: 15px; font-weight: 600; fill: #1a1a2e; }
+      .axis-label { font-size: 11px; fill: #555; }
+      .tick-label { font-size: 10px; fill: #777; }
+      .line-body { fill: none; stroke: #2d6a4f; stroke-width: 2.5; }
+      .line-analytical { fill: none; stroke: #9b2226; stroke-width: 2.5; stroke-dasharray: 6,3; }
+      .dot { r: 4; }
+      .dot-body { fill: #2d6a4f; }
+      .dot-analytical { fill: #9b2226; }
+      .legend-text { font-size: 11px; fill: #333; }
+      .grid { stroke: #eee; stroke-width: 1; }
+      .annotation { font-size: 10px; fill: #888; font-style: italic; }
+      .zone { fill: #fff8e1; opacity: 0.5; }
+    </style>
+  </defs>
+
+  <text x="350" y="24" text-anchor="middle" class="title">Body Vocabulary and Analytical Narration Over 300 Ticks</text>
+
+  <!-- Chart area: x=80..650, y=50..260 -->
+  <!-- Y axis: 0-100% -->
+  <line x1="80" y1="50" x2="80" y2="260" stroke="#ccc" stroke-width="1"/>
+  <line x1="80" y1="260" x2="650" y2="260" stroke="#ccc" stroke-width="1"/>
+
+  <!-- Grid lines -->
+  <line x1="80" y1="208" x2="650" y2="208" class="grid"/>
+  <line x1="80" y1="155" x2="650" y2="155" class="grid"/>
+  <line x1="80" y1="103" x2="650" y2="103" class="grid"/>
+  <line x1="80" y1="50" x2="650" y2="50" class="grid"/>
+
+  <!-- Y tick labels -->
+  <text x="72" y="264" text-anchor="end" class="tick-label">0%</text>
+  <text x="72" y="212" text-anchor="end" class="tick-label">25%</text>
+  <text x="72" y="159" text-anchor="end" class="tick-label">50%</text>
+  <text x="72" y="107" text-anchor="end" class="tick-label">75%</text>
+  <text x="72" y="54" text-anchor="end" class="tick-label">100%</text>
+
+  <!-- P22 arrival zone -->
+  <rect x="194" y="50" width="20" height="210" class="zone"/>
+  <text x="204" y="45" text-anchor="middle" class="annotation">P22 arrives</text>
+
+  <!-- X tick labels -->
+  <text x="137" y="278" text-anchor="middle" class="tick-label">1-50</text>
+  <text x="251" y="278" text-anchor="middle" class="tick-label">51-100</text>
+  <text x="365" y="278" text-anchor="middle" class="tick-label">101-200</text>
+  <text x="479" y="278" text-anchor="middle" class="tick-label">201-300</text>
+  <text x="593" y="278" text-anchor="middle" class="tick-label">301+</text>
+  <text x="365" y="296" text-anchor="middle" class="axis-label">Tick window</text>
+
+  <!-- Body vocabulary line (75, 72, 70, 53, 51) -->
+  <!-- Y scale: 0%=260, 100%=50 → each %=2.1px -->
+  <polyline points="137,103 251,109 365,113 479,149 593,153" class="line-body"/>
+  <circle cx="137" cy="103" class="dot dot-body"/>
+  <circle cx="251" cy="109" class="dot dot-body"/>
+  <circle cx="365" cy="113" class="dot dot-body"/>
+  <circle cx="479" cy="149" class="dot dot-body"/>
+  <circle cx="593" cy="153" class="dot dot-body"/>
+
+  <!-- Analytical narration line (45, 75, 78, 65, 46) -->
+  <polyline points="137,166 251,103 365,97 479,124 593,164" class="line-analytical"/>
+  <circle cx="137" cy="166" class="dot dot-analytical"/>
+  <circle cx="251" cy="103" class="dot dot-analytical"/>
+  <circle cx="365" cy="97" class="dot dot-analytical"/>
+  <circle cx="479" cy="124" class="dot dot-analytical"/>
+  <circle cx="593" cy="164" class="dot dot-analytical"/>
+
+  <!-- Data labels -->
+  <text x="137" y="95" text-anchor="middle" class="tick-label" fill="#2d6a4f">75%</text>
+  <text x="593" y="145" text-anchor="middle" class="tick-label" fill="#2d6a4f">51%</text>
+  <text x="137" y="180" text-anchor="middle" class="tick-label" fill="#9b2226">45%</text>
+  <text x="251" y="95" text-anchor="middle" class="tick-label" fill="#9b2226">75%</text>
+
+  <!-- Legend -->
+  <line x1="420" y1="30" x2="445" y2="30" class="line-body"/>
+  <circle cx="432" cy="30" r="3" class="dot-body"/>
+  <text x="450" y="34" class="legend-text">Body vocabulary</text>
+  <line x1="550" y1="30" x2="575" y2="30" class="line-analytical"/>
+  <circle cx="562" cy="30" r="3" class="dot-analytical"/>
+  <text x="580" y="34" class="legend-text">Analytical</text>
+</svg>

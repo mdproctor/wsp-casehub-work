@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 800 440" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="440" fill="#1a1b26" rx="8"/>
+
+  <defs>
+    <marker id="aThin" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10" fill="none" stroke="#414868" stroke-width="1.5"/>
+    </marker>
+    <marker id="aThick" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10" fill="none" stroke="#9ece6a" stroke-width="1.5"/>
+    </marker>
+    <marker id="aMed" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10" fill="none" stroke="#7aa2f7" stroke-width="1.5"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="400" y="28" text-anchor="middle" fill="#c0caf5" font-family="sans-serif" font-size="14" font-weight="bold">Same Input, Different Settling: The Effect of Biographical Weight Seeding</text>
+
+  <!-- ===== LEFT: Without biography ===== -->
+  <text x="200" y="60" text-anchor="middle" fill="#f7768e" font-family="sans-serif" font-size="12" font-weight="bold">Without biographical seeding</text>
+  <text x="200" y="75" text-anchor="middle" fill="#565f89" font-family="sans-serif" font-size="10">disposition weights only</text>
+
+  <!-- Input: betrayal -->
+  <rect x="120" y="95" width="160" height="36" rx="6" fill="#1a1b26" stroke="#f7768e" stroke-width="1.5"/>
+  <text x="200" y="117" text-anchor="middle" fill="#f7768e" font-family="sans-serif" font-size="11" font-weight="bold">betrayal: 0.9</text>
+
+  <!-- Mediating nodes -->
+  <rect x="60" y="170" width="120" height="32" rx="6" fill="#1a1b26" stroke="#414868" stroke-width="1"/>
+  <text x="120" y="190" text-anchor="middle" fill="#565f89" font-family="sans-serif" font-size="10">other_reliability</text>
+
+  <rect x="210" y="170" width="100" height="32" rx="6" fill="#1a1b26" stroke="#414868" stroke-width="1"/>
+  <text x="260" y="190" text-anchor="middle" fill="#565f89" font-family="sans-serif" font-size="10">self_worth</text>
+
+  <rect x="130" y="220" width="120" height="32" rx="6" fill="#1a1b26" stroke="#414868" stroke-width="1"/>
+  <text x="190" y="240" text-anchor="middle" fill="#565f89" font-family="sans-serif" font-size="10">FFFS_activation</text>
+
+  <!-- Thin connections (default weights) -->
+  <path d="M 175 131 L 135 170" fill="none" stroke="#414868" stroke-width="1" marker-end="url(#aThin)"/>
+  <path d="M 225 131 L 255 170" fill="none" stroke="#414868" stroke-width="1" marker-end="url(#aThin)"/>
+  <path d="M 200 131 L 195 220" fill="none" stroke="#414868" stroke-width="1" marker-end="url(#aThin)"/>
+
+  <!-- Output nodes -->
+  <rect x="50" y="295" width="90" height="32" rx="6" fill="#1a1b26" stroke="#414868" stroke-width="1"/>
+  <text x="95" y="315" text-anchor="middle" fill="#565f89" font-family="sans-serif" font-size="10">distrust</text>
+
+  <rect x="155" y="295" width="90" height="32" rx="6" fill="#1a1b26" stroke="#414868" stroke-width="1"/>
+  <text x="200" y="315" text-anchor="middle" fill="#565f89" font-family="sans-serif" font-size="10">withdraw</text>
+
+  <rect x="260" y="295" width="90" height="32" rx="6" fill="#1a1b26" stroke="#414868" stroke-width="1"/>
+  <text x="305" y="315" text-anchor="middle" fill="#565f89" font-family="sans-serif" font-size="10">fight</text>
+
+  <!-- Thin output connections -->
+  <path d="M 110 202 L 95 295" fill="none" stroke="#414868" stroke-width="1" marker-end="url(#aThin)"/>
+  <path d="M 250 202 L 210 295" fill="none" stroke="#414868" stroke-width="1" marker-end="url(#aThin)"/>
+  <path d="M 210 252 L 290 295" fill="none" stroke="#414868" stroke-width="1" marker-end="url(#aThin)"/>
+
+  <!-- Result label -->
+  <rect x="100" y="350" width="200" height="32" rx="4" fill="#24283b" stroke="#414868" stroke-width="1"/>
+  <text x="200" y="370" text-anchor="middle" fill="#565f89" font-family="sans-serif" font-size="10">generic settling: withdraw (0.31)</text>
+
+  <!-- ===== Divider ===== -->
+  <line x1="400" y1="50" x2="400" y2="420" stroke="#414868" stroke-width="1" stroke-dasharray="6 4"/>
+
+  <!-- ===== RIGHT: With biography ===== -->
+  <text x="600" y="60" text-anchor="middle" fill="#9ece6a" font-family="sans-serif" font-size="12" font-weight="bold">With biographical seeding</text>
+  <text x="600" y="75" text-anchor="middle" fill="#565f89" font-family="sans-serif" font-size="10">disposition + 3 betrayal patterns at 0.87 confidence</text>
+
+  <!-- Input: betrayal -->
+  <rect x="520" y="95" width="160" height="36" rx="6" fill="#1a1b26" stroke="#f7768e" stroke-width="1.5"/>
+  <text x="600" y="117" text-anchor="middle" fill="#f7768e" font-family="sans-serif" font-size="11" font-weight="bold">betrayal: 0.9</text>
+
+  <!-- Mediating nodes (some highlighted) -->
+  <rect x="460" y="170" width="120" height="32" rx="6" fill="#1a1b26" stroke="#9ece6a" stroke-width="2"/>
+  <text x="520" y="190" text-anchor="middle" fill="#9ece6a" font-family="sans-serif" font-size="10" font-weight="bold">other_reliability</text>
+
+  <rect x="610" y="170" width="100" height="32" rx="6" fill="#1a1b26" stroke="#9ece6a" stroke-width="2"/>
+  <text x="660" y="190" text-anchor="middle" fill="#9ece6a" font-family="sans-serif" font-size="10" font-weight="bold">self_worth</text>
+
+  <rect x="530" y="220" width="120" height="32" rx="6" fill="#1a1b26" stroke="#7aa2f7" stroke-width="1.5"/>
+  <text x="590" y="240" text-anchor="middle" fill="#7aa2f7" font-family="sans-serif" font-size="10">FFFS_activation</text>
+
+  <!-- Thick connections (strengthened by biography) -->
+  <path d="M 575 131 L 535 170" fill="none" stroke="#9ece6a" stroke-width="2.5" marker-end="url(#aThick)"/>
+  <path d="M 625 131 L 655 170" fill="none" stroke="#9ece6a" stroke-width="2" marker-end="url(#aThick)"/>
+  <path d="M 600 131 L 595 220" fill="none" stroke="#7aa2f7" stroke-width="1.5" marker-end="url(#aMed)"/>
+
+  <!-- Weight labels on thick connections -->
+  <text x="540" y="148" text-anchor="middle" fill="#9ece6a" font-family="sans-serif" font-size="8" font-weight="bold">-0.63</text>
+  <text x="652" y="148" text-anchor="middle" fill="#9ece6a" font-family="sans-serif" font-size="8" font-weight="bold">-0.38</text>
+
+  <!-- Output nodes -->
+  <rect x="450" y="295" width="90" height="32" rx="6" fill="#1a1b26" stroke="#7aa2f7" stroke-width="1.5"/>
+  <text x="495" y="315" text-anchor="middle" fill="#7aa2f7" font-family="sans-serif" font-size="10">distrust</text>
+
+  <rect x="555" y="295" width="90" height="32" rx="6" fill="#1a1b26" stroke="#414868" stroke-width="1"/>
+  <text x="600" y="315" text-anchor="middle" fill="#565f89" font-family="sans-serif" font-size="10">withdraw</text>
+
+  <rect x="660" y="295" width="90" height="32" rx="6" fill="#1a1b26" stroke="#9ece6a" stroke-width="2"/>
+  <text x="705" y="315" text-anchor="middle" fill="#9ece6a" font-family="sans-serif" font-size="10" font-weight="bold">self_direct</text>
+
+  <!-- Mixed output connections -->
+  <path d="M 510 202 L 500 295" fill="none" stroke="#7aa2f7" stroke-width="1.5" marker-end="url(#aMed)"/>
+  <path d="M 650 202 L 610 295" fill="none" stroke="#414868" stroke-width="1" marker-end="url(#aThin)"/>
+  <path d="M 610 252 L 695 295" fill="none" stroke="#9ece6a" stroke-width="2.5" marker-end="url(#aThick)"/>
+  <text x="665" y="272" text-anchor="middle" fill="#9ece6a" font-family="sans-serif" font-size="8" font-weight="bold">0.52</text>
+
+  <!-- Result label -->
+  <rect x="500" y="350" width="200" height="32" rx="4" fill="#24283b" stroke="#9ece6a" stroke-width="1.5"/>
+  <text x="600" y="370" text-anchor="middle" fill="#9ece6a" font-family="sans-serif" font-size="10" font-weight="bold">seeded settling: self_direct (0.52)</text>
+
+  <!-- Caption -->
+  <text x="400" y="415" text-anchor="middle" fill="#565f89" font-family="sans-serif" font-size="11">Same betrayal input. Different settling output.</text>
+  <text x="400" y="432" text-anchor="middle" fill="#565f89" font-family="sans-serif" font-size="11">The personality is not in the labels. It's in the weights.</text>
+</svg>

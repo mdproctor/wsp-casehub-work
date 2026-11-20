@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" font-family="'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif">
+  <defs>
+    <style>
+      .title { font-size: 15px; fill: #111827; font-weight: 700; }
+      .subtitle { font-size: 11px; fill: #9CA3AF; }
+      .layer-label { font-size: 13px; fill: #fff; font-weight: 700; }
+      .layer-desc { font-size: 10px; fill: #fff; font-weight: 400; }
+      .example { font-size: 10px; fill: #374151; font-style: italic; }
+      .note { font-size: 10px; fill: #6B7280; }
+      .compose-label { font-size: 12px; fill: #374151; font-weight: 600; }
+      .arrow { stroke: #9CA3AF; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead); }
+      .compose-arrow { stroke: #7C3AED; stroke-width: 2; fill: none; marker-end: url(#parrowhead); }
+    </style>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#9CA3AF"/>
+    </marker>
+    <marker id="parrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#7C3AED"/>
+    </marker>
+  </defs>
+
+  <text x="400" y="28" text-anchor="middle" class="title">Three Layers of Personality — Each Necessary, None Sufficient</text>
+  <text x="400" y="44" text-anchor="middle" class="subtitle">Temperament provides capacity. Reinforcement provides history. Literature provides the expression mapping.</text>
+
+  <!-- Layer 1: Temperament -->
+  <rect x="30" y="70" width="220" height="110" rx="8" fill="#1E40AF"/>
+  <text x="140" y="95" text-anchor="middle" class="layer-label">1. Temperament</text>
+  <text x="140" y="112" text-anchor="middle" class="layer-desc">AMPD facet scores</text>
+  <text x="140" y="127" text-anchor="middle" class="layer-desc">What feels rewarding</text>
+  <text x="140" y="142" text-anchor="middle" class="layer-desc">Innate predisposition</text>
+  <text x="140" y="160" text-anchor="middle" class="layer-desc">(the genetics)</text>
+
+  <text x="140" y="200" text-anchor="middle" class="example">Grandiosity 85 + Callousness 90</text>
+  <text x="140" y="214" text-anchor="middle" class="example">= capacity to gloat.</text>
+  <text x="140" y="228" text-anchor="middle" class="example">Triumph feels electric.</text>
+
+  <!-- Layer 2: Reinforcement -->
+  <rect x="290" y="70" width="220" height="110" rx="8" fill="#7C3AED"/>
+  <text x="400" y="95" text-anchor="middle" class="layer-label">2. Reinforcement</text>
+  <text x="400" y="112" text-anchor="middle" class="layer-desc">Formation memories</text>
+  <text x="400" y="127" text-anchor="middle" class="layer-desc">What was practised</text>
+  <text x="400" y="142" text-anchor="middle" class="layer-desc">Learned through reward</text>
+  <text x="400" y="160" text-anchor="middle" class="layer-desc">(the biography)</text>
+
+  <text x="400" y="200" text-anchor="middle" class="example">"You couldn't stop grinning.</text>
+  <text x="400" y="214" text-anchor="middle" class="example">You replayed the moment</text>
+  <text x="400" y="228" text-anchor="middle" class="example">for days."</text>
+
+  <!-- Layer 3: Literature -->
+  <rect x="550" y="70" width="220" height="110" rx="8" fill="#059669"/>
+  <text x="660" y="95" text-anchor="middle" class="layer-label">3. Literature Priors</text>
+  <text x="660" y="112" text-anchor="middle" class="layer-desc">Trait-to-behaviour mappings</text>
+  <text x="660" y="127" text-anchor="middle" class="layer-desc">How this profile expresses</text>
+  <text x="660" y="142" text-anchor="middle" class="layer-desc">Empirically grounded</text>
+  <text x="660" y="160" text-anchor="middle" class="layer-desc">(the research)</text>
+
+  <text x="660" y="200" text-anchor="middle" class="example">High Grandiosity + low Empathy</text>
+  <text x="660" y="214" text-anchor="middle" class="example">= public triumph displays,</text>
+  <text x="660" y="228" text-anchor="middle" class="example">preening. (documented)</text>
+
+  <!-- Composition arrows -->
+  <path d="M 250 125 L 290 125" class="arrow"/>
+  <path d="M 510 125 L 550 125" class="arrow"/>
+
+  <!-- Composition result -->
+  <rect x="190" y="270" width="420" height="70" rx="8" fill="#F3F4F6" stroke="#7C3AED" stroke-width="2"/>
+  <text x="400" y="295" text-anchor="middle" class="compose-label">Composed output: personality-specific cognitive experience</text>
+  <text x="400" y="315" text-anchor="middle" class="note">Not "you gloat when you win" (prescriptive). Instead: the LLM infers gloating behaviour</text>
+  <text x="400" y="330" text-anchor="middle" class="note">from temperamental predisposition + personal history + literature-grounded expression style.</text>
+
+  <path d="M 140 240 Q 200 260 260 270" class="compose-arrow"/>
+  <path d="M 400 240 L 400 270" class="compose-arrow"/>
+  <path d="M 660 240 Q 600 260 540 270" class="compose-arrow"/>
+
+  <!-- Footer -->
+  <text x="400" y="375" text-anchor="middle" class="note">Each layer alone produces flat behaviour. Temperament without memory is a trait score.</text>
+  <text x="400" y="390" text-anchor="middle" class="note">Memory without temperament has no predisposition. Both without literature have no expression model.</text>
+</svg>

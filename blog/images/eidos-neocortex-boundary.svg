@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <!-- Background regions -->
+  <rect x="20" y="20" width="320" height="380" rx="12" fill="#f0f4ff" stroke="#93a8d0" stroke-width="1.5"/>
+  <rect x="380" y="20" width="320" height="380" rx="12" fill="#fff5f0" stroke="#d0a893" stroke-width="1.5"/>
+
+  <!-- Region labels -->
+  <text x="180" y="52" text-anchor="middle" font-size="15" font-weight="700" fill="#4a6b9a">Eidos (Character Definition)</text>
+  <text x="540" y="52" text-anchor="middle" font-size="15" font-weight="700" fill="#9a6b4a">Neocortex (Runtime State)</text>
+
+  <!-- Eidos boxes -->
+  <rect x="45" y="75" width="270" height="55" rx="6" fill="white" stroke="#93a8d0"/>
+  <text x="180" y="97" text-anchor="middle" font-size="12" font-weight="600" fill="#333">AgentDisposition</text>
+  <text x="180" y="115" text-anchor="middle" font-size="10" fill="#666">situationalProfiles: List&lt;SituationalProfile&gt;</text>
+
+  <rect x="45" y="145" width="270" height="55" rx="6" fill="white" stroke="#93a8d0"/>
+  <text x="180" y="167" text-anchor="middle" font-size="12" font-weight="600" fill="#333">SituationalProfileDefaults</text>
+  <text x="180" y="185" text-anchor="middle" font-size="10" fill="#666">12 families × 5 modes = 60 profiles</text>
+
+  <rect x="45" y="215" width="270" height="55" rx="6" fill="white" stroke="#93a8d0"/>
+  <text x="180" y="237" text-anchor="middle" font-size="12" font-weight="600" fill="#333">SituationalProfileDeriver</text>
+  <text x="180" y="255" text-anchor="middle" font-size="10" fill="#666">archetype → family → default profiles</text>
+
+  <rect x="45" y="290" width="270" height="45" rx="6" fill="#e8eeff" stroke="#93a8d0"/>
+  <text x="180" y="317" text-anchor="middle" font-size="11" font-weight="600" fill="#4a6b9a">AmpdFacetShift(facet, delta)</text>
+
+  <rect x="45" y="345" width="270" height="40" rx="6" fill="#e8eeff" stroke="#93a8d0"/>
+  <text x="180" y="370" text-anchor="middle" font-size="10" fill="#4a6b9a">PID-5 0–100 scale · |delta| ≤ 50</text>
+
+  <!-- Neocortex boxes -->
+  <rect x="405" y="75" width="270" height="55" rx="6" fill="white" stroke="#d0a893"/>
+  <text x="540" y="97" text-anchor="middle" font-size="12" font-weight="600" fill="#333">SituationalDeltaConverter</text>
+  <text x="540" y="115" text-anchor="middle" font-size="10" fill="#666">0–100 integers → 0.0–1.0 doubles</text>
+
+  <rect x="405" y="145" width="270" height="55" rx="6" fill="white" stroke="#d0a893"/>
+  <text x="540" y="167" text-anchor="middle" font-size="12" font-weight="600" fill="#333">SituationalDetector</text>
+  <text x="540" y="185" text-anchor="middle" font-size="10" fill="#666">CAPS + SEC + mood → mode intensities</text>
+
+  <rect x="405" y="215" width="270" height="55" rx="6" fill="white" stroke="#d0a893"/>
+  <text x="540" y="237" text-anchor="middle" font-size="12" font-weight="600" fill="#333">PersonalityStateIntegrator</text>
+  <text x="540" y="255" text-anchor="middle" font-size="10" fill="#666">elastic band: pull, relax, deform</text>
+
+  <rect x="405" y="290" width="270" height="45" rx="6" fill="white" stroke="#d0a893"/>
+  <text x="540" y="317" text-anchor="middle" font-size="12" font-weight="600" fill="#333">SituationalStateService</text>
+
+  <rect x="405" y="345" width="270" height="40" rx="6" fill="#fff0e8" stroke="#d0a893"/>
+  <text x="540" y="370" text-anchor="middle" font-size="10" fill="#9a6b4a">MindMap personality-state subgraph</text>
+
+  <!-- Arrows -->
+  <line x1="315" y1="102" x2="402" y2="102" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="358" y="95" text-anchor="middle" font-size="9" fill="#888">profiles</text>
+
+  <line x1="540" y1="130" x2="540" y2="142" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="540" y1="200" x2="540" y2="212" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="540" y1="270" x2="540" y2="287" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="540" y1="335" x2="540" y2="342" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+</svg>

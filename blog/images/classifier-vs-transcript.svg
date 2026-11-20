@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" width="800" height="400">
+  <rect width="800" height="400" fill="#1a1a2e"/>
+
+  <!-- Classifier spotlight (left) -->
+  <polygon points="180,50 120,180 240,180" fill="#4a9eff" opacity="0.12"/>
+  <circle cx="180" cy="45" r="18" fill="#16213e" stroke="#4a9eff" stroke-width="2"/>
+  <text x="180" y="50" text-anchor="middle" fill="#4a9eff" font-family="monospace" font-size="10" font-weight="bold">CLF</text>
+
+  <!-- Snippet boxes in spotlight -->
+  <rect x="110" y="190" width="140" height="30" rx="4" fill="#16213e" stroke="#4a9eff" stroke-width="1.5"/>
+  <text x="180" y="210" text-anchor="middle" fill="#e0e0e0" font-family="monospace" font-size="10">scheming snippet</text>
+
+  <rect x="110" y="228" width="140" height="30" rx="4" fill="#16213e" stroke="#4a9eff" stroke-width="1.5"/>
+  <text x="180" y="248" text-anchor="middle" fill="#e0e0e0" font-family="monospace" font-size="10">gloating snippet</text>
+
+  <rect x="110" y="266" width="140" height="30" rx="4" fill="#16213e" stroke="#4a9eff" stroke-width="1.5"/>
+  <text x="180" y="286" text-anchor="middle" fill="#e0e0e0" font-family="monospace" font-size="10">dominance snippet</text>
+
+  <!-- Scores -->
+  <rect x="118" y="310" width="124" height="50" rx="6" fill="#1b3a1b" stroke="#4caf50" stroke-width="2"/>
+  <text x="180" y="330" text-anchor="middle" fill="#4caf50" font-family="monospace" font-size="13" font-weight="bold">✓ Q=4.25 R=4.50</text>
+  <text x="180" y="348" text-anchor="middle" fill="#4caf50" font-family="monospace" font-size="13" font-weight="bold">D=4.0</text>
+
+  <text x="180" y="385" text-anchor="middle" fill="#4a9eff" font-family="monospace" font-size="12" font-weight="bold">PER-DRIVE SCORING</text>
+
+  <!-- Divider -->
+  <line x1="370" y1="30" x2="370" y2="370" stroke="#444" stroke-width="1" stroke-dasharray="6,4"/>
+  <text x="385" y="25" fill="#888" font-family="monospace" font-size="10">vs</text>
+
+  <!-- Full-transcript (right) -->
+  <rect x="400" y="40" width="370" height="165" rx="6" fill="#e8a838" opacity="0.06"/>
+  <rect x="400" y="40" width="370" height="165" rx="6" fill="none" stroke="#e8a838" stroke-width="1.5"/>
+
+  <text x="585" y="64" text-anchor="middle" fill="#e8a838" font-family="monospace" font-size="12" font-weight="bold">FULL TRANSCRIPT</text>
+
+  <!-- Gap items -->
+  <rect x="416" y="78" width="338" height="22" rx="3" fill="#2d1b1b"/>
+  <text x="424" y="94" fill="#ff6b6b" font-family="monospace" font-size="10">✗ Bold anchors in dialogue events</text>
+
+  <rect x="416" y="104" width="338" height="22" rx="3" fill="#2d1b1b"/>
+  <text x="424" y="120" fill="#ff6b6b" font-family="monospace" font-size="10">✗ One paragraph per drive (catalog)</text>
+
+  <rect x="416" y="130" width="338" height="22" rx="3" fill="#2d1b1b"/>
+  <text x="424" y="146" fill="#ff6b6b" font-family="monospace" font-size="10">✗ P22 descriptions echoed verbatim</text>
+
+  <rect x="416" y="156" width="338" height="22" rx="3" fill="#2d1b1b"/>
+  <text x="424" y="172" fill="#ff6b6b" font-family="monospace" font-size="10">✗ No performance cost (mask)</text>
+
+  <rect x="416" y="182" width="338" height="22" rx="3" fill="#2d1b1b"/>
+  <text x="424" y="198" fill="#ff6b6b" font-family="monospace" font-size="10">✗ Conclusions about others' knowledge</text>
+
+  <!-- What it measures -->
+  <rect x="416" y="224" width="338" height="110" rx="6" fill="#16213e" stroke="#e8a838" stroke-width="1.5"/>
+  <text x="585" y="248" text-anchor="middle" fill="#e8a838" font-family="monospace" font-size="11" font-weight="bold">MEASURES</text>
+  <text x="424" y="268" fill="#e0e0e0" font-family="monospace" font-size="10">Paragraph structure + form</text>
+  <text x="424" y="284" fill="#e0e0e0" font-family="monospace" font-size="10">Drive blending within moments</text>
+  <text x="424" y="300" fill="#e0e0e0" font-family="monospace" font-size="10">Original language vs echo</text>
+  <text x="424" y="316" fill="#e0e0e0" font-family="monospace" font-size="10">Discovery vs conclusion</text>
+  <text x="424" y="332" fill="#e0e0e0" font-family="monospace" font-size="10">Performance cost (mask maintenance)</text>
+
+  <text x="585" y="385" text-anchor="middle" fill="#e8a838" font-family="monospace" font-size="12" font-weight="bold">WHOLE-PROSE COMPARISON</text>
+</svg>

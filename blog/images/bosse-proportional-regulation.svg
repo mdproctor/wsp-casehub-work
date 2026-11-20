@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 380">
+  <defs>
+    <style>
+      text { font-family: -apple-system, 'Segoe UI', sans-serif; }
+      .axis { stroke: #334155; stroke-width: 1.5; }
+      .grid { stroke: #e2e8f0; stroke-width: 0.5; }
+      .curve { fill: none; stroke-width: 2.5; stroke-linecap: round; }
+      .baseline { stroke: #94a3b8; stroke-width: 1; stroke-dasharray: 6,4; }
+      .label { font-size: 12px; fill: #475569; }
+      .title { font-size: 14px; fill: #1e293b; font-weight: 600; }
+      .annotation { font-size: 11px; fill: #64748b; }
+    </style>
+  </defs>
+
+  <!-- Title -->
+  <text x="340" y="28" text-anchor="middle" class="title">Regulation Effort: Binary Gate vs Bosse Proportional Model</text>
+
+  <!-- Grid -->
+  <line x1="80" y1="60" x2="80" y2="320" class="axis"/>
+  <line x1="80" y1="320" x2="640" y2="320" class="axis"/>
+  <line x1="80" y1="255" x2="640" y2="255" class="grid"/>
+  <line x1="80" y1="190" x2="640" y2="190" class="grid"/>
+  <line x1="80" y1="125" x2="640" y2="125" class="grid"/>
+  <line x1="80" y1="60" x2="640" y2="60" class="grid"/>
+
+  <!-- Y-axis labels -->
+  <text x="72" y="324" text-anchor="end" class="label">0</text>
+  <text x="72" y="259" text-anchor="end" class="label">0.25</text>
+  <text x="72" y="194" text-anchor="end" class="label">0.50</text>
+  <text x="72" y="129" text-anchor="end" class="label">0.75</text>
+  <text x="72" y="64" text-anchor="end" class="label">1.0</text>
+  <text x="30" y="190" text-anchor="middle" class="label" transform="rotate(-90 30 190)">Regulation Effort</text>
+
+  <!-- X-axis labels -->
+  <text x="80" y="340" text-anchor="middle" class="label">0</text>
+  <text x="220" y="340" text-anchor="middle" class="label">0.2</text>
+  <text x="360" y="340" text-anchor="middle" class="label">0.4</text>
+  <text x="500" y="340" text-anchor="middle" class="label">0.6</text>
+  <text x="640" y="340" text-anchor="middle" class="label">0.8</text>
+  <text x="360" y="365" text-anchor="middle" class="label">Emotional Discrepancy (d)</text>
+
+  <!-- Binary threshold (old model) - step function at 0.4 -->
+  <polyline points="80,320 360,320 360,60 640,60" class="curve" stroke="#ef4444" opacity="0.6"/>
+  <text x="420" y="52" class="annotation" fill="#ef4444">Binary gate: all-or-nothing at d=0.4</text>
+
+  <!-- Bosse proportional (new model) - linear from 0 -->
+  <line x1="80" y1="320" x2="640" y2="60" class="curve" stroke="#3b82f6"/>
+  <text x="380" y="170" class="annotation" fill="#3b82f6">Bosse: effort = α × d / d_max</text>
+
+  <!-- Actual LLM operating range shading -->
+  <rect x="80" y="60" width="280" height="260" fill="#3b82f6" opacity="0.06"/>
+  <text x="220" y="80" text-anchor="middle" class="annotation">Typical LLM appraisal range</text>
+  <text x="220" y="94" text-anchor="middle" class="annotation">(d = 0.05 – 0.35)</text>
+
+  <!-- Threshold line for binary model -->
+  <line x1="360" y1="60" x2="360" y2="320" class="baseline"/>
+  <text x="364" y="310" class="annotation" fill="#94a3b8">threshold</text>
+
+  <!-- Legend -->
+  <line x1="440" y1="350" x2="470" y2="350" stroke="#ef4444" stroke-width="2" opacity="0.6"/>
+  <text x="475" y="354" class="annotation" fill="#ef4444">Binary gate (old)</text>
+  <line x1="560" y1="350" x2="590" y2="350" stroke="#3b82f6" stroke-width="2"/>
+  <text x="595" y="354" class="annotation" fill="#3b82f6">Proportional (Bosse)</text>
+</svg>

@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 500" font-family="'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif">
+  <defs>
+    <style>
+      .title { font-size: 15px; fill: #111827; font-weight: 700; }
+      .subtitle { font-size: 11px; fill: #9CA3AF; }
+      .box-label { font-size: 11px; fill: #fff; font-weight: 600; }
+      .box-detail { font-size: 9px; fill: #fff; opacity: 0.85; }
+      .section-label { font-size: 12px; fill: #374151; font-weight: 600; }
+      .connector { stroke: #9CA3AF; stroke-width: 1.5; fill: none; }
+      .arrow { fill: #9CA3AF; }
+      .note { font-size: 10px; fill: #6B7280; }
+      .highlight { font-size: 10px; fill: #DC2626; font-weight: 600; }
+    </style>
+  </defs>
+
+  <text x="390" y="28" text-anchor="middle" class="title">Consolidation Phase Architecture</text>
+  <text x="390" y="44" text-anchor="middle" class="subtitle">20+ phases, priority-ordered, sequential execution per tenant</text>
+
+  <!-- Trigger sources -->
+  <text x="40" y="75" class="section-label">Triggers</text>
+
+  <rect x="40" y="85" width="130" height="36" rx="4" fill="#6366F1"/>
+  <text x="105" y="101" text-anchor="middle" class="box-label">Periodic Timer</text>
+  <text x="105" y="113" text-anchor="middle" class="box-detail">every 5 min, idle-gated</text>
+
+  <rect x="185" y="85" width="130" height="36" rx="4" fill="#6366F1"/>
+  <text x="250" y="101" text-anchor="middle" class="box-label">Tick Interval</text>
+  <text x="250" y="113" text-anchor="middle" class="box-detail">every 50 ticks (on-demand)</text>
+
+  <rect x="330" y="85" width="130" height="36" rx="4" fill="#6366F1"/>
+  <text x="395" y="101" text-anchor="middle" class="box-label">Significance</text>
+  <text x="395" y="113" text-anchor="middle" class="box-detail">urgency threshold hit</text>
+
+  <!-- Arrow down to scheduler -->
+  <line x1="105" y1="121" x2="390" y2="155" class="connector"/>
+  <line x1="250" y1="121" x2="390" y2="155" class="connector"/>
+  <line x1="395" y1="121" x2="390" y2="155" class="connector"/>
+
+  <!-- Scheduler -->
+  <rect x="290" y="155" width="200" height="40" rx="5" fill="#1F2937"/>
+  <text x="390" y="173" text-anchor="middle" class="box-label">ConsolidationScheduler</text>
+  <text x="390" y="185" text-anchor="middle" class="box-detail">ReentrantLock · single-thread executor</text>
+
+  <!-- Arrow down -->
+  <line x1="390" y1="195" x2="390" y2="215" class="connector"/>
+  <polygon points="386,215 394,215 390,222" class="arrow"/>
+
+  <!-- Phase pipeline -->
+  <text x="40" y="240" class="section-label">Phases (priority order)</text>
+
+  <!-- Mechanical phases -->
+  <rect x="40" y="252" width="155" height="28" rx="3" fill="#059669"/>
+  <text x="117" y="270" text-anchor="middle" class="box-label">Experience Graduation</text>
+
+  <rect x="200" y="252" width="155" height="28" rx="3" fill="#059669"/>
+  <text x="277" y="270" text-anchor="middle" class="box-label">SubThought Accum.</text>
+
+  <rect x="360" y="252" width="155" height="28" rx="3" fill="#059669"/>
+  <text x="437" y="270" text-anchor="middle" class="box-label">Access Frequency</text>
+
+  <rect x="520" y="252" width="155" height="28" rx="3" fill="#059669"/>
+  <text x="597" y="270" text-anchor="middle" class="box-label">Merge Detection</text>
+
+  <!-- LLM phases -->
+  <rect x="40" y="290" width="155" height="28" rx="3" fill="#DC2626"/>
+  <text x="117" y="308" text-anchor="middle" class="box-label">Community Summary</text>
+
+  <rect x="200" y="290" width="155" height="28" rx="3" fill="#DC2626"/>
+  <text x="277" y="308" text-anchor="middle" class="box-label">Drive Description</text>
+
+  <rect x="360" y="290" width="155" height="28" rx="3" fill="#DC2626"/>
+  <text x="437" y="308" text-anchor="middle" class="box-label">Self-Standard Deriv.</text>
+
+  <rect x="520" y="290" width="155" height="28" rx="3" fill="#DC2626"/>
+  <text x="597" y="308" text-anchor="middle" class="box-label">Other-Model Deriv.</text>
+
+  <!-- More phases -->
+  <rect x="40" y="328" width="155" height="28" rx="3" fill="#DC2626"/>
+  <text x="117" y="346" text-anchor="middle" class="box-label">Belief Revision</text>
+
+  <rect x="200" y="328" width="155" height="28" rx="3" fill="#059669"/>
+  <text x="277" y="346" text-anchor="middle" class="box-label">Drive Adaptation</text>
+
+  <rect x="360" y="328" width="155" height="28" rx="3" fill="#059669"/>
+  <text x="437" y="346" text-anchor="middle" class="box-label">Relationship Stage</text>
+
+  <rect x="520" y="328" width="155" height="28" rx="3" fill="#059669"/>
+  <text x="597" y="346" text-anchor="middle" class="box-label">Obs. Compaction</text>
+
+  <text x="690" y="346" class="note">+ 10 more</text>
+
+  <!-- Arrow to completion -->
+  <line x1="390" y1="365" x2="390" y2="385" class="connector"/>
+  <polygon points="386,385 394,385 390,392" class="arrow"/>
+
+  <!-- Completion event -->
+  <rect x="290" y="392" width="200" height="32" rx="4" fill="#7C3AED"/>
+  <text x="390" y="412" text-anchor="middle" class="box-label">ConsolidationCompleted</text>
+
+  <!-- Legend -->
+  <rect x="40" y="450" width="14" height="14" rx="2" fill="#059669"/>
+  <text x="60" y="462" class="note">Mechanical (no LLM, &lt;1ms)</text>
+
+  <rect x="250" y="450" width="14" height="14" rx="2" fill="#DC2626"/>
+  <text x="270" y="462" class="note">LLM-calling (seconds–minutes each)</text>
+
+  <rect x="490" y="450" width="14" height="14" rx="2" fill="#6366F1"/>
+  <text x="510" y="462" class="note">Trigger source</text>
+
+  <text x="40" y="486" class="highlight">LLM phases use ParallelLlmExecutor — virtual threads + AIMD admission</text>
+</svg>

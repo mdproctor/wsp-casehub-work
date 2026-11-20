@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 340" font-family="system-ui, -apple-system, sans-serif">
+  <style>
+    .title { font-size: 14px; font-weight: 600; fill: #1a1a2e; }
+    .label { font-size: 12px; fill: #2d3436; }
+    .sublabel { font-size: 10px; fill: #636e72; }
+    .emphasis-high { fill: #2d6a4f; }
+    .emphasis-med { fill: #52796f; }
+    .emphasis-low { fill: #95a5a6; }
+    .emphasis-weak { fill: #bdc3c7; }
+    .merged { fill: #2d6a4f; }
+    .arrow { stroke: #636e72; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead); }
+  </style>
+  <defs>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="#636e72"/>
+    </marker>
+  </defs>
+
+  <!-- Before -->
+  <text x="160" y="28" text-anchor="middle" class="title">Before — four separate concerns</text>
+
+  <rect x="30" y="42" width="260" height="52" rx="4" class="emphasis-high" opacity="0.9"/>
+  <text x="160" y="62" text-anchor="middle" fill="white" font-size="13" font-weight="600">BODY TERRITORY</text>
+  <text x="160" y="80" text-anchor="middle" fill="white" font-size="10">"START the description with..."</text>
+
+  <rect x="30" y="100" width="260" height="52" rx="4" class="emphasis-med" opacity="0.9"/>
+  <text x="160" y="120" text-anchor="middle" fill="white" font-size="13" font-weight="600">CONTRAST</text>
+  <text x="160" y="138" text-anchor="middle" fill="white" font-size="10">"single most important differentiator"</text>
+
+  <rect x="30" y="158" width="260" height="44" rx="4" class="emphasis-low" opacity="0.9"/>
+  <text x="160" y="178" text-anchor="middle" fill="white" font-size="13" font-weight="500">Four channels</text>
+  <text x="160" y="192" text-anchor="middle" fill="white" font-size="10">somatic · attentional · temporal · action</text>
+
+  <rect x="30" y="208" width="260" height="36" rx="4" class="emphasis-weak" opacity="0.9"/>
+  <text x="160" y="231" text-anchor="middle" fill="#555" font-size="11">"Ground in memories where possible"</text>
+
+  <text x="160" y="268" text-anchor="middle" class="sublabel" font-style="italic">Four sections compete for 3-5 sentences.</text>
+  <text x="160" y="282" text-anchor="middle" class="sublabel" font-style="italic">Last one loses.</text>
+
+  <!-- Arrow -->
+  <path d="M 340 160 L 380 160" class="arrow"/>
+
+  <!-- After -->
+  <text x="540" y="28" text-anchor="middle" class="title">After — merged and condensed</text>
+
+  <rect x="410" y="42" width="260" height="80" rx="4" class="merged" opacity="0.9"/>
+  <text x="540" y="62" text-anchor="middle" fill="white" font-size="13" font-weight="600">FORMATION MEMORY</text>
+  <text x="540" y="78" text-anchor="middle" fill="white" font-size="10">"START with what the body LEARNED"</text>
+  <line x1="430" y1="88" x2="650" y2="88" stroke="white" stroke-opacity="0.3" stroke-width="1"/>
+  <text x="540" y="102" text-anchor="middle" fill="white" font-size="11">+ BODY TERRITORY</text>
+  <text x="540" y="116" text-anchor="middle" fill="white" font-size="10">"the echo lives HERE, in this body"</text>
+
+  <rect x="410" y="130" width="260" height="44" rx="4" class="emphasis-low" opacity="0.9"/>
+  <text x="540" y="150" text-anchor="middle" fill="white" font-size="13" font-weight="500">Four channels</text>
+  <text x="540" y="164" text-anchor="middle" fill="white" font-size="10">somatic · attentional · temporal · action</text>
+
+  <rect x="410" y="180" width="260" height="36" rx="4" class="emphasis-weak" opacity="0.9"/>
+  <text x="540" y="203" text-anchor="middle" fill="#555" font-size="11">"Note the contrast briefly"</text>
+
+  <text x="540" y="240" text-anchor="middle" class="sublabel" font-style="italic">Merged top block satisfies both</text>
+  <text x="540" y="254" text-anchor="middle" class="sublabel" font-style="italic">in one sentence. No trade-off.</text>
+</svg>

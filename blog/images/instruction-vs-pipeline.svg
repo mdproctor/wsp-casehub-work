@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" width="800" height="400">
+  <rect width="800" height="400" fill="#1a1a2e"/>
+
+  <!-- Pipeline layer -->
+  <rect x="40" y="40" width="300" height="120" rx="8" fill="#16213e" stroke="#4a9eff" stroke-width="2"/>
+  <text x="190" y="72" text-anchor="middle" fill="#4a9eff" font-family="monospace" font-size="14" font-weight="bold">PIPELINE</text>
+  <text x="190" y="96" text-anchor="middle" fill="#e0e0e0" font-family="monospace" font-size="11">What drives are presented</text>
+  <text x="190" y="116" text-anchor="middle" fill="#e0e0e0" font-family="monospace" font-size="11">Which drives, at what intensity</text>
+  <text x="190" y="148" text-anchor="middle" fill="#4a9eff" font-family="monospace" font-size="12">scheming: 0.9  gloating: 0.7</text>
+
+  <!-- Instruction layer -->
+  <rect x="40" y="200" width="300" height="120" rx="8" fill="#16213e" stroke="#e8a838" stroke-width="2"/>
+  <text x="190" y="232" text-anchor="middle" fill="#e8a838" font-family="monospace" font-size="14" font-weight="bold">INSTRUCTION</text>
+  <text x="190" y="256" text-anchor="middle" fill="#e0e0e0" font-family="monospace" font-size="11">How to write about them</text>
+  <text x="190" y="276" text-anchor="middle" fill="#e0e0e0" font-family="monospace" font-size="11">Structure, voice, discovery</text>
+  <text x="190" y="308" text-anchor="middle" fill="#e8a838" font-family="monospace" font-size="12">"suppress gloating under threat"</text>
+
+  <!-- Arrow markers -->
+  <defs>
+    <marker id="arrowBlue" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#4a9eff"/>
+    </marker>
+    <marker id="arrowOrange" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#e8a838"/>
+    </marker>
+  </defs>
+
+  <!-- Arrows to LLM -->
+  <line x1="340" y1="100" x2="500" y2="180" stroke="#4a9eff" stroke-width="2" marker-end="url(#arrowBlue)"/>
+  <line x1="340" y1="260" x2="500" y2="200" stroke="#e8a838" stroke-width="2" marker-end="url(#arrowOrange)"/>
+
+  <!-- LLM Output box -->
+  <rect x="500" y="140" width="260" height="80" rx="8" fill="#16213e" stroke="#e0e0e0" stroke-width="2"/>
+  <text x="630" y="172" text-anchor="middle" fill="#e0e0e0" font-family="monospace" font-size="14" font-weight="bold">LLM OUTPUT</text>
+  <text x="630" y="196" text-anchor="middle" fill="#e0e0e0" font-family="monospace" font-size="11">Generated character thinking</text>
+
+  <!-- Conflict callout -->
+  <rect x="460" y="270" width="310" height="90" rx="8" fill="#2d1b1b" stroke="#ff6b6b" stroke-width="2"/>
+  <text x="615" y="295" text-anchor="middle" fill="#ff6b6b" font-family="monospace" font-size="13" font-weight="bold">CONFLICT → PIPELINE WINS</text>
+  <text x="615" y="318" text-anchor="middle" fill="#e0e0e0" font-family="monospace" font-size="11">Pipeline presents gloating at 0.7</text>
+  <text x="615" y="338" text-anchor="middle" fill="#e0e0e0" font-family="monospace" font-size="11">Instruction says suppress it</text>
+  <text x="615" y="352" text-anchor="middle" fill="#ff6b6b" font-family="monospace" font-size="11">Model uses the drive every time</text>
+</svg>

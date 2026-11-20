@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 340" font-family="'Inter', 'Segoe UI', system-ui, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 7" refX="9" refY="3.5" markerWidth="10" markerHeight="7" orient="auto-start-auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#64748b"/>
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 7" refX="9" refY="3.5" markerWidth="10" markerHeight="7" orient="auto-start-auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="450" y="30" text-anchor="middle" font-size="16" font-weight="600" fill="#1e293b">Gross Process Model — Five Strategy Families</text>
+  <text x="450" y="50" text-anchor="middle" font-size="11" fill="#94a3b8">Emotion generative sequence (left → right) with regulation intervention points</text>
+
+  <!-- Timeline arrow -->
+  <line x1="50" y1="140" x2="850" y2="140" stroke="#e2e8f0" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="450" y="165" text-anchor="middle" font-size="10" fill="#94a3b8" font-style="italic">emotion generation timeline</text>
+
+  <!-- Situation box -->
+  <rect x="70" y="110" width="120" height="60" rx="8" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="130" y="137" text-anchor="middle" font-size="12" font-weight="500" fill="#334155">Situation</text>
+  <text x="130" y="153" text-anchor="middle" font-size="10" fill="#64748b">encounter</text>
+
+  <!-- Attention box -->
+  <rect x="250" y="110" width="120" height="60" rx="8" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="310" y="137" text-anchor="middle" font-size="12" font-weight="500" fill="#334155">Attention</text>
+  <text x="310" y="153" text-anchor="middle" font-size="10" fill="#64748b">focus</text>
+
+  <!-- Appraisal box -->
+  <rect x="430" y="110" width="120" height="60" rx="8" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="490" y="137" text-anchor="middle" font-size="12" font-weight="500" fill="#334155">Appraisal</text>
+  <text x="490" y="153" text-anchor="middle" font-size="10" fill="#64748b">meaning</text>
+
+  <!-- Response box -->
+  <rect x="610" y="110" width="120" height="60" rx="8" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="670" y="137" text-anchor="middle" font-size="12" font-weight="500" fill="#334155">Response</text>
+  <text x="670" y="153" text-anchor="middle" font-size="10" fill="#64748b">expression</text>
+
+  <!-- Strategy 1: Situation Selection -->
+  <rect x="55" y="200" width="150" height="50" rx="6" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="130" y="220" text-anchor="middle" font-size="11" font-weight="500" fill="#1e40af">Situation Selection</text>
+  <text x="130" y="235" text-anchor="middle" font-size="9" fill="#3b82f6">avoid / approach</text>
+  <line x1="130" y1="200" x2="130" y2="170" stroke="#3b82f6" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arrow-blue)"/>
+
+  <!-- Strategy 2: Situation Modification -->
+  <rect x="55" y="265" width="150" height="50" rx="6" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="130" y="285" text-anchor="middle" font-size="11" font-weight="500" fill="#1e40af">Situation Modification</text>
+  <text x="130" y="300" text-anchor="middle" font-size="9" fill="#3b82f6">change the context</text>
+
+  <!-- Strategy 3: Attentional Deployment -->
+  <rect x="235" y="200" width="150" height="50" rx="6" fill="#fef3c7" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="310" y="220" text-anchor="middle" font-size="11" font-weight="500" fill="#92400e">Attentional Deployment</text>
+  <text x="310" y="235" text-anchor="middle" font-size="9" fill="#b45309">distraction / focus</text>
+  <line x1="310" y1="200" x2="310" y2="170" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4 3"/>
+
+  <!-- Strategy 4: Cognitive Change -->
+  <rect x="415" y="200" width="150" height="50" rx="6" fill="#dcfce7" stroke="#22c55e" stroke-width="1.5"/>
+  <text x="490" y="220" text-anchor="middle" font-size="11" font-weight="500" fill="#166534">Cognitive Change</text>
+  <text x="490" y="235" text-anchor="middle" font-size="9" fill="#15803d">reappraisal</text>
+  <line x1="490" y1="200" x2="490" y2="170" stroke="#22c55e" stroke-width="1.5" stroke-dasharray="4 3"/>
+
+  <!-- Strategy 5: Response Modulation -->
+  <rect x="595" y="200" width="150" height="50" rx="6" fill="#fce7f3" stroke="#ec4899" stroke-width="1.5"/>
+  <text x="670" y="220" text-anchor="middle" font-size="11" font-weight="500" fill="#9d174d">Response Modulation</text>
+  <text x="670" y="235" text-anchor="middle" font-size="9" fill="#be185d">suppression</text>
+  <line x1="670" y1="200" x2="670" y2="170" stroke="#ec4899" stroke-width="1.5" stroke-dasharray="4 3"/>
+
+  <!-- Antecedent / Response label -->
+  <line x1="215" y1="195" x2="215" y2="325" stroke="#94a3b8" stroke-width="1" stroke-dasharray="6 4"/>
+  <text x="135" y="330" text-anchor="middle" font-size="9" fill="#94a3b8" font-style="italic">antecedent-focused</text>
+  <text x="490" y="330" text-anchor="middle" font-size="9" fill="#94a3b8" font-style="italic">response-focused</text>
+</svg>

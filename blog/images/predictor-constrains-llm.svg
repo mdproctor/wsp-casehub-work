@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 260">
+  <style>
+    text { font-family: -apple-system, 'Segoe UI', sans-serif; }
+    .title { font-size: 14px; font-weight: bold; fill: #1a1a2e; }
+    .label { font-size: 12px; fill: #333; }
+    .small { font-size: 10px; fill: #666; }
+    .box-label { font-size: 11px; font-weight: bold; fill: white; }
+    .box-detail { font-size: 10px; fill: white; }
+  </style>
+
+  <text x="360" y="24" text-anchor="middle" class="title">Predictor Constrains the LLM — It Does Not Replace It</text>
+
+  <!-- Personality input -->
+  <rect x="20" y="50" width="130" height="60" rx="6" fill="#5c6bc0"/>
+  <text x="85" y="74" text-anchor="middle" class="box-label">DispositionAxes</text>
+  <text x="85" y="90" text-anchor="middle" class="box-detail">categorical personality</text>
+
+  <!-- Emotion input -->
+  <rect x="20" y="130" width="130" height="60" rx="6" fill="#7e57c2"/>
+  <text x="85" y="154" text-anchor="middle" class="box-label">EmotionType</text>
+  <text x="85" y="170" text-anchor="middle" class="box-detail">from OCC appraisal</text>
+
+  <!-- Arrow to predictor -->
+  <line x1="150" y1="80" x2="195" y2="110" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="150" y1="160" x2="195" y2="130" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Predictor -->
+  <rect x="200" y="85" width="160" height="70" rx="6" fill="#00897b"/>
+  <text x="280" y="110" text-anchor="middle" class="box-label">Strategy Predictor</text>
+  <text x="280" y="126" text-anchor="middle" class="box-detail">deterministic</text>
+  <text x="280" y="140" text-anchor="middle" class="box-detail">personality × emotion → strategy</text>
+
+  <!-- Arrow predictor to LLM -->
+  <line x1="360" y1="120" x2="410" y2="120" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="385" y="112" text-anchor="middle" class="small">strategy hint</text>
+
+  <!-- LLM generation -->
+  <rect x="415" y="70" width="170" height="100" rx="6" fill="#e65100"/>
+  <text x="500" y="95" text-anchor="middle" class="box-label">LLM Generation</text>
+  <text x="500" y="112" text-anchor="middle" class="box-detail">strategy pinned →</text>
+  <text x="500" y="126" text-anchor="middle" class="box-detail">generate embodied</text>
+  <text x="500" y="140" text-anchor="middle" class="box-detail">experience via Barrett</text>
+  <text x="500" y="154" text-anchor="middle" class="box-detail">four-channel rendering</text>
+
+  <!-- Arrow LLM to output -->
+  <line x1="585" y1="120" x2="630" y2="120" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Output -->
+  <rect x="635" y="85" width="70" height="70" rx="6" fill="#1a1a2e"/>
+  <text x="670" y="114" text-anchor="middle" class="box-label">Emergent</text>
+  <text x="670" y="130" text-anchor="middle" class="box-label">Narrative</text>
+  <text x="670" y="146" text-anchor="middle" class="box-detail">100% LLM</text>
+
+  <!-- Labels -->
+  <text x="280" y="210" text-anchor="middle" class="label">HOW to regulate</text>
+  <text x="280" y="226" text-anchor="middle" class="small">(mechanical, deterministic)</text>
+
+  <text x="500" y="210" text-anchor="middle" class="label">WHAT it feels like</text>
+  <text x="500" y="226" text-anchor="middle" class="small">(emergent, character-specific)</text>
+
+  <!-- Arrow marker -->
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#333"/>
+    </marker>
+  </defs>
+</svg>

@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 480" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <style>
+      .territory { rx: 8; ry: 8; stroke-width: 2; }
+      .label { font-size: 13px; font-weight: 600; fill: #1a1a2e; }
+      .body-loc { font-size: 11px; fill: #555; }
+      .channel { font-size: 10px; fill: #777; font-style: italic; }
+      .connector { stroke-width: 1.5; stroke-dasharray: 4 2; fill: none; }
+    </style>
+  </defs>
+
+  <!-- Title -->
+  <text x="360" y="32" text-anchor="middle" font-size="16" font-weight="700" fill="#1a1a2e">Drive Body-Location Ownership</text>
+  <text x="360" y="50" text-anchor="middle" font-size="11" fill="#888">Each drive owns unique anatomy. Overlap kills differentiation.</text>
+
+  <!-- Row 1: Villain drives -->
+  <rect x="20" y="75" width="160" height="72" class="territory" fill="#fef3c7" stroke="#d97706"/>
+  <text x="100" y="96" text-anchor="middle" class="label">SCHEMING</text>
+  <text x="100" y="113" text-anchor="middle" class="body-loc">fingertips, periphery</text>
+  <text x="100" y="128" text-anchor="middle" class="body-loc">visual field</text>
+  <text x="100" y="142" text-anchor="middle" class="channel">attention + action-readiness</text>
+
+  <rect x="200" y="75" width="160" height="72" class="territory" fill="#fce7f3" stroke="#db2777"/>
+  <text x="280" y="96" text-anchor="middle" class="label">GLOATING</text>
+  <text x="280" y="113" text-anchor="middle" class="body-loc">sternum, breastbone</text>
+  <text x="280" y="128" text-anchor="middle" class="body-loc"></text>
+  <text x="280" y="142" text-anchor="middle" class="channel">body + time</text>
+
+  <rect x="380" y="75" width="160" height="72" class="territory" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="460" y="96" text-anchor="middle" class="label">DOMINANCE</text>
+  <text x="460" y="113" text-anchor="middle" class="body-loc">spine, jaw, feet</text>
+  <text x="460" y="128" text-anchor="middle" class="body-loc"></text>
+  <text x="460" y="142" text-anchor="middle" class="channel">body + attention</text>
+
+  <rect x="560" y="75" width="140" height="72" class="territory" fill="#e0e7ff" stroke="#4f46e5"/>
+  <text x="630" y="96" text-anchor="middle" class="label">SELF-PRES</text>
+  <text x="630" y="113" text-anchor="middle" class="body-loc">ears, hearing</text>
+  <text x="630" y="128" text-anchor="middle" class="body-loc">peripheral awareness</text>
+  <text x="630" y="142" text-anchor="middle" class="channel">attention + body</text>
+
+  <!-- Row 2: Hero drives -->
+  <rect x="20" y="170" width="160" height="72" class="territory" fill="#dcfce7" stroke="#16a34a"/>
+  <text x="100" y="191" text-anchor="middle" class="label">GALLANTRY</text>
+  <text x="100" y="208" text-anchor="middle" class="body-loc">hands (offered)</text>
+  <text x="100" y="223" text-anchor="middle" class="body-loc">chest (warmth)</text>
+  <text x="100" y="237" text-anchor="middle" class="channel">action-readiness + body</text>
+
+  <rect x="200" y="170" width="160" height="72" class="territory" fill="#f0fdf4" stroke="#22c55e"/>
+  <text x="280" y="191" text-anchor="middle" class="label">PROTECTION</text>
+  <text x="280" y="208" text-anchor="middle" class="body-loc">legs, neck</text>
+  <text x="280" y="223" text-anchor="middle" class="body-loc">positioning</text>
+  <text x="280" y="237" text-anchor="middle" class="channel">action-readiness + attention</text>
+
+  <rect x="380" y="170" width="160" height="72" class="territory" fill="#ecfdf5" stroke="#059669"/>
+  <text x="460" y="191" text-anchor="middle" class="label">PROVING-WORTH</text>
+  <text x="460" y="208" text-anchor="middle" class="body-loc">shoulders (weight)</text>
+  <text x="460" y="223" text-anchor="middle" class="body-loc">jaw, grip</text>
+  <text x="460" y="237" text-anchor="middle" class="channel">body + time</text>
+
+  <rect x="560" y="170" width="140" height="72" class="territory" fill="#f0fdfa" stroke="#14b8a6"/>
+  <text x="630" y="191" text-anchor="middle" class="label">LOYALTY</text>
+  <text x="630" y="208" text-anchor="middle" class="body-loc">chest (deep ache)</text>
+  <text x="630" y="223" text-anchor="middle" class="body-loc">alignment</text>
+  <text x="630" y="237" text-anchor="middle" class="channel">body + action-readiness</text>
+
+  <!-- Row 3: Neutral drives -->
+  <rect x="110" y="265" width="160" height="72" class="territory" fill="#fef9c3" stroke="#ca8a04"/>
+  <text x="190" y="286" text-anchor="middle" class="label">GREED</text>
+  <text x="190" y="303" text-anchor="middle" class="body-loc">gut, navel, ribs</text>
+  <text x="190" y="318" text-anchor="middle" class="body-loc"></text>
+  <text x="190" y="332" text-anchor="middle" class="channel">body + attention</text>
+
+  <rect x="290" y="265" width="160" height="72" class="territory" fill="#fff7ed" stroke="#ea580c"/>
+  <text x="370" y="286" text-anchor="middle" class="label">SUSPICION</text>
+  <text x="370" y="303" text-anchor="middle" class="body-loc">neck (prickling)</text>
+  <text x="370" y="318" text-anchor="middle" class="body-loc">gut (knowing)</text>
+  <text x="370" y="332" text-anchor="middle" class="channel">attention + body</text>
+
+  <rect x="470" y="265" width="160" height="72" class="territory" fill="#eff6ff" stroke="#3b82f6"/>
+  <text x="550" y="286" text-anchor="middle" class="label">CURIOSITY</text>
+  <text x="550" y="303" text-anchor="middle" class="body-loc">fingertips (tracing)</text>
+  <text x="550" y="318" text-anchor="middle" class="body-loc">chest (fizzing)</text>
+  <text x="550" y="332" text-anchor="middle" class="channel">attention + action-readiness</text>
+
+  <!-- Annotation: the principle -->
+  <rect x="40" y="370" width="640" height="90" rx="12" ry="12" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="360" y="395" text-anchor="middle" font-size="13" font-weight="600" fill="#1a1a2e">The Differentiation Principle</text>
+  <text x="360" y="415" text-anchor="middle" font-size="12" fill="#555">When two drives share a body location, the classifier cannot distinguish them.</text>
+  <text x="360" y="435" text-anchor="middle" font-size="12" fill="#555">Scheming moved from jaw/shoulders (overlapping dominance) to fingertips/periphery.</text>
+  <text x="360" y="452" text-anchor="middle" font-size="12" font-weight="600" fill="#1a1a2e">Differentiation jumped from 3.38 to 4.50 on that single change.</text>
+</svg>

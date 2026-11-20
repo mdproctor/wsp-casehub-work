@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 400" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <style>
+      .title { font-size: 16px; font-weight: 600; fill: #1a1a2e; }
+      .label { font-size: 13px; font-weight: 500; fill: #1a1a2e; }
+      .sublabel { font-size: 11px; fill: #555; }
+      .score { font-size: 14px; font-weight: 700; }
+      .pass { fill: #2d6a4f; }
+      .fail { fill: #9b2226; }
+      .dim { fill: #aaa; }
+      .box { rx: 6; ry: 6; stroke-width: 1.5; }
+      .channel-box { fill: #f0f4f8; stroke: #c9d6df; }
+      .old-box { fill: #fff0f0; stroke: #e8b4b4; }
+      .new-box { fill: #f0fff4; stroke: #b4e8c0; }
+      .arrow { fill: none; stroke: #888; stroke-width: 1.5; marker-end: url(#arrowhead); }
+    </style>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="#888"/>
+    </marker>
+  </defs>
+
+  <text x="360" y="30" text-anchor="middle" class="title">What the Classifier Scored vs What the Pipeline Produces</text>
+
+  <!-- Old classifier (somatic only) -->
+  <rect x="30" y="55" width="300" height="150" class="box old-box"/>
+  <text x="180" y="78" text-anchor="middle" class="label">Old Classifier (Haiku, Vertex)</text>
+  <text x="180" y="96" text-anchor="middle" class="sublabel">Scored: "Does this drive shape ACTION?"</text>
+
+  <text x="55" y="125" class="sublabel">✓ Body sensations</text>
+  <text x="55" y="145" class="sublabel dim">✗ Attention shifts</text>
+  <text x="55" y="165" class="sublabel dim">✗ Time distortion</text>
+  <text x="55" y="185" class="sublabel dim">✗ Action readiness</text>
+
+  <text x="210" y="125" class="sublabel dim">✗ Attachment coloring</text>
+  <text x="210" y="145" class="sublabel dim">✗ Theory of mind</text>
+  <text x="210" y="165" class="sublabel dim">✗ Formation echo</text>
+  <text x="210" y="185" class="sublabel dim">✗ Performance cost</text>
+
+  <!-- New classifier (comprehensive) -->
+  <rect x="390" y="55" width="300" height="150" class="box new-box"/>
+  <text x="540" y="78" text-anchor="middle" class="label">New Instrument (Opus, CLI)</text>
+  <text x="540" y="96" text-anchor="middle" class="sublabel">Scored: "Signature in ANY channel"</text>
+
+  <text x="415" y="125" class="sublabel pass">✓ Body sensations</text>
+  <text x="415" y="145" class="sublabel pass">✓ Attention shifts</text>
+  <text x="415" y="165" class="sublabel pass">✓ Time distortion</text>
+  <text x="415" y="185" class="sublabel pass">✓ Action readiness</text>
+
+  <text x="570" y="125" class="sublabel pass">✓ Attachment coloring</text>
+  <text x="570" y="145" class="sublabel pass">✓ Theory of mind</text>
+  <text x="570" y="165" class="sublabel pass">✓ Formation echo</text>
+  <text x="570" y="185" class="sublabel pass">✓ Performance cost</text>
+
+  <!-- Arrow between -->
+  <path d="M335,130 L385,130" class="arrow"/>
+
+  <!-- Result comparison -->
+  <rect x="30" y="230" width="300" height="140" class="box old-box"/>
+  <text x="180" y="255" text-anchor="middle" class="label">HC Gloating (Golden Prose)</text>
+  <text x="55" y="280" class="sublabel">Quality:</text>
+  <text x="180" y="280" class="score fail">not relevant</text>
+  <text x="55" y="305" class="sublabel">Verdict:</text>
+  <text x="180" y="305" class="sublabel">"Doesn't change external action"</text>
+  <text x="55" y="335" class="sublabel">Reality:</text>
+  <text x="180" y="335" class="sublabel">Warmth pools behind sternum,</text>
+  <text x="180" y="350" class="sublabel">time stretches, jaw loosens</text>
+
+  <rect x="390" y="230" width="300" height="140" class="box new-box"/>
+  <text x="540" y="255" text-anchor="middle" class="label">HC Gloating (Same Prose)</text>
+  <text x="415" y="280" class="sublabel">Quality:</text>
+  <text x="540" y="280" class="score pass">Q=4, D=4, R=5</text>
+  <text x="415" y="305" class="sublabel">Channels:</text>
+  <text x="540" y="305" class="sublabel">Body (sternum) + Time (stretches)</text>
+  <text x="415" y="335" class="sublabel">Verdict:</text>
+  <text x="540" y="335" class="sublabel">"Distinct somatic territory,</text>
+  <text x="540" y="350" class="sublabel">full immersion, multi-channel"</text>
+
+  <path d="M335,300 L385,300" class="arrow"/>
+</svg>

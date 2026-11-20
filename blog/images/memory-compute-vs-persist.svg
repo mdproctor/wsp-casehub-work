@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520">
+  <style>
+    text { font-family: -apple-system, 'Segoe UI', sans-serif; }
+    .title { font-size: 16px; font-weight: 600; fill: #1a1a2e; }
+    .label { font-size: 13px; fill: #1a1a2e; }
+    .sublabel { font-size: 11px; fill: #555; }
+    .kept { fill: #e8f5e9; stroke: #43a047; stroke-width: 1.5; }
+    .discarded { fill: #ffebee; stroke: #e53935; stroke-width: 1.5; stroke-dasharray: 6 3; }
+    .broken { fill: #fff3e0; stroke: #f57c00; stroke-width: 1.5; }
+    .source { fill: #e3f2fd; stroke: #1976d2; stroke-width: 1.5; }
+    .arrow { stroke: #888; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead); }
+    .arrow-broken { stroke: #e53935; stroke-width: 1.5; fill: none; stroke-dasharray: 4 3; marker-end: url(#arrowhead-red); }
+  </style>
+  <defs>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#888"/>
+    </marker>
+    <marker id="arrowhead-red" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#e53935"/>
+    </marker>
+  </defs>
+
+  <text x="400" y="30" text-anchor="middle" class="title">What the System Computes vs. What It Keeps</text>
+
+  <!-- Per-tick computation sources -->
+  <rect x="30" y="60" width="200" height="50" rx="6" class="source"/>
+  <text x="130" y="82" text-anchor="middle" class="label">Tiered Renderer</text>
+  <text x="130" y="97" text-anchor="middle" class="sublabel">VERBATIM → GROUPED → SUMMARISED</text>
+
+  <rect x="30" y="130" width="200" height="50" rx="6" class="source"/>
+  <text x="130" y="152" text-anchor="middle" class="label">Narrator Summariser</text>
+  <text x="130" y="167" text-anchor="middle" class="sublabel">Async LLM scene prose</text>
+
+  <rect x="30" y="200" width="200" height="50" rx="6" class="source"/>
+  <text x="130" y="222" text-anchor="middle" class="label">Experience Recorder</text>
+  <text x="130" y="237" text-anchor="middle" class="sublabel">Action + dialogue per tick</text>
+
+  <rect x="30" y="270" width="200" height="50" rx="6" class="source"/>
+  <text x="130" y="292" text-anchor="middle" class="label">Sub-thought Extractor</text>
+  <text x="130" y="307" text-anchor="middle" class="sublabel">Entity-aware graduation</text>
+
+  <rect x="30" y="340" width="200" height="50" rx="6" class="source"/>
+  <text x="130" y="362" text-anchor="middle" class="label">CAPS Engine</text>
+  <text x="130" y="377" text-anchor="middle" class="sublabel">Behavioral attractor settling</text>
+
+  <rect x="30" y="410" width="200" height="50" rx="6" class="source"/>
+  <text x="130" y="432" text-anchor="middle" class="label">Dialogue Extractor</text>
+  <text x="130" y="447" text-anchor="middle" class="sublabel">Entity + relationship nodes</text>
+
+  <!-- Destinations -->
+  <!-- Discarded -->
+  <rect x="550" y="60" width="220" height="50" rx="6" class="discarded"/>
+  <text x="660" y="82" text-anchor="middle" class="label">Discarded</text>
+  <text x="660" y="97" text-anchor="middle" class="sublabel">Computed every tick, never stored</text>
+
+  <rect x="550" y="130" width="220" height="50" rx="6" class="discarded"/>
+  <text x="660" y="152" text-anchor="middle" class="label">Broadcast Only</text>
+  <text x="660" y="167" text-anchor="middle" class="sublabel">WebSocket → gone</text>
+
+  <!-- Broken -->
+  <rect x="550" y="200" width="220" height="50" rx="6" class="broken"/>
+  <text x="660" y="222" text-anchor="middle" class="label">Stored but Unreachable</text>
+  <text x="660" y="237" text-anchor="middle" class="sublabel">Domain mismatch: recall = ∅</text>
+
+  <!-- Kept -->
+  <rect x="550" y="270" width="220" height="50" rx="6" class="kept"/>
+  <text x="660" y="292" text-anchor="middle" class="label">MindMap Nodes</text>
+  <text x="660" y="307" text-anchor="middle" class="sublabel">Graduated, entity-indexed</text>
+
+  <rect x="550" y="340" width="220" height="50" rx="6" class="kept"/>
+  <text x="660" y="362" text-anchor="middle" class="label">Behavioral Profile</text>
+  <text x="660" y="377" text-anchor="middle" class="sublabel">25 attractor weights</text>
+
+  <rect x="550" y="410" width="220" height="50" rx="6" class="kept"/>
+  <text x="660" y="432" text-anchor="middle" class="label">Cognitive Nodes</text>
+  <text x="660" y="447" text-anchor="middle" class="sublabel">Drive adaptation, relationships</text>
+
+  <!-- Arrows -->
+  <path d="M230,85 L540,85" class="arrow-broken"/>
+  <path d="M230,155 L540,155" class="arrow-broken"/>
+  <path d="M230,225 L540,225" class="arrow-broken"/>
+  <path d="M230,295 L540,295" class="arrow"/>
+  <path d="M230,365 L540,365" class="arrow"/>
+  <path d="M230,435 L540,435" class="arrow"/>
+
+  <!-- Legend -->
+  <rect x="30" y="480" width="16" height="16" rx="3" class="kept"/>
+  <text x="52" y="493" class="sublabel">Persisted to MindMap</text>
+  <rect x="200" y="480" width="16" height="16" rx="3" class="discarded"/>
+  <text x="222" y="493" class="sublabel">Computed and discarded</text>
+  <rect x="400" y="480" width="16" height="16" rx="3" class="broken"/>
+  <text x="422" y="493" class="sublabel">Stored but recall broken</text>
+</svg>

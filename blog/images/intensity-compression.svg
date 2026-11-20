@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 340">
+  <style>
+    text { font-family: 'Helvetica Neue', Arial, sans-serif; }
+    .title { font-size: 14px; font-weight: 600; fill: #1a1a2e; }
+    .label { font-size: 11px; fill: #444; }
+    .small { font-size: 10px; fill: #666; }
+    .axis-label { font-size: 10px; fill: #888; }
+    .anger-bar { fill: #e74c3c; opacity: 0.85; }
+    .shame-bar { fill: #8e44ad; opacity: 0.85; }
+    .reproach-bar { fill: #2980b9; opacity: 0.85; }
+    .baseline { stroke: #c0392b; stroke-width: 1.5; stroke-dasharray: 6,4; }
+    .threshold { stroke: #27ae60; stroke-width: 1; stroke-dasharray: 3,3; }
+    .grid { stroke: #eee; stroke-width: 0.5; }
+    .formula { font-size: 10px; fill: #555; font-style: italic; }
+  </style>
+
+  <!-- Title -->
+  <text x="360" y="24" text-anchor="middle" class="title">Emotion Intensity by Mapping Formula</text>
+  <text x="360" y="40" text-anchor="middle" class="small">Same LLM appraisal (relevance=0.7, conduciveness=-0.6, controllability=0.55, int-std=0.35, ext-std=0.40)</text>
+
+  <!-- Grid lines -->
+  <line x1="100" y1="70" x2="100" y2="280" stroke="#ccc" stroke-width="1"/>
+  <line x1="100" y1="280" x2="680" y2="280" stroke="#ccc" stroke-width="1"/>
+  <line x1="100" y1="238" x2="680" y2="238" class="grid"/>
+  <line x1="100" y1="196" x2="680" y2="196" class="grid"/>
+  <line x1="100" y1="154" x2="680" y2="154" class="grid"/>
+  <line x1="100" y1="112" x2="680" y2="112" class="grid"/>
+  <line x1="100" y1="70" x2="680" y2="70" class="grid"/>
+
+  <!-- Y-axis labels -->
+  <text x="92" y="284" text-anchor="end" class="axis-label">0.0</text>
+  <text x="92" y="242" text-anchor="end" class="axis-label">0.2</text>
+  <text x="92" y="200" text-anchor="end" class="axis-label">0.4</text>
+  <text x="92" y="158" text-anchor="end" class="axis-label">0.6</text>
+  <text x="92" y="116" text-anchor="end" class="axis-label">0.8</text>
+  <text x="92" y="74" text-anchor="end" class="axis-label">1.0</text>
+  <text x="40" y="175" text-anchor="middle" transform="rotate(-90,40,175)" class="label">Intensity</text>
+
+  <!-- Baseline (0.3) -->
+  <line x1="100" y1="217" x2="680" y2="217" class="baseline"/>
+  <text x="685" y="221" class="small" fill="#c0392b">baseline 0.3</text>
+
+  <!-- Regulation noise floor region -->
+  <rect x="100" y="211" width="580" height="12" fill="#c0392b" opacity="0.06"/>
+  <text x="685" y="214" class="small" fill="#27ae60">noise floor</text>
+
+  <!-- Scenario 1: Typical moderate appraisal -->
+  <text x="230" y="300" text-anchor="middle" class="label">Moderate appraisal</text>
+
+  <!-- ANGER: 0.7 × 0.6 × 0.55 = 0.231 -->
+  <rect x="160" y="231" width="40" height="49" class="anger-bar" rx="2"/>
+  <text x="180" y="228" text-anchor="middle" class="small">0.23</text>
+
+  <!-- SHAME: 0.7 × (1-0.35) = 0.455 -->
+  <rect x="210" y="184" width="40" height="96" class="shame-bar" rx="2"/>
+  <text x="230" y="181" text-anchor="middle" class="small">0.46</text>
+
+  <!-- REPROACH: 0.7 × (1-0.40) = 0.42 -->
+  <rect x="260" y="192" width="40" height="88" class="reproach-bar" rx="2"/>
+  <text x="280" y="189" text-anchor="middle" class="small">0.42</text>
+
+  <!-- Scenario 2: Strong appraisal (rel=0.95, cond=-0.85, ctrl=0.6, int=0.2, ext=0.25) -->
+  <text x="440" y="300" text-anchor="middle" class="label">Strong appraisal</text>
+
+  <!-- ANGER: 0.95 × 0.85 × 0.6 = 0.484 -->
+  <rect x="370" y="178" width="40" height="102" class="anger-bar" rx="2"/>
+  <text x="390" y="175" text-anchor="middle" class="small">0.48</text>
+
+  <!-- SHAME: 0.95 × (1-0.2) = 0.76 -->
+  <rect x="420" y="120" width="40" height="160" class="shame-bar" rx="2"/>
+  <text x="440" y="117" text-anchor="middle" class="small">0.76</text>
+
+  <!-- REPROACH: 0.95 × (1-0.25) = 0.7125 -->
+  <rect x="470" y="130" width="40" height="150" class="reproach-bar" rx="2"/>
+  <text x="490" y="127" text-anchor="middle" class="small">0.71</text>
+
+  <!-- Formulas -->
+  <text x="180" y="320" text-anchor="middle" class="formula">r × |c| × ctrl</text>
+  <text x="230" y="320" text-anchor="middle" class="formula">r × (1-std)</text>
+  <text x="280" y="320" text-anchor="middle" class="formula">r × (1-std)</text>
+
+  <!-- Legend -->
+  <rect x="560" y="60" width="12" height="12" class="anger-bar" rx="1"/>
+  <text x="578" y="71" class="label">ANGER (3-factor)</text>
+  <rect x="560" y="78" width="12" height="12" class="shame-bar" rx="1"/>
+  <text x="578" y="89" class="label">SHAME (2-factor)</text>
+  <rect x="560" y="96" width="12" height="12" class="reproach-bar" rx="1"/>
+  <text x="578" y="107" class="label">REPROACH (2-factor)</text>
+</svg>

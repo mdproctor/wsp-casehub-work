@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 520" font-family="system-ui, -apple-system, sans-serif" font-size="13">
+  <style>
+    .group-box { rx: 8; ry: 8; stroke-width: 2; fill-opacity: 0.08; }
+    .field { font-size: 12; fill: #374151; }
+    .group-label { font-size: 14; font-weight: 600; }
+    .consumer { font-size: 11; fill: #6b7280; font-style: italic; }
+    .arrow { stroke-width: 1.5; fill: none; marker-end: url(#arrowhead); }
+    .identity { fill: #f3f4f6; stroke: #9ca3af; }
+    .emotion { fill: #fef3c7; stroke: #d97706; }
+    .resource { fill: #dbeafe; stroke: #2563eb; }
+    .graph { fill: #d1fae5; stroke: #059669; }
+    .behavioral { fill: #ede9fe; stroke: #7c3aed; }
+  </style>
+  <defs>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#9ca3af"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="380" y="30" text-anchor="middle" font-size="16" font-weight="600" fill="#111827">CognitiveDefaults — Co-Access Clusters</text>
+  <text x="380" y="48" text-anchor="middle" font-size="11" fill="#6b7280">Fields grouped by which consumers read them together</text>
+
+  <!-- Identity (flat) -->
+  <rect x="20" y="70" width="140" height="90" class="group-box identity"/>
+  <text x="90" y="90" text-anchor="middle" class="group-label" fill="#374151">Identity</text>
+  <text x="35" y="110" class="field">agentId</text>
+  <text x="35" y="126" class="field">tenantId</text>
+  <text x="35" y="142" class="field">descriptor</text>
+
+  <!-- Personality (existing) -->
+  <rect x="20" y="175" width="140" height="75" class="group-box" style="fill: #fce7f3; stroke: #db2777;"/>
+  <text x="90" y="195" text-anchor="middle" class="group-label" fill="#db2777">Personality</text>
+  <text x="35" y="215" class="field">personality</text>
+  <text x="35" y="231" class="field">expressionStyles</text>
+
+  <!-- EmotionDefaults -->
+  <rect x="200" y="70" width="250" height="130" class="group-box emotion"/>
+  <text x="325" y="90" text-anchor="middle" class="group-label" fill="#d97706">EmotionDefaults</text>
+  <text x="215" y="112" class="field">moodBaseline</text>
+  <text x="215" y="130" class="field">appraisalWeights</text>
+  <text x="215" y="148" class="field">regulationDefaults</text>
+  <text x="215" y="166" class="field">copingDefaults</text>
+  <text x="215" y="186" class="consumer">← AppraisalTickParticipant</text>
+
+  <!-- CognitiveResourceDefaults -->
+  <rect x="200" y="215" width="250" height="155" class="group-box resource"/>
+  <text x="325" y="237" text-anchor="middle" class="group-label" fill="#2563eb">CognitiveResourceDefaults</text>
+  <text x="215" y="259" class="field">capacityConfig</text>
+  <text x="215" y="277" class="field">cognitiveResourcePoolConfig</text>
+  <text x="215" y="295" class="field">searchBudgetConfig</text>
+  <text x="215" y="313" class="field">recurringThoughtConfig</text>
+  <text x="215" y="331" class="field">habituationConfig</text>
+  <text x="215" y="355" class="consumer">← SearchBudgetTickParticipant (all 5)</text>
+
+  <!-- GraphDefaults -->
+  <rect x="490" y="70" width="250" height="165" class="group-box graph"/>
+  <text x="615" y="90" text-anchor="middle" class="group-label" fill="#059669">GraphDefaults</text>
+  <text x="505" y="112" class="field">vocabulary</text>
+  <text x="505" y="130" class="field">services</text>
+  <text x="505" y="148" class="field">traitRules</text>
+  <text x="505" y="166" class="field">derivedEdgeRules</text>
+  <text x="505" y="184" class="field">graphStructure</text>
+  <text x="505" y="202" class="field">extractionBias</text>
+  <text x="505" y="222" class="consumer">← CognitiveLoader, DeclarativeRuleRegistry</text>
+
+  <!-- BehavioralDefaults -->
+  <rect x="490" y="255" width="250" height="130" class="group-box behavioral"/>
+  <text x="615" y="275" text-anchor="middle" class="group-label" fill="#7c3aed">BehavioralDefaults</text>
+  <text x="505" y="297" class="field">curiosity</text>
+  <text x="505" y="315" class="field">temporalFocus</text>
+  <text x="505" y="333" class="field">socialCognition</text>
+  <text x="505" y="351" class="field">cbrStrategy</text>
+  <text x="505" y="371" class="consumer">← CuriosityPhase, RelationalSchemaPhase</text>
+
+  <!-- Before/After summary -->
+  <rect x="20" y="420" width="720" height="80" rx="6" fill="#f9fafb" stroke="#e5e7eb"/>
+  <text x="40" y="445" font-size="12" font-weight="600" fill="#374151">Before:</text>
+  <text x="100" y="445" font-size="12" fill="#6b7280">23 flat fields · 20 withX() methods each reconstructing 23 args · empty() with 21 nulls</text>
+  <text x="40" y="475" font-size="12" font-weight="600" fill="#374151">After:</text>
+  <text x="100" y="475" font-size="12" fill="#6b7280">8 record components · 4 group mergeWith() calls · all leaf accessors preserved as delegates</text>
+</svg>

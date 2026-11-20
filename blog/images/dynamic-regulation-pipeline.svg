@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 320" font-family="'Inter', 'Segoe UI', system-ui, sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 7" refX="9" refY="3.5" markerWidth="10" markerHeight="7" orient="auto-start-auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#64748b"/>
+    </marker>
+    <marker id="arr-green" viewBox="0 0 10 7" refX="9" refY="3.5" markerWidth="10" markerHeight="7" orient="auto-start-auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#16a34a"/>
+    </marker>
+    <marker id="arr-amber" viewBox="0 0 10 7" refX="9" refY="3.5" markerWidth="10" markerHeight="7" orient="auto-start-auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#d97706"/>
+    </marker>
+  </defs>
+
+  <text x="410" y="24" text-anchor="middle" font-size="14" font-weight="600" fill="#1e293b">Dynamic Regulation — Capacity Modulated by Experience</text>
+
+  <!-- Personality Traits -->
+  <rect x="20" y="60" width="150" height="70" rx="8" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="95" y="85" text-anchor="middle" font-size="12" font-weight="600" fill="#1e40af">Personality</text>
+  <text x="95" y="102" text-anchor="middle" font-size="10" fill="#3b82f6">stable traits</text>
+  <text x="95" y="116" text-anchor="middle" font-size="10" fill="#3b82f6">(Big Five basis)</text>
+
+  <!-- Arrow to baseline -->
+  <line x1="170" y1="95" x2="200" y2="95" stroke="#64748b" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Baseline Defaults -->
+  <rect x="205" y="55" width="140" height="80" rx="8" fill="#fefce8" stroke="#ca8a04" stroke-width="1.5"/>
+  <text x="275" y="78" text-anchor="middle" font-size="11" font-weight="600" fill="#854d0e">Baseline Defaults</text>
+  <text x="275" y="96" text-anchor="middle" font-size="10" fill="#a16207">reappraisal: 0.30</text>
+  <text x="275" y="110" text-anchor="middle" font-size="10" fill="#a16207">suppression: 0.80</text>
+  <text x="275" y="124" text-anchor="middle" font-size="10" fill="#a16207">redirect: 0.85</text>
+
+  <!-- Arrow to modulation -->
+  <line x1="345" y1="95" x2="375" y2="95" stroke="#64748b" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Modulation (the new thing) -->
+  <rect x="380" y="45" width="155" height="100" rx="8" fill="#fff7ed" stroke="#d97706" stroke-width="2"/>
+  <text x="457" y="68" text-anchor="middle" font-size="12" font-weight="700" fill="#92400e">Modulation</text>
+  <text x="457" y="86" text-anchor="middle" font-size="10" fill="#d97706">baseline x experience</text>
+  <text x="457" y="102" text-anchor="middle" font-size="9" fill="#b45309">after 4 failed SS episodes:</text>
+  <text x="457" y="116" text-anchor="middle" font-size="10" font-weight="600" fill="#dc2626">redirect: 0.85 → 0.55</text>
+  <text x="457" y="136" text-anchor="middle" font-size="9" fill="#92400e" font-style="italic">NEW</text>
+
+  <!-- Arrow to predictor -->
+  <line x1="535" y1="95" x2="570" y2="95" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arr-green)"/>
+  <text x="552" y="85" text-anchor="middle" font-size="9" fill="#16a34a">effective</text>
+
+  <!-- Predictor -->
+  <rect x="575" y="60" width="120" height="70" rx="8" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="635" y="85" text-anchor="middle" font-size="12" font-weight="600" fill="#166534">Predictor</text>
+  <text x="635" y="103" text-anchor="middle" font-size="10" fill="#16a34a">may fall through</text>
+  <text x="635" y="117" text-anchor="middle" font-size="10" fill="#16a34a">when degraded</text>
+
+  <!-- Arrow to strategy -->
+  <line x1="695" y1="95" x2="725" y2="95" stroke="#64748b" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Strategy + Outcome -->
+  <rect x="730" y="55" width="70" height="80" rx="8" fill="#faf5ff" stroke="#a855f7" stroke-width="1.5"/>
+  <text x="765" y="80" text-anchor="middle" font-size="11" font-weight="600" fill="#7e22ce">Strategy</text>
+  <text x="765" y="96" text-anchor="middle" font-size="9" fill="#9333ea">+</text>
+  <text x="765" y="110" text-anchor="middle" font-size="11" font-weight="600" fill="#7e22ce">Outcome</text>
+  <text x="765" y="126" text-anchor="middle" font-size="9" fill="#9333ea">eff: 0.29</text>
+
+  <!-- Feedback loop: Outcome → Memory -->
+  <path d="M 765 135 L 765 230 L 457 230 L 457 210" stroke="#d97706" stroke-width="2" fill="none" marker-end="url(#arr-amber)" stroke-dasharray="6 3"/>
+
+  <!-- Memory Store -->
+  <rect x="385" y="170" width="145" height="45" rx="6" fill="#fff7ed" stroke="#d97706" stroke-width="1.5"/>
+  <text x="457" y="190" text-anchor="middle" font-size="11" font-weight="600" fill="#92400e">MindMap Memory</text>
+  <text x="457" y="205" text-anchor="middle" font-size="9" fill="#b45309">prior outcomes by emotion type</text>
+
+  <!-- Feedback label -->
+  <text x="612" y="248" text-anchor="middle" font-size="10" font-weight="500" fill="#d97706">feedback loop — outcomes degrade effective capacity</text>
+
+  <!-- Timescale note -->
+  <rect x="120" y="275" width="580" height="32" rx="6" fill="#f0f9ff" stroke="#0284c7" stroke-width="1" stroke-dasharray="4 3"/>
+  <text x="410" y="296" text-anchor="middle" font-size="10" fill="#0369a1">Timescale-aware: 4 failures this week degrades faster than 4 failures over 6 months</text>
+</svg>
