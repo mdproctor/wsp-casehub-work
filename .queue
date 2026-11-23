@@ -12,12 +12,12 @@
 - [x] casehubio/ledger#253 — test QuarkusTest for TrustScoreJob EigenTrust pass
 - [x] casehubio/ledger#249 — feat TrustScoreDetail side-channel SPI
 - [x] casehubio/ledger#255 — feat capabilityScoreDetail and dimensionScoreDetail
-- [ ] casehubio/ledger#256 — feat override globalScoreDetail in impls ← done on issue-256-score-detail-impls
+- [x] casehubio/ledger#256 — feat override globalScoreDetail in impls
 
 ## State
 branch: 
 issue-repo: casehubio/work
-status: active
+status: drained
 project-sha: 
 date: 
 design-repo: 
