@@ -1,17 +1,3 @@
-# Work Plan —
-
-## State
-branch: 
-issue-repo: casehubio/work
-status: active
-covers: 
-project-sha: 
-date: 
-design-repo: 
-design-section-hashes: 
-flyway-next-v: 
-
-## Queue
 - [x] casehubio/work#423 — Issue #423
 - [x] casehubio/work#425 — W2: Candidate check on claim
 - [x] casehubio/work#426 — W2: Assignee check on lifecycle transitions
@@ -23,5 +9,15 @@ flyway-next-v:
 - [x] casehubio/work#433 — Consolidate_MutableCurrentPrincipal
 - [x] casehubio/work#430 — Fix_ledger_CDI_ambiguity_re-enable_tests
 - [x] casehubio/work#254 — issue 254
-- [ ] casehubio/ledger#253 — test QuarkusTest for TrustScoreJob EigenTrust pass ← done on issue-253-eigentrust-quarkus-test
+- [x] casehubio/ledger#253 — test QuarkusTest for TrustScoreJob EigenTrust pass
 - [ ] casehubio/ledger#249 — feat TrustScoreDetail side-channel SPI ← done on issue-249-trust-score-detail-spi
+
+## State
+branch: 
+issue-repo: casehubio/work
+status: active
+project-sha: 
+date: 
+design-repo: 
+design-section-hashes: 
+flyway-next-v: 
