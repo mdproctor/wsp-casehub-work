@@ -10,12 +10,12 @@
 - [x] casehubio/work#430 — Fix_ledger_CDI_ambiguity_re-enable_tests
 - [x] casehubio/work#254 — issue 254
 - [x] casehubio/ledger#253 — test QuarkusTest for TrustScoreJob EigenTrust pass
-- [ ] casehubio/ledger#249 — feat TrustScoreDetail side-channel SPI ← done on issue-249-trust-score-detail-spi
+- [x] casehubio/ledger#249 — feat TrustScoreDetail side-channel SPI
 
 ## State
 branch: 
 issue-repo: casehubio/work
-status: active
+status: drained
 project-sha: 
 date: 
 design-repo: 
