@@ -1,17 +1,3 @@
-# Work Plan —
-
-## State
-branch: 
-issue-repo: casehubio/work
-status: active
-covers: 
-project-sha: 
-date: 
-design-repo: 
-design-section-hashes: 
-flyway-next-v: 
-
-## Queue
 - [x] casehubio/work#423 — Issue #423
 - [x] casehubio/work#425 — W2: Candidate check on claim
 - [x] casehubio/work#426 — W2: Assignee check on lifecycle transitions
@@ -22,4 +8,14 @@ flyway-next-v:
 - [x] casehubio/work#432 — Clean_up_FederationProxy_orphaned_params
 - [x] casehubio/work#433 — Consolidate_MutableCurrentPrincipal
 - [x] casehubio/work#430 — Fix_ledger_CDI_ambiguity_re-enable_tests
-- [ ] casehubio/work#254 — issue 254 ← done on issue-254-malformed-snapshot-json
+- [x] casehubio/work#254 — issue 254
+
+## State
+branch: 
+issue-repo: casehubio/work
+status: drained
+project-sha: 
+date: 
+design-repo: 
+design-section-hashes: 
+flyway-next-v: 
