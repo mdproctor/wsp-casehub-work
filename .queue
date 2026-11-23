@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: issue-430-ledger-cdi-reenable
+branch: 
 issue-repo: casehubio/work
 status: active
-covers: 430
+covers: 
 project-sha: 
 date: 
 design-repo: 
@@ -22,3 +22,4 @@ flyway-next-v:
 - [x] casehubio/work#432 — Clean_up_FederationProxy_orphaned_params
 - [x] casehubio/work#433 — Consolidate_MutableCurrentPrincipal
 - [x] casehubio/work#430 — Fix_ledger_CDI_ambiguity_re-enable_tests
+- [ ] casehubio/work#254 — issue 254 ← done on issue-254-malformed-snapshot-json
