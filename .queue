@@ -3,7 +3,8 @@
 ## State
 branch: 
 issue-repo: casehubio/work
-status: drained
+status: active
+covers: 
 project-sha: 
 date: 
 design-repo: 
@@ -22,5 +23,5 @@ flyway-next-v:
 - [x] casehubio/work#433 — Consolidate_MutableCurrentPrincipal
 - [x] casehubio/work#430 — Fix_ledger_CDI_ambiguity_re-enable_tests
 - [x] casehubio/work#254 — issue 254
-- [ ] casehubio/ledger#253 — test QuarkusTest for TrustScoreJob EigenTrust pass
-- [ ] casehubio/ledger#249 — feat TrustScoreDetail side-channel SPI
+- [ ] casehubio/ledger#253 — test QuarkusTest for TrustScoreJob EigenTrust pass ← done on issue-253-eigentrust-quarkus-test
+- [ ] casehubio/ledger#249 — feat TrustScoreDetail side-channel SPI ← done on issue-249-trust-score-detail-spi
