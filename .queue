@@ -1,17 +1,3 @@
-# Work Plan —
-
-## State
-branch: 
-issue-repo: casehubio/work
-status: active
-covers: 
-project-sha: 
-date: 
-design-repo: 
-design-section-hashes: 
-flyway-next-v: 
-
-## Queue
 - [x] casehubio/work#423 — Issue #423
 - [x] casehubio/work#425 — W2: Candidate check on claim
 - [x] casehubio/work#426 — W2: Assignee check on lifecycle transitions
@@ -25,5 +11,15 @@ flyway-next-v:
 - [x] casehubio/work#254 — issue 254
 - [x] casehubio/ledger#253 — test QuarkusTest for TrustScoreJob EigenTrust pass
 - [x] casehubio/ledger#249 — feat TrustScoreDetail side-channel SPI
-- [ ] casehubio/ledger#255 — feat capabilityScoreDetail and dimensionScoreDetail ← done on issue-255-score-detail-methods
+- [x] casehubio/ledger#255 — feat capabilityScoreDetail and dimensionScoreDetail
 - [ ] casehubio/ledger#256 — feat override globalScoreDetail in impls ← done on issue-256-score-detail-impls
+
+## State
+branch: 
+issue-repo: casehubio/work
+status: active
+project-sha: 
+date: 
+design-repo: 
+design-section-hashes: 
+flyway-next-v: 
