@@ -3,7 +3,8 @@
 ## State
 branch: 
 issue-repo: casehubio/work
-status: drained
+status: active
+covers: 
 project-sha: 
 date: 
 design-repo: 
@@ -24,5 +25,5 @@ flyway-next-v:
 - [x] casehubio/work#254 — issue 254
 - [x] casehubio/ledger#253 — test QuarkusTest for TrustScoreJob EigenTrust pass
 - [x] casehubio/ledger#249 — feat TrustScoreDetail side-channel SPI
-- [ ] casehubio/ledger#255 — feat capabilityScoreDetail and dimensionScoreDetail
-- [ ] casehubio/ledger#256 — feat override globalScoreDetail in impls
+- [ ] casehubio/ledger#255 — feat capabilityScoreDetail and dimensionScoreDetail ← done on issue-255-score-detail-methods
+- [ ] casehubio/ledger#256 — feat override globalScoreDetail in impls ← done on issue-256-score-detail-impls
